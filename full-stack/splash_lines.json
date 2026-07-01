@@ -1,0 +1,6 @@
+{
+  "morning": ["Good morning.", "Awake? Water first.", "A new day. Slow start.", "Morning. Slept well?", "What's on today?", "Soft light. Begin.", "No rush. Stretch first.", "Coffee or tea?", "Plan, or just talk?", "First words — yours."],
+  "afternoon": ["Afternoon. Going well?", "Past noon. Breathe.", "Wherever it lands.", "Need a hand?", "Tea time. Want to talk?", "Where are you stuck?", "Ideas come from talking.", "Work, or switch gears?", "Halfway through. OK?", "I'm here. Begin."],
+  "evening": ["Good evening. Long day?", "Eaten yet?", "Soft breeze. What's up?", "Anything to say?", "Sharp at night. Talk.", "Off the clock? Sit.", "Real talk, or rambling?", "The evening is yours.", "Tell me today's story.", "Dim the lights. Slow."],
+  "latenight": ["Still up?", "Late. I'm here.", "Can't sleep, or won't?", "Late words are honest.", "Speak softly. World's asleep.", "Still on your mind?", "Best ideas after midnight.", "Finish, then sleep?", "Night owl. Hi again.", "Here. Not tired."]
+}
