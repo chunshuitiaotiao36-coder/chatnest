@@ -13,10 +13,24 @@ PROJECT_PATH = Path(os.environ.get("AGENT_APP_ROOT", Path(__file__).resolve().pa
 MEMORY_PATH = Path(os.environ.get("MEMORY_FILE", PROJECT_PATH / "CLAUDE.md")).expanduser().resolve()
 MEMORIES_PATH = PROJECT_PATH / "memories"
 PROFILE_PATH = PROJECT_PATH / "profile.json"
-CLAUDE_EXPORT_MEMORY_FILES = (
-    MEMORIES_PATH / "from-claude-ai" / "conversations-memory.md",
-    MEMORIES_PATH / "from-claude-ai" / "project-memory-proj-019e382f.md",
-)
+CLAUDE_EXPORT_DIR = Path(os.environ.get("CLAUDE_EXPORT_DIR", MEMORIES_PATH / "from-claude-ai")).expanduser()
+if not CLAUDE_EXPORT_DIR.is_absolute():
+    CLAUDE_EXPORT_DIR = PROJECT_PATH / CLAUDE_EXPORT_DIR
+
+
+def claude_export_memory_files() -> list[Path]:
+    configured = os.environ.get("CLAUDE_EXPORT_MEMORY_FILES", "").strip()
+    if configured:
+        paths = [Path(item.strip()).expanduser() for item in configured.split(",") if item.strip()]
+        return [path if path.is_absolute() else PROJECT_PATH / path for path in paths]
+    if not CLAUDE_EXPORT_DIR.exists():
+        return []
+    files = sorted(path for path in CLAUDE_EXPORT_DIR.glob("*.md") if path.is_file())
+    preferred = CLAUDE_EXPORT_DIR / "conversations-memory.md"
+    if preferred in files:
+        files.remove(preferred)
+        files.insert(0, preferred)
+    return files
 MAX_MEMORY_CHARS = 50_000
 MAX_PROFILE_CHARS = 100_000
 MAX_IMPORTED_MEMORY_CHARS = 2500
@@ -213,7 +227,7 @@ def import_claude_export_memories(profile: dict[str, Any] | None = None) -> tupl
 
     imported = 0
     found = 0
-    for path in CLAUDE_EXPORT_MEMORY_FILES:
+    for path in claude_export_memory_files():
         try:
             text = path.read_text(encoding="utf-8")
         except FileNotFoundError:

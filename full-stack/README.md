@@ -16,7 +16,7 @@ https://drive.google.com/drive/folders/1EFaL-cwFn262Mu8L9s-cO9dw6FC4LAMr
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env
+cp env.example .env
 python3 - <<'PY'
 import secrets
 print('CHAT_SECRET=' + secrets.token_urlsafe(32))
