@@ -224,7 +224,7 @@ async def summarize_thinking(thinking: str) -> str:
     async with _haiku_sem:
         logger = logging.getLogger(__name__)
         options = ClaudeAgentOptions(
-            model="claude-haiku-4-5",
+            model="[k-特惠]claude-sonnet-4-6",
             system_prompt=SUMMARY_PROMPT,
             allowed_tools=[],
             max_turns=1,
