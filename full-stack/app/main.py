@@ -92,7 +92,7 @@ def trace_content(value: Any) -> str:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    registry = configure_registry(str(ROOT))
+    registry = configure_registry(os.environ.get("AGENT_APP_ROOT", str(ROOT)))
     await registry.start()
     try:
         yield
