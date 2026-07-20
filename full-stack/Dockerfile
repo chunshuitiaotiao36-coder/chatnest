@@ -11,6 +11,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
+RUN chmod +x *.sh
 
 # 代码在 /app，数据统一放 /data（部署时把持久卷挂到 /data，聊天记录才不会丢）
 ENV AGENT_APP_ROOT=/data \
