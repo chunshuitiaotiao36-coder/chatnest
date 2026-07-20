@@ -22,4 +22,4 @@ ENV AGENT_APP_ROOT=/data \
 RUN mkdir -p /data
 
 EXPOSE 8787
-CMD ["python3", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8787"]
+CMD ["bash", "./run-with-memory.sh"]
