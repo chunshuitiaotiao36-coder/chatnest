@@ -1,7 +1,8 @@
 [
-  { "id": "[k-特惠]claude-opus-4-8",    "label": "Opus 4.8",        "desc": "主力·特惠渠道",  "thinking": "adaptive", "primary": true  },
-  { "id": "[k]claude-opus-4-8",         "label": "Opus 4.8 (k)",    "desc": "主力·标准渠道",  "thinking": "adaptive", "primary": true  },
+  { "id": "[k-特惠]claude-opus-4-6",    "label": "Opus 4.6",        "desc": "经典主力",       "thinking": "adaptive", "primary": true  },
+  { "id": "[k-特惠]claude-opus-4-8",    "label": "Opus 4.8",        "desc": "最强档",         "thinking": "adaptive", "primary": true  },
   { "id": "[k-特惠]claude-sonnet-5",    "label": "Sonnet 5",        "desc": "日常轻量",       "thinking": "adaptive", "primary": true  },
-  { "id": "[官混]claude-opus-4-8",      "label": "Opus 4.8 (官混)", "desc": "备用渠道",       "thinking": "adaptive", "primary": false },
+  { "id": "[k]claude-opus-4-8",         "label": "Opus 4.8 (k)",    "desc": "标准渠道备用",   "thinking": "adaptive", "primary": false },
+  { "id": "[官混]claude-opus-4-6",      "label": "Opus 4.6 (官混)", "desc": "备用渠道",       "thinking": "adaptive", "primary": false },
   { "id": "[k-特惠]claude-sonnet-4-6",  "label": "Sonnet 4.6",      "desc": "摘要与备用",     "thinking": "adaptive", "primary": false }
 ]
