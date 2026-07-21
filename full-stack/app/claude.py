@@ -32,6 +32,21 @@ MEMORY_SEARCH_BUDGET_CHARS = 1500
 MEMORY_SEARCH_TIMEOUT_S = 2.0
 memlog = logging.getLogger("memory.inject")
 
+OMBRE_MCP_URL = os.environ.get("OMBRE_MCP_URL", "")
+OMBRE_MCP_TOKEN = os.environ.get("OMBRE_MCP_TOKEN", "")
+
+
+def ombre_mcp_servers() -> dict:
+    if not OMBRE_MCP_URL:
+        return {}
+    return {
+        "ombre": {
+            "type": "http",
+            "url": OMBRE_MCP_URL,
+            "headers": {"X-Admin-Token": OMBRE_MCP_TOKEN} if OMBRE_MCP_TOKEN else {},
+        }
+    }
+
 
 async def fetch_memory_hits(query: str) -> str:
     """POST to local hybrid-search service. Silent-fail on any error."""
@@ -172,10 +187,15 @@ async def stream_chat(
 
     system_prompt = await build_system_prompt(message, model)
 
+    mcp_servers = ombre_mcp_servers()
+    allowed_tools = ["Read", "Grep", "Glob", "Write", "Edit", "Bash", "WebSearch", "WebFetch", "TodoWrite"]
+    if mcp_servers:
+        allowed_tools.append("mcp__ombre")
     option_values = dict(
         model=model,
         system_prompt=system_prompt,
-        allowed_tools=["Read", "Grep", "Glob", "Write", "Edit", "Bash", "WebSearch", "WebFetch", "TodoWrite"],
+        allowed_tools=allowed_tools,
+        mcp_servers=mcp_servers,
         can_use_tool=memory_tool_permission,
         max_turns=8,
         include_partial_messages=True,
