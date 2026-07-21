@@ -3,16 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
-<meta name="theme-color" content="#F8F8F6" media="(prefers-color-scheme:light)">
-<meta name="theme-color" content="#20201F" media="(prefers-color-scheme:dark)">
+<meta name="theme-color" content="#FFF5F7" media="(prefers-color-scheme:light)">
+<meta name="theme-color" content="#1A0F14" media="(prefers-color-scheme:dark)">
 <title>Nepeta</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%90%BE%3C/text%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8C%99%3C/text%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' fill='%23FFF5F7'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dominant-baseline='central' font-size='140'%3E%F0%9F%8C%99%3C/text%3E%3C/svg%3E">
+<meta name="apple-mobile-web-app-title" content="Nepeta">
 <style></style>
 <style>
 :root{
   --bg-primary:#F8F8F6;--bg-surface:#F6F6F4;--bubble-user:#EEEEEC;--bg-sunken:#E6E6E4;
   --text-primary:#1F1E1D;--text-secondary:#6E6D66;--text-faint:#A6A39A;
-  --accent:#DA7756;--accent-hover:#C96846;--accent-fg:#FFF;
+  --accent:#F4B6B6;--accent-hover:#D89090;--accent-fg:#FFF;
   --border:rgba(31,30,29,.10);--border-strong:rgba(31,30,29,.18);
   --font-serif:ui-serif,Georgia,'PingFang SC',sans-serif;
   --font-sans:-apple-system,system-ui,'PingFang SC',sans-serif;
@@ -49,12 +51,13 @@
   --claude-context-menu-item-gap:15px;--claude-context-menu-font-size:17px;--claude-context-menu-icon-size:20px
 }
 @media(prefers-color-scheme:dark){:root{
-  --bg-primary:#20201F;--bg-surface:#181818;--bubble-user:#111111;--bg-sunken:#1A1A19;
-  --claude-main-surface:#20201F;
-  --claude-main-surface-soft:#1A1A19;
-  --text-primary:#ECEAE4;--text-secondary:#A6A39A;--text-faint:#6E6D66;
-  --border:rgba(236,234,228,.10);--border-strong:rgba(236,234,228,.22);--shadow-soft:none;--shadow-composer:none;
-  --claude-sidebar-bg:#181817;
+  --bg-primary:#1A0F14;--bg-surface:#1F131A;--bubble-user:#160B10;--bg-sunken:#1D1218;
+  --accent:#F4B6C4;--accent-hover:#8B4A5C;
+  --claude-main-surface:#1A0F14;
+  --claude-main-surface-soft:#1D1218;
+  --text-primary:#F0DDE3;--text-secondary:#B29AA0;--text-faint:#7A6167;
+  --border:rgba(244,182,196,.10);--border-strong:rgba(244,182,196,.22);--shadow-soft:none;--shadow-composer:none;
+  --claude-sidebar-bg:#160B10;
   --claude-text-primary:#F8F8F6;
   --claude-text-secondary:#7C7B75;
   --claude-text-muted:#6E6D66;
@@ -95,7 +98,7 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}textar
 .gate-error{min-height:1.4em;color:var(--accent);font-size:var(--text-sm);text-align:center;opacity:0}.gate-error.show{opacity:1}
 #chat{height:100dvh;display:flex;flex-direction:column;background:var(--bg-primary)}
 .topbar{position:relative;flex:none;height:calc(env(safe-area-inset-top) + 56px);display:grid;grid-template-columns:40px minmax(0,1fr) 40px;align-items:center;padding:env(safe-area-inset-top) max(env(safe-area-inset-right),var(--topbar-side-inset)) 0 max(env(safe-area-inset-left),var(--topbar-side-inset))}
-.topbar-model{justify-self:center;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.2}.topbar-model-main{display:flex;align-items:center;gap:var(--space-1);font:500 17px var(--font-serif)}.topbar-model-main svg{width:14px;height:14px}.topbar-model-setting{margin-top:1px;color:var(--text-secondary);font-size:13px;line-height:1.2}.topbar-actions{justify-self:end;display:flex;align-items:center}.topbar .icon-button{width:40px;height:40px;background:var(--bg-primary);box-shadow:0 1px 3px rgba(0,0,0,.1);border-color:rgba(0,0,0,.06)}.topbar .icon-button svg{width:22px;height:22px}.new-chat-button{color:var(--accent)}
+.topbar-model{justify-self:center;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.2}.topbar-brand{font:500 20px/1 var(--font-serif);letter-spacing:.02em;color:var(--text-primary);margin-bottom:2px}.topbar-model-main{display:flex;align-items:center;gap:var(--space-1);font:400 13px var(--font-sans);color:var(--text-secondary)}.topbar-model-main svg{width:12px;height:12px}.topbar-model-setting{margin-top:0;color:var(--text-faint);font-size:11px;line-height:1.2}.topbar-actions{justify-self:end;display:flex;align-items:center}.topbar .icon-button{width:40px;height:40px;background:var(--bg-primary);box-shadow:0 1px 3px rgba(0,0,0,.1);border-color:rgba(0,0,0,.06)}.topbar .icon-button svg{width:22px;height:22px}.new-chat-button{color:var(--accent)}
 .session-menu{position:fixed;z-index:35;width:min(230px, 65vw);padding:var(--space-2);background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:0 8px 28px rgba(31,30,29,.14)}
 .session-menu-title{padding:var(--space-2) var(--space-3);color:var(--text-secondary);font-size:var(--text-sm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .menu-item{width:100%;display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3);text-align:left;border-radius:var(--radius-md)}.menu-item:active{background:var(--bg-surface)}.menu-item.delete{color:var(--accent)}
@@ -117,18 +120,18 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}textar
 .md p{margin-bottom:24px}.md p:last-child{margin-bottom:0}.md>*+*{margin-top:.8em}.md h1,.md h2,.md h3{font-family:var(--font-serif);line-height:1.35;margin-top:1.4em}.md ul,.md ol{padding-left:1.4em}.md a{color:var(--accent)}.md blockquote{border-left:2px solid var(--border-strong);padding-left:var(--space-4);color:var(--text-secondary)}.md code{font-family:var(--font-mono);font-size:.875em;background:var(--bg-sunken);border-radius:var(--space-1);padding:.15em .4em}.md pre{padding:var(--space-4);overflow:auto;background:var(--bg-sunken);border:1px solid var(--border);border-radius:var(--radius-md)}.md pre code{padding:0;background:none}
 .thinking-row{display:flex;flex-direction:row;align-items:center;gap:8px;margin-bottom:8px;color:var(--text-secondary);font-size:var(--text-sm)}.thinking-row.hidden{display:none}.thinking-status-line{display:flex;align-items:center;gap:8px;min-width:0;flex:1}.thinking-clock-icon{width:14px;height:14px;flex:none}.thinking-status-line>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
 /* === Trail logo:跟随 row 末尾,永远在最后内容下方一行 === */
-.claude-trail-logo{width:26px;height:26px;margin:13px 0 0;color:#D97757;display:block;position:relative;overflow:hidden}.claude-logo-inner{width:100%;height:100%;display:block;will-change:transform}.claude-logo-track{width:100%;will-change:transform}.claude-logo-track svg{display:block;width:100%;height:auto;fill:currentColor}.claude-trail-logo[data-mode="tool"] .claude-logo-inner{animation:claudeToolPulse 1800ms cubic-bezier(.2,.8,.2,1) infinite;transform-origin:center}@keyframes claudeToolPulse{0%{transform:scale(1) rotate(0deg);opacity:1}38%{transform:scale(.16) rotate(80deg);opacity:.85}52%{transform:scale(.16) rotate(180deg);opacity:.85}100%{transform:scale(1) rotate(360deg);opacity:1}}
-.claude-spinner{width:24px;height:24px;display:inline-block;animation:claude-spin 1.8s linear infinite}.claude-spinner svg{width:100%;height:100%;fill:#D97757;display:block}@keyframes claude-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}.thinking-rotate{animation:rotate 4s linear infinite}.thinking-pulse{display:block;animation:pulse 1.6s ease-in-out infinite alternate}@keyframes rotate{to{transform:rotate(360deg)}}@keyframes pulse{from{transform:scale(.85)}to{transform:scale(1.1)}}
+.claude-trail-logo{width:26px;height:26px;margin:13px 0 0;color:#F4B6B6;display:block;position:relative;overflow:hidden}.claude-logo-inner{width:100%;height:100%;display:block;will-change:transform}.claude-logo-track{width:100%;will-change:transform}.claude-logo-track svg{display:block;width:100%;height:auto;fill:currentColor}.claude-trail-logo[data-mode="tool"] .claude-logo-inner{animation:claudeToolPulse 1800ms cubic-bezier(.2,.8,.2,1) infinite;transform-origin:center}@keyframes claudeToolPulse{0%{transform:scale(1) rotate(0deg);opacity:1}38%{transform:scale(.16) rotate(80deg);opacity:.85}52%{transform:scale(.16) rotate(180deg);opacity:.85}100%{transform:scale(1) rotate(360deg);opacity:1}}
+.claude-spinner{width:24px;height:24px;display:inline-block;animation:claude-spin 1.8s linear infinite}.claude-spinner svg{width:100%;height:100%;fill:#F4B6B6;display:block}@keyframes claude-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}.thinking-rotate{animation:rotate 4s linear infinite}.thinking-pulse{display:block;animation:pulse 1.6s ease-in-out infinite alternate}@keyframes rotate{to{transform:rotate(360deg)}}@keyframes pulse{from{transform:scale(.85)}to{transform:scale(1.1)}}
 .thinking-live{max-height:3.4em;overflow:hidden;margin-bottom:var(--space-4);color:var(--text-secondary);font-size:var(--text-sm);white-space:pre-wrap}.thinking-summary{width:100%;display:none;align-items:center;gap:6px;margin:20px 0;color:var(--text-secondary);font-family:var(--font-sans);font-size:15px;font-weight:400;text-align:left}.thinking-summary.show{display:flex}.thinking-summary-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.thinking-summary-spacer{flex:1}.thinking-clock{width:22px;height:22px;flex:none;margin-right:-5px}.thinking-chevron{width:16px;height:16px;flex:none}
 .history-loading{flex:1;display:flex;align-items:center;justify-content:center;gap:var(--space-2);color:var(--text-secondary);font-size:var(--text-sm)}
 .history-loading.clawd-loading{flex-direction:column;gap:14px}
-.clawd-zzz{width:120px;height:120px;color:#DE886D}
+.clawd-zzz{width:120px;height:120px;color:#F4B6B6}
 .clawd-zzz svg{width:100%;height:100%;display:block;image-rendering:pixelated}
 .message-actions{display:flex;align-items:center;gap:12px;margin-top:var(--space-3);color:var(--text-secondary)}.action-button{width:20px;height:34px;display:grid;place-items:center;border-radius:var(--radius-full)}.action-button:active,.action-button.active{color:var(--accent)}
 .composer-wrap{position:relative;flex:none;padding:var(--space-2) var(--page-pad) calc(env(safe-area-inset-bottom) + var(--space-2));background:var(--bg-primary)}
 #scrollToBottom{position:absolute;left:50%;top:0;transform:translate(-50%,calc(-100% - 8px));width:36px;height:36px;display:grid;place-items:center;background:var(--bg-surface);color:var(--text-primary);border:1px solid var(--border);border-radius:var(--radius-full);box-shadow:var(--shadow-soft);opacity:1;transition:opacity .2s,transform .2s;z-index:5}
 #scrollToBottom.hidden{display:grid !important;opacity:0;transform:translate(-50%,calc(-100% + 4px));pointer-events:none}
-#scrollToBottom:active{background:var(--bg-sunken)}.composer-box{max-width:720px;margin:auto;padding:var(--space-3);background:var(--bg-surface);border:1px solid #fff;border-radius:var(--radius-lg);box-shadow:var(--shadow-composer)}.composer-box.drag-over{border-color:#D97757;background:rgba(217,119,87,.06)}.edit-banner{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) 0;margin-bottom:var(--space-2)}.edit-banner-text{flex:1;font-size:var(--text-sm);color:var(--text-secondary);line-height:1.4}.edit-banner-close{flex:none;width:24px;height:24px;display:grid;place-items:center;border-radius:var(--radius-full);color:var(--text-secondary);font-size:18px;line-height:1}.edit-banner-close:active{background:var(--bg-primary)}.composer{display:flex;flex-direction:column;gap:var(--space-2)}.composer-input-row{width:100%;display:flex}.composer-actions{width:100%;display:flex;align-items:center;gap:var(--space-2)}.composer-spacer{flex:1}#input{width:100%;min-width:0;max-height:144px;padding:var(--space-1) 0 var(--space-1) 1px;border:0;outline:0;background:none;resize:none;font-size:18px;line-height:1.5;white-space:pre-wrap}.composer-icon{width:var(--input-btn-size);height:var(--input-btn-size);flex:none;display:grid;place-items:center;border-radius:var(--radius-full);color:var(--text-primary)}.composer-icon:active{background:var(--bg-sunken)}.model-capsule{max-width:210px;display:flex;align-items:center;gap:var(--space-2);padding:6px 12px;background:var(--bg-sunken);border-radius:16px;color:var(--text-primary);font-size:14px;line-height:1.2;white-space:nowrap}.model-capsule:active{background:var(--bg-primary)}#modelCapsuleText{overflow:hidden;text-overflow:ellipsis}.model-capsule-arrow{color:var(--text-secondary)}#micButton,#send{width:var(--input-btn-size);height:var(--input-btn-size)}#micButton svg,#send svg{width:20px;height:20px}#send{flex:none;display:grid;place-items:center;border-radius:var(--radius-full);background:var(--text-primary);color:var(--bg-primary);transition:background var(--transition)}#send.ready{background:var(--accent);color:var(--accent-fg)}#send:disabled{opacity:.35}#send.stop-mode{background:var(--text-primary);color:var(--bg-primary);opacity:1}.attachment-preview{display:flex;gap:var(--space-2);overflow-x:auto;padding:0 0 var(--space-2)}.attachment-chip{position:relative;flex:none;max-width:180px;display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2);background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-md)}.attachment-chip img{width:48px;height:48px;object-fit:cover;border-radius:var(--space-1)}.attachment-chip svg{width:22px;height:22px;color:var(--text-secondary)}.attachment-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--text-sm)}.attachment-remove{position:absolute;top:var(--space-1);right:var(--space-1);width:20px;height:20px;display:grid;place-items:center;background:var(--bg-sunken);border-radius:var(--radius-full)}.attachment-remove svg{width:12px;height:12px}.user-images{width:100%;display:flex;align-items:flex-end;justify-content:flex-end;gap:6px;margin-bottom:6px}.user-image{display:block;max-height:140px;min-width:0;border-radius:14px;object-fit:cover;flex:0 1 auto}.message-attachments{display:flex;flex-wrap:wrap;gap:var(--space-2);margin-bottom:var(--space-2)}.message-attachment{max-width:220px;display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2);background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-md)}.message-attachment img{display:block;max-width:180px;max-height:180px;object-fit:cover;border-radius:var(--space-1)}.message-attachment img:not([src]){min-width:120px;min-height:80px;background:var(--bg-sunken)}.message-attachment svg{width:20px;height:20px;flex:none;color:var(--text-secondary)}
+#scrollToBottom:active{background:var(--bg-sunken)}.composer-box{max-width:720px;margin:auto;padding:var(--space-3);background:var(--bg-surface);border:1px solid #fff;border-radius:var(--radius-lg);box-shadow:var(--shadow-composer)}.composer-box.drag-over{border-color:#F4B6B6;background:rgba(244,182,182,.14)}.edit-banner{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) 0;margin-bottom:var(--space-2)}.edit-banner-text{flex:1;font-size:var(--text-sm);color:var(--text-secondary);line-height:1.4}.edit-banner-close{flex:none;width:24px;height:24px;display:grid;place-items:center;border-radius:var(--radius-full);color:var(--text-secondary);font-size:18px;line-height:1}.edit-banner-close:active{background:var(--bg-primary)}.composer{display:flex;flex-direction:column;gap:var(--space-2)}.composer-input-row{width:100%;display:flex}.composer-actions{width:100%;display:flex;align-items:center;gap:var(--space-2)}.composer-spacer{flex:1}#input{width:100%;min-width:0;max-height:144px;padding:var(--space-1) 0 var(--space-1) 1px;border:0;outline:0;background:none;resize:none;font-size:18px;line-height:1.5;white-space:pre-wrap}.composer-icon{width:var(--input-btn-size);height:var(--input-btn-size);flex:none;display:grid;place-items:center;border-radius:var(--radius-full);color:var(--text-primary)}.composer-icon:active{background:var(--bg-sunken)}.model-capsule{max-width:210px;display:flex;align-items:center;gap:var(--space-2);padding:6px 12px;background:var(--bg-sunken);border-radius:16px;color:var(--text-primary);font-size:14px;line-height:1.2;white-space:nowrap}.model-capsule:active{background:var(--bg-primary)}#modelCapsuleText{overflow:hidden;text-overflow:ellipsis}.model-capsule-arrow{color:var(--text-secondary)}#micButton,#send{width:var(--input-btn-size);height:var(--input-btn-size)}#micButton svg,#send svg{width:20px;height:20px}#send{flex:none;display:grid;place-items:center;border-radius:var(--radius-full);background:var(--text-primary);color:var(--bg-primary);transition:background var(--transition)}#send.ready{background:var(--accent);color:var(--accent-fg)}#send:disabled{opacity:.35}#send.stop-mode{background:var(--text-primary);color:var(--bg-primary);opacity:1}.attachment-preview{display:flex;gap:var(--space-2);overflow-x:auto;padding:0 0 var(--space-2)}.attachment-chip{position:relative;flex:none;max-width:180px;display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2);background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-md)}.attachment-chip img{width:48px;height:48px;object-fit:cover;border-radius:var(--space-1)}.attachment-chip svg{width:22px;height:22px;color:var(--text-secondary)}.attachment-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--text-sm)}.attachment-remove{position:absolute;top:var(--space-1);right:var(--space-1);width:20px;height:20px;display:grid;place-items:center;background:var(--bg-sunken);border-radius:var(--radius-full)}.attachment-remove svg{width:12px;height:12px}.user-images{width:100%;display:flex;align-items:flex-end;justify-content:flex-end;gap:6px;margin-bottom:6px}.user-image{display:block;max-height:140px;min-width:0;border-radius:14px;object-fit:cover;flex:0 1 auto}.message-attachments{display:flex;flex-wrap:wrap;gap:var(--space-2);margin-bottom:var(--space-2)}.message-attachment{max-width:220px;display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2);background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-md)}.message-attachment img{display:block;max-width:180px;max-height:180px;object-fit:cover;border-radius:var(--space-1)}.message-attachment img:not([src]){min-width:120px;min-height:80px;background:var(--bg-sunken)}.message-attachment svg{width:20px;height:20px;flex:none;color:var(--text-secondary)}
 .stream-disclaimer{width:100%;align-self:center;display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:24px;color:var(--text-faint);font-size:13px;line-height:1.5}.stream-disclaimer span{text-align:right}.stream-disclaimer .brand-mark{width:26px;height:26px;flex:none}
 .overlay{position:fixed;inset:0;z-index:40;visibility:hidden;opacity:0;pointer-events:none;background:rgba(0,0,0,.5);transition:opacity 0s,visibility 0s}.overlay.show{visibility:visible;opacity:1;pointer-events:auto;transition:opacity 150ms ease-out,visibility 0s}
 #drawerOverlay{z-index:30}
@@ -216,7 +219,7 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
 .source-more{display:inline-flex;width:20px;height:20px;border-radius:50%;background:transparent;align-items:center;justify-content:center;border:1px solid var(--border);color:var(--text-secondary);font-size:10px;font-weight:600;cursor:pointer;flex:0 0 auto;padding:0}
 .source-more:active{opacity:.7}
 
-.completion-egg{position:fixed;right:18px;bottom:96px;z-index:1200;width:140px;height:140px;color:#DE886D;cursor:pointer;animation:egg-in 320ms cubic-bezier(.2,.8,.2,1);filter:drop-shadow(0 8px 18px rgba(0,0,0,.18))}
+.completion-egg{position:fixed;right:18px;bottom:96px;z-index:1200;width:140px;height:140px;color:#F4B6B6;cursor:pointer;animation:egg-in 320ms cubic-bezier(.2,.8,.2,1);filter:drop-shadow(0 8px 18px rgba(0,0,0,.18))}
 .completion-egg svg{width:100%;height:100%;display:block;image-rendering:pixelated}
 .completion-egg.fade-out{animation:egg-out 600ms ease-in forwards}
 @keyframes egg-in{from{opacity:0;transform:translateY(20px) scale(.7)}to{opacity:1;transform:translateY(0) scale(1)}}
@@ -255,6 +258,7 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
   <header class="topbar">
     <button class="icon-button" id="openDrawer" aria-label="打开历史"></button>
     <button class="topbar-model" id="topbarModelButton" aria-label="选择模型">
+      <span class="topbar-brand">Nepeta</span>
       <span class="topbar-model-main"><span id="topbarModelText">Sonnet 4.6</span><span id="topbarModelChevron"></span></span>
       <span class="topbar-model-setting" id="topbarModelSetting">Medium</span>
     </button>
@@ -694,13 +698,13 @@ const _CLAWD_SLEEPING_SVG=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="-15 
       <rect x="-2" y="8.6" width="18" height="1.6" rx="2.4" fill="#ffffff"/>
     </g>
     <g class="sl-body">
-      <g fill="#DE886D">
+      <g fill="#F4B6B6">
         <rect x="3" y="13" width="1" height="2"/><rect x="5" y="13" width="1" height="2"/>
         <rect x="9" y="13" width="1" height="2"/><rect x="11" y="13" width="1" height="2"/>
       </g>
-      <rect x="2" y="6" width="11" height="7" fill="#DE886D"/>
-      <rect x="0" y="9" width="2" height="2" fill="#DE886D"/>
-      <rect x="13" y="9" width="2" height="2" fill="#DE886D"/>
+      <rect x="2" y="6" width="11" height="7" fill="#F4B6B6"/>
+      <rect x="0" y="9" width="2" height="2" fill="#F4B6B6"/>
+      <rect x="13" y="9" width="2" height="2" fill="#F4B6B6"/>
       <!-- closed sleeping eyes -->
       <g fill="#000"><rect x="3.6" y="8.9" width="2" height=".7" rx=".35"/><rect x="9.4" y="8.9" width="2" height=".7" rx=".35"/></g>
       <!-- sleep bubble at nose -->
@@ -732,16 +736,16 @@ const _CLAWD_COFFEE_SVG=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="-15 -2
 
     <rect class="cf-shad" x="3" y="15" width="9" height="1" fill="#000" opacity=".5"/>
     <g class="cf-body">
-      <g fill="#DE886D">
+      <g fill="#F4B6B6">
         <rect x="3" y="13" width="1" height="2"/><rect x="5" y="13" width="1" height="2"/>
         <rect x="9" y="13" width="1" height="2"/><rect x="11" y="13" width="1" height="2"/>
       </g>
-      <rect x="2" y="6" width="11" height="7" fill="#DE886D"/>
+      <rect x="2" y="6" width="11" height="7" fill="#F4B6B6"/>
       <g class="cf-eye" fill="#000"><rect x="4" y="8" width="1" height="2"/><rect x="10" y="8" width="1" height="2"/></g>
       <rect x="6.4" y="10.8" width="2.2" height="1" rx=".5" fill="#7a2230"/>
       <!-- arms cupping mug -->
-      <rect x="0.4" y="10" width="2" height="2.2" rx=".3" fill="#DE886D" transform="rotate(40,1.4,11)"/>
-      <rect x="12.6" y="10" width="2" height="2.2" rx=".3" fill="#DE886D" transform="rotate(-40,13.6,11)"/>
+      <rect x="0.4" y="10" width="2" height="2.2" rx=".3" fill="#F4B6B6" transform="rotate(40,1.4,11)"/>
+      <rect x="12.6" y="10" width="2" height="2.2" rx=".3" fill="#F4B6B6" transform="rotate(-40,13.6,11)"/>
       <!-- steam -->
       <g fill="#fff">
         <rect class="cf-steam" style="--sd:0s;--tx:-1px"   x="5.6" y="8.2" width=".7" height="2.4" rx=".35"/>
@@ -781,13 +785,13 @@ const _CLAWD_LM_SVG=`    <svg xmlns="http://www.w3.org/2000/svg" viewBox="-15 -2
 
     <rect class="lm-shad" x="3" y="15" width="9" height="1" fill="#000" opacity=".5"/>
     <g class="lm-body">
-      <g fill="#DE886D">
+      <g fill="#F4B6B6">
         <rect x="3" y="13" width="1" height="2"/><rect x="5" y="13" width="1" height="2"/>
         <rect x="9" y="13" width="1" height="2"/><rect x="11" y="13" width="1" height="2"/>
       </g>
-      <rect x="2" y="6" width="11" height="7" fill="#DE886D"/>
-      <g class="lm-al"><rect x="0" y="9" width="2" height="2" fill="#DE886D"/></g>
-      <g class="lm-ar"><rect x="13" y="9" width="2" height="2" fill="#DE886D"/></g>
+      <rect x="2" y="6" width="11" height="7" fill="#F4B6B6"/>
+      <g class="lm-al"><rect x="0" y="9" width="2" height="2" fill="#F4B6B6"/></g>
+      <g class="lm-ar"><rect x="13" y="9" width="2" height="2" fill="#F4B6B6"/></g>
       <!-- headphones -->
       <path d="M1 6 Q7.5 -.5 14 6" stroke="#2b2b35" stroke-width="1.5" fill="none"/>
       <rect x="-.4" y="6.2" width="2.6" height="3.6" rx=".9" fill="#33333f"/>
@@ -837,15 +841,15 @@ const _CLAWD_GM_SVG=`    <svg xmlns="http://www.w3.org/2000/svg" viewBox="-15 -2
 
     <rect class="gm-shad" x="3" y="15" width="9" height="1" fill="#000" opacity=".5"/>
     <g class="gm-body">
-      <g fill="#DE886D">
+      <g fill="#F4B6B6">
         <rect x="3" y="13" width="1" height="2"/><rect x="5" y="13" width="1" height="2"/>
         <rect x="9" y="13" width="1" height="2"/><rect x="11" y="13" width="1" height="2"/>
       </g>
-      <rect x="2" y="6" width="11" height="7" fill="#DE886D"/>
+      <rect x="2" y="6" width="11" height="7" fill="#F4B6B6"/>
       <!-- screen glow on face -->
       <rect class="gm-glow" x="2" y="6" width="11" height="5" fill="#4ad6ff" rx="1"/>
-      <g class="gm-al"><rect x="0" y="9" width="2" height="2" fill="#DE886D"/></g>
-      <g class="gm-ar"><rect x="13" y="9" width="2" height="2" fill="#DE886D"/></g>
+      <g class="gm-al"><rect x="0" y="9" width="2" height="2" fill="#F4B6B6"/></g>
+      <g class="gm-ar"><rect x="13" y="9" width="2" height="2" fill="#F4B6B6"/></g>
       <g class="gm-eye" fill="#000"><rect x="4" y="8" width="1" height="2"/><rect x="10" y="8" width="1" height="2"/></g>
       <!-- controller (foreground, held in front) -->
       <g>
@@ -887,14 +891,14 @@ const _CLAWD_SG_SVG=`    <svg xmlns="http://www.w3.org/2000/svg" viewBox="-15 -2
 
     <rect class="sg-shad" x="3" y="15" width="9" height="1" fill="#000" opacity=".5"/>
     <g class="sg-body">
-      <g fill="#DE886D">
+      <g fill="#F4B6B6">
         <rect x="3" y="13" width="1" height="2"/><rect x="5" y="13" width="1" height="2"/>
         <rect x="9" y="13" width="1" height="2"/><rect x="11" y="13" width="1" height="2"/>
       </g>
-      <rect x="2" y="6" width="11" height="7" fill="#DE886D"/>
-      <g class="sg-al"><rect x="0" y="9" width="2" height="2" fill="#DE886D"/></g>
+      <rect x="2" y="6" width="11" height="7" fill="#F4B6B6"/>
+      <g class="sg-al"><rect x="0" y="9" width="2" height="2" fill="#F4B6B6"/></g>
       <!-- right forearm bent down to grip the mic -->
-      <rect x="11" y="9" width="2" height="3.6" fill="#DE886D" rx=".5"/>
+      <rect x="11" y="9" width="2" height="3.6" fill="#F4B6B6" rx=".5"/>
       <g class="sg-eye" fill="#000"><rect x="4" y="8" width="1" height="2"/><rect x="10" y="8" width="1" height="2"/></g>
       <!-- open singing mouth -->
       <ellipse class="sg-mouth" cx="7" cy="11.2" rx="1.3" ry="1.2" fill="#7a2230"/>
@@ -928,15 +932,15 @@ const _CLAWD_RD_SVG=`    <svg xmlns="http://www.w3.org/2000/svg" viewBox="-15 -2
 
     <rect class="rd-shad" x="3" y="15" width="9" height="1" fill="#000" opacity=".5"/>
     <g class="rd-body">
-      <g fill="#DE886D">
+      <g fill="#F4B6B6">
         <rect x="3" y="13" width="1" height="2"/><rect x="5" y="13" width="1" height="2"/>
         <rect x="9" y="13" width="1" height="2"/><rect x="11" y="13" width="1" height="2"/>
       </g>
-      <rect x="2" y="6" width="11" height="7" fill="#DE886D"/>
+      <rect x="2" y="6" width="11" height="7" fill="#F4B6B6"/>
       <g class="rd-eye" fill="#000"><rect x="4" y="8" width="1" height="2"/><rect x="10" y="8" width="1" height="2"/></g>
       <!-- arms holding book -->
-      <rect x="-.3" y="9.6" width="2.6" height="2" fill="#DE886D" rx=".4" transform="rotate(28,1,10.6)"/>
-      <rect x="12.7" y="9.6" width="2.6" height="2" fill="#DE886D" rx=".4" transform="rotate(-28,14,10.6)"/>
+      <rect x="-.3" y="9.6" width="2.6" height="2" fill="#F4B6B6" rx=".4" transform="rotate(28,1,10.6)"/>
+      <rect x="12.7" y="9.6" width="2.6" height="2" fill="#F4B6B6" rx=".4" transform="rotate(-28,14,10.6)"/>
       <!-- open book (foreground) -->
       <g>
         <polygon points="1.6,12.4 2.8,9.4 7.5,9.9 7.5,12.6" fill="#8a5a2a"/>
@@ -971,18 +975,18 @@ const _CLAWD_ET_SVG=`    <svg xmlns="http://www.w3.org/2000/svg" viewBox="-15 -2
 
     <rect class="et-shad" x="3" y="15" width="9" height="1" fill="#000" opacity=".5"/>
     <g class="et-body">
-      <g fill="#DE886D">
+      <g fill="#F4B6B6">
         <rect x="3" y="13" width="1" height="2"/><rect x="5" y="13" width="1" height="2"/>
         <rect x="9" y="13" width="1" height="2"/><rect x="11" y="13" width="1" height="2"/>
       </g>
-      <rect x="2" y="6" width="11" height="7" fill="#DE886D"/>
+      <rect x="2" y="6" width="11" height="7" fill="#F4B6B6"/>
       <g class="et-eye" fill="#000"><rect x="4" y="8" width="1" height="2"/><rect x="10" y="8" width="1" height="2"/></g>
       <rect class="et-mouth" x="6.4" y="10.7" width="2.2" height="1.2" rx=".5" fill="#7a2230"/>
       <!-- left arm supports bowl -->
-      <rect x="-.4" y="10.4" width="2.6" height="2" fill="#DE886D" rx=".4" transform="rotate(34,1,11.4)"/>
+      <rect x="-.4" y="10.4" width="2.6" height="2" fill="#F4B6B6" rx=".4" transform="rotate(34,1,11.4)"/>
       <!-- right arm holding chopsticks (pivots at shoulder 13,10) -->
       <g class="et-arm">
-        <rect x="13" y="9" width="2" height="2" fill="#DE886D"/>
+        <rect x="13" y="9" width="2" height="2" fill="#F4B6B6"/>
         <rect x="6.2" y="11.2" width="7.6" height=".5" rx=".25" fill="#C9A227" transform="rotate(-7,13,10)"/>
         <rect x="6.2" y="12.3" width="7.6" height=".5" rx=".25" fill="#C9A227" transform="rotate(-7,13,10)"/>
         <rect x="5.6" y="11" width="1.5" height="1.5" rx=".5" fill="#E8B04B" transform="rotate(-7,13,10)"/>
@@ -1023,24 +1027,24 @@ const _CLAWD_EX_SVG=`    <svg xmlns="http://www.w3.org/2000/svg" viewBox="-15 -2
 
     <rect class="ex-shad" x="3" y="15" width="9" height="1" fill="#000" opacity=".5"/>
     <g class="ex-body">
-      <g fill="#DE886D">
+      <g fill="#F4B6B6">
         <rect x="3" y="13" width="1" height="2"/><rect x="5" y="13" width="1" height="2"/>
         <rect x="9" y="13" width="1" height="2"/><rect x="11" y="13" width="1" height="2"/>
       </g>
-      <rect x="2" y="6" width="11" height="7" fill="#DE886D"/>
+      <rect x="2" y="6" width="11" height="7" fill="#F4B6B6"/>
       <!-- sweatband -->
       <rect x="2" y="6.3" width="11" height="1.3" fill="#ff5555"/>
       <rect x="2" y="6.3" width="11" height=".5" fill="#ff8888"/>
       <!-- left arm + dumbbell -->
       <g class="ex-al">
-        <rect x="0" y="9" width="2" height="2" fill="#DE886D"/>
+        <rect x="0" y="9" width="2" height="2" fill="#F4B6B6"/>
         <rect x="-1.6" y="9.6" width="5.2" height=".9" fill="#222"/>
         <rect x="-1.8" y="8.9" width="1" height="2.3" rx=".2" fill="#3a3a3a"/>
         <rect x="2.8" y="8.9" width="1" height="2.3" rx=".2" fill="#3a3a3a"/>
       </g>
       <!-- right arm + dumbbell -->
       <g class="ex-ar">
-        <rect x="13" y="9" width="2" height="2" fill="#DE886D"/>
+        <rect x="13" y="9" width="2" height="2" fill="#F4B6B6"/>
         <rect x="11.4" y="9.6" width="5.2" height=".9" fill="#222"/>
         <rect x="11.2" y="8.9" width="1" height="2.3" rx=".2" fill="#3a3a3a"/>
         <rect x="15.8" y="8.9" width="1" height="2.3" rx=".2" fill="#3a3a3a"/>
@@ -1088,16 +1092,16 @@ const _CLAWD_SH_SVG=`    <svg xmlns="http://www.w3.org/2000/svg" viewBox="-15 -2
 
     <rect class="sh-shad" x="3" y="15" width="9" height="1" fill="#000" opacity=".5"/>
     <g class="sh-body">
-      <g fill="#DE886D">
+      <g fill="#F4B6B6">
         <rect x="3" y="13" width="1" height="2"/><rect x="5" y="13" width="1" height="2"/>
         <rect x="9" y="13" width="1" height="2"/><rect x="11" y="13" width="1" height="2"/>
       </g>
-      <rect x="2" y="6" width="11" height="7" fill="#DE886D"/>
+      <rect x="2" y="6" width="11" height="7" fill="#F4B6B6"/>
       <g class="sh-eye" fill="#000"><rect x="4" y="8" width="1" height="2"/><rect x="10" y="8" width="1" height="2"/></g>
-      <g class="sh-al"><rect x="0" y="9" width="2" height="2" fill="#DE886D"/></g>
+      <g class="sh-al"><rect x="0" y="9" width="2" height="2" fill="#F4B6B6"/></g>
       <!-- right arm with sponge -->
       <g class="sh-arm">
-        <rect x="13" y="9" width="2" height="2" fill="#DE886D"/>
+        <rect x="13" y="9" width="2" height="2" fill="#F4B6B6"/>
         <rect x="10.2" y="8.4" width="2.6" height="2.2" rx=".4" fill="#ffd95e"/>
         <rect x="10.4" y="8.7" width="2.2" height=".7" fill="#fff" opacity=".5"/>
       </g>
@@ -1146,13 +1150,13 @@ const _CLAWD_SL_SVG=`    <svg xmlns="http://www.w3.org/2000/svg" viewBox="-15 -2
       <rect x="-2" y="8.6" width="18" height="1.6" rx="2.4" fill="#ffffff"/>
     </g>
     <g class="sl-body">
-      <g fill="#DE886D">
+      <g fill="#F4B6B6">
         <rect x="3" y="13" width="1" height="2"/><rect x="5" y="13" width="1" height="2"/>
         <rect x="9" y="13" width="1" height="2"/><rect x="11" y="13" width="1" height="2"/>
       </g>
-      <rect x="2" y="6" width="11" height="7" fill="#DE886D"/>
-      <rect x="0" y="9" width="2" height="2" fill="#DE886D"/>
-      <rect x="13" y="9" width="2" height="2" fill="#DE886D"/>
+      <rect x="2" y="6" width="11" height="7" fill="#F4B6B6"/>
+      <rect x="0" y="9" width="2" height="2" fill="#F4B6B6"/>
+      <rect x="13" y="9" width="2" height="2" fill="#F4B6B6"/>
       <!-- closed sleeping eyes -->
       <g fill="#000"><rect x="3.6" y="8.9" width="2" height=".7" rx=".35"/><rect x="9.4" y="8.9" width="2" height=".7" rx=".35"/></g>
       <!-- sleep bubble at nose -->

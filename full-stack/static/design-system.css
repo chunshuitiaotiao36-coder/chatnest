@@ -5,23 +5,23 @@
    ============================================================ */
 
 :root {
-  /* —— 色彩：奶油纸张基调 —— */
-  --bg-primary:    #F8F8F6;            /* 页面底色：light theme */
-  --bg-surface:    #F6F6F4;            /* 浮层/输入框：取自官端 */
-  --bubble-user:   #EEEEEC;            /* 用户消息气泡：取自官端 */
-  --bg-sunken:     #E6E6E4;            /* 按压态、代码块底色 */
-  --text-primary:  #1F1E1D;            /* 正文：暖近黑 */
-  --text-secondary:#6E6D66;            /* 次要文字、时间戳 */
-  --text-faint:    #A6A39A;            /* 占位符 */
+  /* —— 色彩：温柔粉基调 —— */
+  --bg-primary:    #FFF5F7;            /* 页面底色：淡粉 */
+  --bg-surface:    #FDECEF;            /* 浮层/输入框：更浅一档 */
+  --bubble-user:   #F8DFE4;            /* 用户消息气泡 */
+  --bg-sunken:     #F0D5DA;            /* 按压态、代码块底色 */
+  --text-primary:  #1F1E1D;            /* 正文：暖近黑（保留原有中性灰体系）*/
+  --text-secondary:#6E6D66;
+  --text-faint:    #A6A39A;
 
-  /* —— 主题色：accent orange（仅按钮/发送图标/光标/强调） —— */
-  --accent:        #DA7756;
-  --accent-hover:  #C96846;
-  --accent-fg:     #FFFFFF;            /* 橙底上的文字 */
+  /* —— 主题色：温柔粉（按钮/发送图标/光标/焦点/tab）—— */
+  --accent:        #F4B6B6;            /* 柔粉：主色 */
+  --accent-hover:  #D89090;            /* 深粉：hover / focus */
+  --accent-fg:     #FFFFFF;            /* 粉底上的文字 */
 
   /* —— 边框：极淡，靠留白而非线条分层 —— */
-  --border:        rgba(31, 30, 29, 0.10);
-  --border-strong: rgba(31, 30, 29, 0.18);  /* 输入框聚焦 */
+  --border:        rgba(216, 144, 144, 0.14);
+  --border-strong: rgba(216, 144, 144, 0.28);  /* 输入框聚焦 */
 
   /* —— 字体 —— */
   --font-serif: ui-serif, Georgia, 'PingFang SC', sans-serif;
@@ -54,28 +54,30 @@
   --transition: 200ms ease;
 
   /* —— 阴影：几乎不用，仅输入区悬浮一层极轻的 —— */
-  --shadow-soft: 0 1px 3px rgba(31, 30, 29, 0.05);
+  --shadow-soft: 0 1px 3px rgba(216, 144, 144, 0.10);
   /* —— 底部 composer 外圈轻 halo（light theme） —— */
   --shadow-composer:
-    0 0 18px rgba(0, 0, 0, 0.045),
-    0 8px 22px rgba(0, 0, 0, 0.045);
+    0 0 18px rgba(216, 144, 144, 0.10),
+    0 8px 22px rgba(216, 144, 144, 0.10);
 }
 
-/* —— 暗色模式 —— */
+/* —— 暗色模式：深黑粉 + 发光亮粉 —— */
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg-primary:    #20201F;            /* dark theme */
-    --bg-surface:    #181818;            /* 输入框/浮层：取自 IMG_4126，比背景更深 */
-    --bubble-user:   #111111;            /* 用户消息气泡：取自官端，比背景更深 */
-    --bg-sunken:     #1A1A19;            /* 按压态/代码块：再深一档 */
-    --text-primary:  #ECEAE4;
-    --text-secondary:#A6A39A;
-    --text-faint:    #6E6D66;
-    --border:        rgba(236, 234, 228, 0.10);
-    --border-strong: rgba(236, 234, 228, 0.22);
+    --bg-primary:    #1A0F14;            /* 深黑粉底 */
+    --bg-surface:    #1F131A;            /* 输入框/浮层：稍浅一档 */
+    --bubble-user:   #160B10;            /* 用户气泡：更深 */
+    --bg-sunken:     #1D1218;            /* 按压态/代码块 */
+    --text-primary:  #F0DDE3;            /* 主文字：暖白带粉调 */
+    --text-secondary:#B29AA0;
+    --text-faint:    #7A6167;
+    --border:        rgba(244, 182, 196, 0.10);
+    --border-strong: rgba(244, 182, 196, 0.24);
     --shadow-soft:   none;
-    --shadow-composer: var(--shadow-soft);  /* 暗色暂不加 halo，保持原观感 */
-    /* --accent 不变：accent orange在两种模式下一致 */
+    --shadow-composer: var(--shadow-soft);
+    /* 暗色主色：亮粉在暗底发光 */
+    --accent:        #F4B6C4;
+    --accent-hover:  #8B4A5C;            /* 酒红粉：hover / focus */
   }
 }
 
@@ -90,14 +92,16 @@
   overflow: hidden;
   --glass-x: 50%;
   --glass-y: 0%;
-  background: rgba(255, 255, 255, 0.55);
+  /* 背景：粉色偏白，比页面底色多一档暖度，凸显容器边界 */
+  background: rgba(255, 235, 240, 0.55);
   -webkit-backdrop-filter: blur(24px) saturate(160%);
   backdrop-filter: blur(24px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  /* 边缘亮环：粉色描边，dark 模式覆盖 */
+  border: 1px solid rgba(244, 182, 182, 0.55);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.8),
-    inset 0 -1px 6px rgba(31, 30, 29, 0.05),
-    0 8px 32px rgba(31, 30, 29, 0.08);
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),        /* 顶部内侧亮线 */
+    inset 0 -1px 6px rgba(216, 144, 144, 0.10),    /* 底部内侧微暗 */
+    0 8px 32px rgba(216, 144, 144, 0.18);          /* 外侧粉色 halo */
   transition:
     transform 420ms cubic-bezier(0.34, 1.56, 0.64, 1),
     box-shadow 320ms ease;
@@ -144,23 +148,24 @@
 
 @media (prefers-color-scheme: dark) {
   .glass {
-    background: rgba(24, 20, 22, 0.55);
-    border-color: rgba(255, 210, 225, 0.14);
+    /* 暗色玻璃：深黑粉带微光 */
+    background: rgba(40, 22, 30, 0.60);
+    border-color: rgba(244, 182, 196, 0.28);
     box-shadow:
-      inset 0 1px 0 rgba(236, 234, 228, 0.08),
+      inset 0 1px 0 rgba(244, 182, 196, 0.16),
       inset 0 -1px 6px rgba(0, 0, 0, 0.35),
-      0 0 0 1px rgba(255, 175, 205, 0.05),
-      0 8px 32px rgba(0, 0, 0, 0.4);
+      0 0 0 1px rgba(244, 182, 196, 0.08),
+      0 8px 32px rgba(139, 74, 92, 0.35);
   }
   .glass::before {
-    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0));
+    background: linear-gradient(to bottom, rgba(244, 182, 196, 0.14), rgba(255, 255, 255, 0));
   }
   .glass::after {
-    background: radial-gradient(circle 180px at var(--glass-x) var(--glass-y), rgba(255, 200, 220, 0.16), transparent 70%);
+    background: radial-gradient(circle 180px at var(--glass-x) var(--glass-y), rgba(244, 182, 196, 0.22), transparent 70%);
   }
 }
 
-/* 登录卡片：新增的玻璃容器（第一批用量之一），承接原本 #gate 的居中子元素 */
+/* 登录卡片：玻璃容器 */
 .gate-card {
   width: 100%;
   max-width: 340px;
@@ -170,4 +175,24 @@
   gap: var(--space-5);
   padding: var(--space-6) var(--space-5);
   border-radius: 24px;
+}
+
+/* 页面背景：粉色晨光渐变（登录页 + 聊天页）
+   给 .glass 一层可被 blur/refract 的彩色底层，玻璃才真正显形 */
+#gate,
+#chat {
+  background:
+    radial-gradient(circle at 20% 15%, rgba(244, 182, 182, 0.45), transparent 55%),
+    radial-gradient(circle at 82% 82%, rgba(216, 144, 144, 0.30), transparent 60%),
+    linear-gradient(160deg, #FFF8FA 0%, #FDECEF 55%, #F8DFE4 100%);
+}
+
+@media (prefers-color-scheme: dark) {
+  #gate,
+  #chat {
+    background:
+      radial-gradient(circle at 20% 15%, rgba(244, 182, 196, 0.20), transparent 55%),
+      radial-gradient(circle at 82% 82%, rgba(139, 74, 92, 0.30), transparent 60%),
+      linear-gradient(160deg, #1A0F14 0%, #22141B 60%, #2A1620 100%);
+  }
 }
