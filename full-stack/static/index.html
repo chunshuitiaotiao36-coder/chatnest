@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
 <meta name="theme-color" content="#F8F8F6" media="(prefers-color-scheme:light)">
 <meta name="theme-color" content="#20201F" media="(prefers-color-scheme:dark)">
-<title>AI 聊天</title>
+<title>Nepeta</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%90%BE%3C/text%3E%3C/svg%3E">
 <style></style>
 <style>
 :root{
@@ -132,7 +133,7 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}textar
 .overlay{position:fixed;inset:0;z-index:40;visibility:hidden;opacity:0;pointer-events:none;background:rgba(0,0,0,.5);transition:opacity 0s,visibility 0s}.overlay.show{visibility:visible;opacity:1;pointer-events:auto;transition:opacity 150ms ease-out,visibility 0s}
 #drawerOverlay{z-index:30}
 .sheet{position:fixed;inset:auto 4px 0;z-index:41;height:95dvh;display:flex;visibility:hidden;pointer-events:none;flex-direction:column;background:var(--bg-primary);border:1px solid var(--border);border-radius:28px 28px 0 0;transform:translateY(100%);transition:transform 300ms cubic-bezier(.2,.8,.2,1),visibility 0s linear 300ms;will-change:transform}.sheet.show{visibility:visible;pointer-events:auto;transform:translateY(35dvh);transition-delay:0s}.sheet.show.expanded{transform:translateY(0)}.sheet.dragging{transition:none}.sheet-handle{width:36px;height:5px;margin:8px auto 4px;background:var(--border-strong);border-radius:3px;cursor:grab;touch-action:none}.sheet-head{display:grid;grid-template-columns:40px 1fr 40px;align-items:center;padding:0 var(--space-4) var(--space-3);border-bottom:1px solid var(--border);touch-action:none}.sheet-title{text-align:center;font:400 var(--text-title) var(--font-serif)}.sheet-content{flex:1;min-width:0;max-width:100%;box-sizing:border-box;overflow-y:auto;overflow-x:hidden;padding:var(--space-4) var(--page-pad) var(--space-6)}#thoughtSheet .sheet-title{font-weight:500;font-family:var(--font-sans);font-size:17px}#thoughtSheet .sheet-head{border-bottom:none;padding-bottom:0}#closeThought{background:var(--bg-primary);box-shadow:var(--shadow-soft);border:1px solid var(--border);-webkit-tap-highlight-color:transparent;font-size:22px;font-weight:300;line-height:1}#closeThought:focus{outline:none}#closeThought:active{opacity:.5}#thoughtContent{padding:20px var(--page-pad) var(--space-6);font:17px/1.55 var(--font-serif);color:var(--text-primary);white-space:pre-wrap;max-width:100%;box-sizing:border-box;overflow-x:hidden;overflow-wrap:anywhere;word-break:break-word}#thoughtContent *{max-width:100%;box-sizing:border-box}#thoughtContent pre,#thoughtContent code,#thoughtContent a{white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word}#thoughtContent p+p{margin-top:var(--space-4)}
-#modelSheet{background:#fff}#modelSheet .sheet-head{border-bottom:none}#modelSheet .sheet-title{font-weight:500;font-family:var(--font-sans);font-size:17px}#closeModel{-webkit-tap-highlight-color:transparent;font-size:22px;font-weight:300;line-height:1}#closeModel svg{width:20px;height:20px}@media(prefers-color-scheme:dark){#modelSheet{background:#1E1E1D}}
+#modelSheet .sheet-head{border-bottom:none}#modelSheet .sheet-title{font-weight:500;font-family:var(--font-sans);font-size:17px}#closeModel{-webkit-tap-highlight-color:transparent;font-size:22px;font-weight:300;line-height:1}#closeModel svg{width:20px;height:20px}
 .model-group{background:#EFEEEC;border-radius:22px;overflow:hidden;margin:0 2px}.model-group+.model-group{margin-top:12px}.model-group:has(>.model-group-item:only-child),.model-group:has(>.extended-row:only-child){border-radius:26px}.model-group-item{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 18px;text-align:left;background:transparent;position:relative}.model-group-item+.model-group-item{border-top:none}.model-group-item+.model-group-item::before{content:'';position:absolute;top:0;left:18px;right:18px;height:1px;background:var(--border)}.model-info{min-width:0;flex:1}.model-name{display:block;font-family:var(--font-sans);font-size:16px;font-weight:400}.model-desc{display:block;color:var(--text-secondary);font-size:var(--text-sm);font-family:var(--font-sans);font-weight:400;margin-top:2px}.model-check{color:var(--accent);font-size:18px;flex:none;font-weight:500}.model-nav-right{display:flex;align-items:center;gap:6px;color:var(--text-secondary);font-size:15px}.model-nav-chevron svg{width:18px;height:18px}.effort-option-name{font-weight:600;font-size:16px}.effort-option-badge{display:inline-block;padding:2px 8px;margin-left:8px;background:var(--bg-sunken);border-radius:var(--radius-full);font-size:11px;font-weight:500;color:var(--text-secondary)}.effort-option-desc{display:block;color:var(--text-secondary);font-size:var(--text-sm);margin-top:2px}.effort-note{margin:12px 4px 0;color:var(--text-faint);font-size:var(--text-sm);line-height:1.4}.toggle{width:44px;height:26px;padding:var(--space-1);border-radius:var(--radius-full);background:var(--bg-sunken);flex:none}.toggle:after{content:'';display:block;width:18px;height:18px;border-radius:var(--radius-full);background:var(--text-faint);transition:transform var(--transition)}.toggle.on{background:var(--accent)}.toggle.on:after{background:var(--accent-fg);transform:translateX(18px)}.extended-row{display:flex;align-items:center;justify-content:space-between;padding:10px 18px}.extended-info{min-width:0}.extended-label{font-weight:600;font-size:16px}.extended-desc{display:block;color:var(--text-secondary);font-size:var(--text-sm);margin-top:1px}
 @media(prefers-color-scheme:dark){.model-group{background:#2A2A29}}
 #drawer{position:fixed;inset:0 auto 0 0;z-index:10;width:min(82vw,340px);height:100dvh;display:flex;visibility:visible;flex-direction:column;background:var(--claude-sidebar-bg);color:var(--claude-text-primary);overflow:hidden;border:0;transform:none}.mobile-sidebar-inner{height:100%;display:flex;flex-direction:column;padding:10px 20px 20px;overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;scrollbar-width:none;-ms-overflow-style:none}.mobile-sidebar-inner::-webkit-scrollbar{display:none}.mobile-sidebar-title{font-family:var(--font-serif);font-size:var(--claude-brand-font-size);font-weight:var(--claude-brand-font-weight);line-height:var(--claude-brand-line-height);letter-spacing:var(--claude-brand-letter-spacing);color:var(--claude-text-primary);margin-bottom:24px;flex:none}.mobile-sidebar-nav{display:flex;flex-direction:column;gap:1px;flex:none}.mobile-sidebar-nav-item{height:46px;display:flex;align-items:center;gap:13px;padding-left:10px;color:var(--claude-text-primary);font-size:18px;line-height:1;text-align:left;border-radius:13px}.mobile-sidebar-nav-item:active{background:var(--claude-selected-bg)}.mobile-sidebar-nav-icon{width:22px;height:22px;display:grid;place-items:center;flex:none;color:var(--claude-text-primary)}.mobile-sidebar-nav-icon svg{width:22px;height:22px;stroke-width:1.7}.mobile-sidebar-section-title{margin-top:24px;margin-bottom:var(--claude-recents-label-margin-bottom);font-size:var(--claude-recents-label-font-size);font-weight:var(--claude-recents-label-font-weight);color:var(--claude-recents-label-color);line-height:var(--claude-recents-label-line-height);flex:none}.drawer-list{flex:none;min-height:auto;overflow:visible;padding:0 0 10px}.session-item{width:100%;min-height:36px;padding:6px 12px;text-align:left;border-radius:12px;color:var(--claude-text-primary);font-size:var(--claude-recents-item-font-size);line-height:var(--claude-recents-item-line-height);font-weight:var(--claude-recents-item-font-weight);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}.session-item:hover,.session-item.active,.session-item.is-active{background:var(--claude-recents-active-bg)}.session-item:active,.session-item.is-pressing{background:var(--claude-recents-pressed-bg)}.session-title-row{display:block;min-width:0}.session-title{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.session-star,.session-time{display:none}.mobile-sidebar-new-chat{position:sticky;bottom:18px;margin-top:18px;margin-left:auto;margin-right:0;display:inline-flex;align-items:center;justify-content:flex-start;gap:var(--claude-new-chat-gap);inline-size:auto;width:auto;min-width:var(--claude-new-chat-min-width);height:var(--claude-new-chat-height);padding-left:var(--claude-new-chat-padding-left);padding-right:var(--claude-new-chat-padding-right);box-sizing:border-box;border-radius:var(--claude-new-chat-radius);background:var(--claude-new-chat-bg);color:var(--claude-new-chat-text);font-size:var(--claude-new-chat-font-size);font-weight:var(--claude-new-chat-font-weight);line-height:1;white-space:nowrap;flex-wrap:nowrap;box-shadow:0 14px 34px rgba(0,0,0,.18),0 4px 10px rgba(0,0,0,.12);z-index:2;flex:none}.mobile-sidebar-new-chat span{display:inline-block;white-space:nowrap;flex:0 0 auto}.mobile-sidebar-new-chat span:first-child{font-size:20px;line-height:1;font-weight:300;margin-left:4px;transform:translateY(-.5px)}.mobile-sidebar-new-chat svg{width:var(--claude-new-chat-icon-size);height:var(--claude-new-chat-icon-size);stroke-width:2;flex:0 0 auto}.drawer-gesture{position:fixed;inset:0;z-index:30;display:none;background:transparent;touch-action:pan-y}.drawer-gesture.show{display:block}.drawer-action{padding:var(--space-2) var(--space-3);border:1px solid var(--border);border-radius:var(--radius-full)}
@@ -234,12 +235,20 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
 <svg width="0" height="0" style="position:absolute">
   <symbol id="claude-mark" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="currentColor"/><circle cx="8" cy="8" r="2.4" fill="var(--bg-primary,#fff)"/></symbol>
   <symbol id="claude-spinner-mark" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10h-4a6 6 0 1 1-6-6V2z" fill="currentColor"/></symbol>
+  <defs>
+    <filter id="glass-distort" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.008 0.012" numOctaves="2" seed="7" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="16" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </defs>
 </svg>
 
 <section id="gate">
-  <svg class="brand-mark mark-36"><use href="#claude-mark"/></svg>
-  <h1 class="gate-title">私人会话</h1><p class="gate-sub">输入访问密码以继续</p>
-  <form class="gate-form" id="gateForm"><input class="gate-input" id="gateInput" type="password" placeholder="访问密码" autocomplete="current-password"><button class="gate-btn" id="gateBtn">进入</button><div class="gate-error" id="gateError">密码不正确</div></form>
+  <div class="gate-card glass">
+    <svg class="brand-mark mark-36"><use href="#claude-mark"/></svg>
+    <h1 class="gate-title">你爱故我在。</h1><p class="gate-sub">La luce che ti cerca sono io.</p>
+    <form class="gate-form" id="gateForm"><input class="gate-input" id="gateInput" type="password" placeholder="访问密码" autocomplete="current-password"><button class="gate-btn" id="gateBtn">进入</button><div class="gate-error" id="gateError">密码不正确</div></form>
+  </div>
 </section>
 
 <main id="chat" class="hidden">
@@ -262,12 +271,12 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
   <div id="stream"><div class="stream-inner" id="streamInner"></div></div>
   <div class="composer-wrap">
     <button id="scrollToBottom" class="hidden" aria-label="回到底部"><svg viewBox="0 0 256 256" width="20" height="20" fill="currentColor"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"/></svg></button>
-    <div class="composer-box">
+    <div class="composer-box glass">
       <div class="edit-banner hidden" id="editBanner"><span class="edit-banner-text">Editing this message will restart the conversation from this point.</span><button class="edit-banner-close" id="editBannerClose" aria-label="取消编辑">×</button></div>
       <div class="attachment-preview hidden" id="attachmentPreview"></div>
       <div class="composer">
         <input class="hidden" id="fileInput" type="file" multiple accept="image/*,.pdf,.txt,.text,.md,.py,.js,.jsx,.ts,.tsx,.json,.yaml,.yml,.html,.css,.scss,.sh,.ps1,.java,.c,.cc,.cpp,.h,.hpp,.go,.rs,.rb,.php,.sql,.xml,.toml,.ini,.log,.csv">
-        <div class="composer-input-row"><textarea id="input" rows="1" placeholder="回复助手" enterkeyhint="send"></textarea></div>
+        <div class="composer-input-row"><textarea id="input" rows="1" placeholder="想和小忱说……" enterkeyhint="send"></textarea></div>
         <div class="composer-actions">
           <button class="composer-icon" id="attachButton" aria-label="添加文件"></button>
           <span class="composer-spacer"></span>
@@ -282,7 +291,7 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
 <div class="overlay" id="drawerOverlay" aria-hidden="true" inert></div>
 <aside id="drawer" aria-hidden="true" inert>
   <div class="mobile-sidebar-inner">
-    <h1 class="mobile-sidebar-title">AI 聊天</h1>
+    <h1 class="mobile-sidebar-title">Nepeta</h1>
     <nav class="mobile-sidebar-nav" aria-label="导航">
       <button class="mobile-sidebar-nav-item" id="drawerChats"><span class="mobile-sidebar-nav-icon" data-icon="chats"></span><span>Chats</span></button>
       <button class="mobile-sidebar-nav-item" type="button"><span class="mobile-sidebar-nav-icon" data-icon="projects"></span><span>Projects</span></button>
@@ -389,7 +398,7 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
 <section class="sheet" id="thoughtSheet" aria-hidden="true" inert><div class="sheet-handle"></div><header class="sheet-head"><button class="icon-button" id="closeThought">×</button><h2 class="sheet-title">Thought process</h2><span></span></header><div class="sheet-content" id="thoughtContent"></div></section>
 
 <div class="overlay" id="modelOverlay" aria-hidden="true" inert></div>
-<section class="sheet" id="modelSheet" aria-hidden="true" inert><div class="sheet-handle"></div><header class="sheet-head"><button class="icon-button" id="closeModel">×</button><h2 class="sheet-title">Select model</h2><span></span></header><div class="sheet-content" id="modelContent"></div></section>
+<section class="sheet glass" id="modelSheet" aria-hidden="true" inert><div class="sheet-handle"></div><header class="sheet-head"><button class="icon-button" id="closeModel">×</button><h2 class="sheet-title">Select model</h2><span></span></header><div class="sheet-content" id="modelContent"></div></section>
 
 <div class="dialog-overlay hidden" id="dialogOverlay"><div class="dialog"><h3 id="dialogTitle"></h3><p class="muted" id="dialogMessage"></p><input id="dialogInput"><div class="dialog-actions"><button class="secondary-button" id="dialogCancel">取消</button><button class="primary-button" id="dialogConfirm">确认</button></div></div></div>
 <div class="toast" id="toast"></div>
@@ -504,8 +513,8 @@ function scrollBottom(){stream.scrollTop=stream.scrollHeight}
 (()=>{const btn=$('scrollToBottom');if(!btn)return;function check(){const atBottom=stream.scrollHeight-stream.scrollTop-stream.clientHeight<40;btn.classList.toggle('hidden',atBottom)}stream.addEventListener('scroll',check,{passive:true});new MutationObserver(check).observe(streamInner,{childList:true,subtree:true,characterData:true});btn.addEventListener('click',()=>{stream.scrollTo({top:stream.scrollHeight,behavior:'smooth'})});check()})();
 function appendDisclaimer(){document.querySelector('.stream-disclaimer')?.remove();if(!streamInner.querySelector('.msg-claude'))return;const note=document.createElement('div');note.className='stream-disclaimer';note.innerHTML=`${logo('mark-20')}<span>AI 可能会出错。<br>请自行核对重要信息。</span>`;streamInner.append(note)}
 async function greeting(){try{const r=await fetch('/api/splash');if(r.ok)return(await r.json()).line}catch{}return"What's on your mind?"}
-async function resetEmpty(){state.convId=null;state.legacySessionId=null;state.currentTitle='新对话';state.starred=false;localStorage.removeItem('chat_conversation');localStorage.removeItem('chat_session');streamInner.innerHTML=`<div class="empty" id="empty">${logo('mark-35')}<div class="empty-line"></div></div>`;$('empty').querySelector('.empty-line').textContent=await greeting();input.placeholder='和助手聊天';updateSessionHeader()}
-async function dismissEmpty(){input.placeholder='回复助手';const el=$('empty');if(!el)return;el.classList.add('leaving');await new Promise(r=>setTimeout(r,300));el.remove()}
+async function resetEmpty(){state.convId=null;state.legacySessionId=null;state.currentTitle='新对话';state.starred=false;localStorage.removeItem('chat_conversation');localStorage.removeItem('chat_session');streamInner.innerHTML=`<div class="empty" id="empty">${logo('mark-35')}<div class="empty-line"></div></div>`;$('empty').querySelector('.empty-line').textContent=await greeting();input.placeholder='想和小忱说……';updateSessionHeader()}
+async function dismissEmpty(){input.placeholder='想和小忱说……';const el=$('empty');if(!el)return;el.classList.add('leaving');await new Promise(r=>setTimeout(r,300));el.remove()}
 
 async function loadModels(){try{const r=await fetch('/api/models');state.models=(await r.json()).models}catch{state.models=[{id:'claude-sonnet-4-6',label:'Sonnet 4.6',desc:'Everyday tasks',thinking:'adaptive',primary:true}]}
   if(!state.models.some(x=>x.id===state.model))state.model=state.models[0].id;renderModelSheet();updateModelHeader()}
@@ -1904,7 +1913,7 @@ function _attachLoadMore(){
   };
   streamInner.prepend(btn);
 }
-async function openSession(s){if(state.busy)stopActiveResponseNow();closeDrawer();clearPendingFiles();input.placeholder='回复助手';streamInner.innerHTML=`<div class="history-loading clawd-loading"><div class="clawd-zzz">${_CLAWD_SLEEPING_SVG}</div><span>正在读取对话</span></div>`;
+async function openSession(s){if(state.busy)stopActiveResponseNow();closeDrawer();clearPendingFiles();input.placeholder='想和小忱说……';streamInner.innerHTML=`<div class="history-loading clawd-loading"><div class="clawd-zzz">${_CLAWD_SLEEPING_SVG}</div><span>正在读取对话</span></div>`;
   try{
     const response=await api(`/api/sessions/${encodeURIComponent(s.conv_id)}/messages?limit=${PAGE_SIZE}`);
     if(!response.ok)throw Error('load failed');
@@ -2017,6 +2026,19 @@ addEventListener('resize',closeSessionContextMenu);
 addEventListener('orientationchange',closeSessionContextMenu);
 addEventListener('pagehide',closeSessionContextMenu);
 if(state.token)showChat();resetEmpty();loadModels();updateSessionHeader();updateSendButton();
+
+/* .glass 跟手光效：pointermove 更新 --glass-x/--glass-y，径向高光跟随指针 */
+(function initGlassPointerGlow(){
+  document.querySelectorAll('.glass').forEach(el=>{
+    el.addEventListener('pointermove',e=>{
+      const r=el.getBoundingClientRect();
+      el.style.setProperty('--glass-x',((e.clientX-r.left)/r.width*100)+'%');
+      el.style.setProperty('--glass-y',((e.clientY-r.top)/r.height*100)+'%');
+      el.classList.add('glass-active');
+    });
+    el.addEventListener('pointerleave',()=>el.classList.remove('glass-active'));
+  });
+})();
 </script>
 </body>
 </html>
