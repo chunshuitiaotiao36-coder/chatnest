@@ -311,6 +311,20 @@ async def design_system_css() -> FileResponse:
     )
 
 
+@app.get("/static/fonts/{name}")
+async def static_font(name: str) -> FileResponse:
+    if not name.endswith(".woff2") or "/" in name or ".." in name:
+        raise HTTPException(status_code=404)
+    path = STATIC / "fonts" / name
+    if not path.is_file():
+        raise HTTPException(status_code=404)
+    return FileResponse(
+        path,
+        media_type="font/woff2",
+        headers={"Cache-Control": "public, max-age=31536000, immutable"},
+    )
+
+
 @app.post("/api/auth")
 async def login(body: AuthBody) -> dict:
     token = auth.issue_token(body.password)
