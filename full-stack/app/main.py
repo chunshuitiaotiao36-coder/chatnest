@@ -727,8 +727,7 @@ async def get_diary() -> dict:
 
 @app.get("/api/splash")
 async def splash() -> dict:
-    period = current_period()
-    return {"period": period, "line": random_line(period)}
+    return {"period": "any", "line": "What are we thinking about, 小朵?"}
 
 
 @app.get("/api/models")

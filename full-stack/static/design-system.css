@@ -4,24 +4,40 @@
    禁止在任何其他文件中发明颜色、间距、圆角、字体值。
    ============================================================ */
 
+/* —— 霞鹜文楷（子集化 woff2，仅装饰性文字用） —— */
+@font-face {
+  font-family: 'LXGW WenKai';
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+  src: url('/static/fonts/lxgw-light.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'LXGW WenKai';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('/static/fonts/lxgw-regular.woff2') format('woff2');
+}
+
 :root {
-  /* —— 色彩：温柔粉基调 —— */
-  --bg-primary:    #FFF5F7;            /* 页面底色：淡粉 */
-  --bg-surface:    #FDECEF;            /* 浮层/输入框：更浅一档 */
-  --bubble-user:   #F8DFE4;            /* 用户消息气泡 */
-  --bg-sunken:     #F0D5DA;            /* 按压态、代码块底色 */
-  --text-primary:  #1F1E1D;            /* 正文：暖近黑（保留原有中性灰体系）*/
+  /* —— 色彩：中性底色 + 粉色 accent，面板半透明让背景图透出来 —— */
+  --bg-primary:    #F8F8F6;                          /* 页面底色：中性暖白 */
+  --bg-surface:    rgba(246, 246, 244, 0.85);        /* 浮层/输入框：半透明 */
+  --bubble-user:   rgba(238, 238, 236, 0.9);         /* 用户消息气泡 */
+  --bg-sunken:     rgba(230, 230, 228, 0.9);         /* 按压态、代码块底色 */
+  --text-primary:  #1F1E1D;
   --text-secondary:#6E6D66;
   --text-faint:    #A6A39A;
 
-  /* —— 主题色：温柔粉（按钮/发送图标/光标/焦点/tab）—— */
-  --accent:        #F4B6B6;            /* 柔粉：主色 */
-  --accent-hover:  #D89090;            /* 深粉：hover / focus */
+  /* —— 主题色：柔粉（按钮/发送图标/光标/焦点/tab）—— */
+  --accent:        #E8879B;            /* 柔粉：主色 */
+  --accent-hover:  #D4708A;            /* 深粉：hover / focus */
   --accent-fg:     #FFFFFF;            /* 粉底上的文字 */
 
   /* —— 边框：极淡，靠留白而非线条分层 —— */
-  --border:        rgba(216, 144, 144, 0.14);
-  --border-strong: rgba(216, 144, 144, 0.28);  /* 输入框聚焦 */
+  --border:        rgba(31, 30, 29, 0.10);
+  --border-strong: rgba(31, 30, 29, 0.18);
 
   /* —— 字体 —— */
   --font-serif: ui-serif, Georgia, 'PingFang SC', sans-serif;
@@ -29,9 +45,9 @@
   --font-mono:  ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
   /* —— 字号 / 行高 —— */
-  --text-base:   16px;
-  --text-sm:     13px;
-  --text-title:  19px;
+  --text-base:   15px;
+  --text-sm:     12.5px;
+  --text-title:  18px;
   --leading:     1.65;                 /* 正文行高，不得低于 1.6 */
 
   /* —— 圆角 —— */
@@ -54,30 +70,31 @@
   --transition: 200ms ease;
 
   /* —— 阴影：几乎不用，仅输入区悬浮一层极轻的 —— */
-  --shadow-soft: 0 1px 3px rgba(216, 144, 144, 0.10);
+  --shadow-soft: 0 1px 3px rgba(31, 30, 29, 0.05);
   /* —— 底部 composer 外圈轻 halo（light theme） —— */
   --shadow-composer:
-    0 0 18px rgba(216, 144, 144, 0.10),
-    0 8px 22px rgba(216, 144, 144, 0.10);
+    0 0 18px rgba(0, 0, 0, 0.045),
+    0 8px 22px rgba(0, 0, 0, 0.045);
 }
 
 /* —— 暗色模式：深黑粉 + 发光亮粉 —— */
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg-primary:    #1A0F14;            /* 深黑粉底 */
-    --bg-surface:    #1F131A;            /* 输入框/浮层：稍浅一档 */
-    --bubble-user:   #160B10;            /* 用户气泡：更深 */
-    --bg-sunken:     #1D1218;            /* 按压态/代码块 */
-    --text-primary:  #F0DDE3;            /* 主文字：暖白带粉调 */
-    --text-secondary:#B29AA0;
-    --text-faint:    #7A6167;
-    --border:        rgba(244, 182, 196, 0.10);
-    --border-strong: rgba(244, 182, 196, 0.24);
+    --bg-primary:    #1A0F14;                          /* 深黑粉底 */
+    --bg-surface:    rgba(30, 18, 24, 0.9);            /* 输入框/浮层：半透明 */
+    --bubble-user:   rgba(36, 24, 32, 0.9);            /* 用户气泡：半透明 */
+    --bg-sunken:     #2A1C24;                          /* 按压态/代码块 */
+    --text-primary:  #F4E8EC;                          /* 主文字：暖白带粉调 */
+    --text-secondary:#B89AAA;
+    --text-faint:    #7A5A6A;
+    --border:        rgba(244, 232, 236, 0.08);
+    --border-strong: rgba(244, 232, 236, 0.16);
     --shadow-soft:   none;
-    --shadow-composer: var(--shadow-soft);
+    --shadow-composer: none;
     /* 暗色主色：亮粉在暗底发光 */
     --accent:        #F4B6C4;
-    --accent-hover:  #8B4A5C;            /* 酒红粉：hover / focus */
+    --accent-hover:  #E8A0B2;            /* 亮粉：hover / focus */
+    --accent-fg:     #1A0F14;
   }
 }
 
@@ -162,6 +179,53 @@
   }
   .glass::after {
     background: radial-gradient(circle 180px at var(--glass-x) var(--glass-y), rgba(244, 182, 196, 0.22), transparent 70%);
+  }
+}
+
+/* —— 霞鹜文楷挂载：仅装饰性文字（开屏问候 / 登录页标题 / 侧边栏标题） —— */
+.empty-line {
+  font-family: 'LXGW WenKai', ui-serif, Georgia, 'PingFang SC', serif;
+  font-weight: 300;
+}
+.gate-title,
+.gate-sub {
+  font-family: 'LXGW WenKai', ui-serif, Georgia, 'PingFang SC', serif;
+  font-weight: 300;
+}
+.mobile-sidebar-title {
+  font-family: 'LXGW WenKai', ui-serif, Georgia, 'PingFang SC', serif;
+  font-weight: 400;
+}
+
+/* —— 第二批扩大玻璃：topbar 按钮 + 模型菜单分组 —— */
+.topbar .icon-button {
+  background: rgba(255, 255, 255, 0.55);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  backdrop-filter: blur(20px) saturate(1.5);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    0 4px 14px rgba(180, 100, 120, 0.10);
+}
+.model-group {
+  background: rgba(255, 245, 245, 0.5) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  backdrop-filter: blur(18px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+@media (prefers-color-scheme: dark) {
+  .topbar .icon-button {
+    background: rgba(30, 18, 24, 0.55);
+    border-color: rgba(244, 182, 196, 0.16);
+    box-shadow:
+      inset 0 1px 0 rgba(244, 182, 196, 0.15),
+      0 4px 14px rgba(0, 0, 0, 0.35);
+  }
+  .model-group {
+    background: rgba(42, 28, 36, 0.55) !important;
+    border-color: rgba(244, 182, 196, 0.12);
+    box-shadow: inset 0 1px 0 rgba(244, 182, 196, 0.10);
   }
 }
 
