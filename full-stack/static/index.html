@@ -374,6 +374,7 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
           <span class="profile-name-label">背景图</span>
           <input type="file" id="bgFileInput" accept="image/*" hidden>
           <button type="button" class="profile-mini-button" id="chooseBgBtn">更换背景</button>
+          <span id="bgUploadStatus" style="font-size:12px;color:var(--accent);margin-left:8px;"></span>
           <button type="button" class="profile-mini-button profile-danger" id="clearBgBtn">恢复默认</button>
         </div>
         <div class="profile-divider"></div>
@@ -2080,11 +2081,41 @@ function applyBg(){
   if(bg){el.style.backgroundImage=`url(${bg})`;el.style.opacity=opacity;document.body.classList.add('has-bg')}
   else{el.style.backgroundImage='none';el.style.opacity='0';document.body.classList.remove('has-bg')}
 }
-function uploadBg(file){
-  if(!file)return;
-  const reader=new FileReader();
-  reader.onload=e=>{try{localStorage.setItem('nepeta_bg',e.target.result);applyBg()}catch(err){alert('图片过大，无法保存到本地存储')}};
-  reader.readAsDataURL(file);
+function uploadBg(file) {
+  if (!file) return;
+  const MAX_DIM = 1920;
+  const QUALITY = 0.7;
+  const statusEl = document.getElementById('bgUploadStatus');
+  if (statusEl) statusEl.textContent = '处理中…';
+  const img = new Image();
+  const url = URL.createObjectURL(file);
+  img.onload = () => {
+    let w = img.width, h = img.height;
+    if (w > MAX_DIM || h > MAX_DIM) {
+      const ratio = Math.min(MAX_DIM / w, MAX_DIM / h);
+      w = Math.round(w * ratio);
+      h = Math.round(h * ratio);
+    }
+    const cvs = document.createElement('canvas');
+    cvs.width = w; cvs.height = h;
+    cvs.getContext('2d').drawImage(img, 0, 0, w, h);
+    URL.revokeObjectURL(url);
+    const dataUrl = cvs.toDataURL('image/jpeg', QUALITY);
+    try {
+      localStorage.setItem('nepeta_bg', dataUrl);
+      applyBg();
+      if (statusEl) statusEl.textContent = '';
+    } catch (e) {
+      if (statusEl) statusEl.textContent = '图片太大，请选一张小一点的';
+      setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3000);
+    }
+  };
+  img.onerror = () => {
+    URL.revokeObjectURL(url);
+    if (statusEl) statusEl.textContent = '图片读取失败';
+    setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3000);
+  };
+  img.src = url;
 }
 function setBgOpacity(v){localStorage.setItem('nepeta_bg_opacity',v);applyBg()}
 function clearBg(){localStorage.removeItem('nepeta_bg');localStorage.removeItem('nepeta_bg_opacity');const r=document.getElementById('bgOpacity');if(r)r.value='0.25';applyBg()}
