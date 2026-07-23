@@ -25,7 +25,7 @@ from starlette.formparsers import MultiPartParser
 
 MultiPartParser.max_part_size = 60 * 1024 * 1024  # 与 uploads.py 的 MAX_FILE_BYTES 对齐
 
-from app import auth
+from app import auth, relays
 from app.actor import ActorBusyError
 from app.claude import (
     SessionResumeError,
@@ -92,6 +92,7 @@ def trace_content(value: Any) -> str:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    relays.initialize()  # must run before any Claude subprocess is spawned
     registry = configure_registry(os.environ.get("AGENT_APP_ROOT", str(ROOT)))
     await registry.start()
     try:
@@ -225,6 +226,41 @@ class RenameBody(BaseModel):
 
 class StarBody(BaseModel):
     starred: bool
+
+
+class RelayModelBody(BaseModel):
+    id: str = Field(min_length=1, max_length=200)
+    label: str = Field(min_length=1, max_length=200)
+
+
+class RelayCapabilitiesBody(BaseModel):
+    streaming: bool = True
+    cache_control: bool = True
+    reasoning: bool = False
+
+
+class RelayCreateBody(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    base_url: str = Field(min_length=1, max_length=500)
+    api_key: str = Field(min_length=1, max_length=500)
+    protocol: str = Field(default="openai-compatible", max_length=50)
+    capabilities: RelayCapabilitiesBody = Field(default_factory=RelayCapabilitiesBody)
+    models: list[RelayModelBody] = Field(default_factory=list, max_length=200)
+
+
+class RelayUpdateBody(BaseModel):
+    name: str | None = Field(default=None, max_length=100)
+    base_url: str | None = Field(default=None, max_length=500)
+    api_key: str | None = Field(default=None, max_length=500)
+    protocol: str | None = Field(default=None, max_length=50)
+    capabilities: RelayCapabilitiesBody | None = None
+    models: list[RelayModelBody] | None = Field(default=None, max_length=200)
+
+
+class RelayTestBody(BaseModel):
+    base_url: str = Field(min_length=1, max_length=500)
+    api_key: str = Field(default="", max_length=500)
+    protocol: str = Field(default="openai-compatible", max_length=50)
 
 
 def render_context_prompt(messages: list[dict[str, Any]]) -> str:
@@ -747,3 +783,55 @@ async def splash() -> dict:
 @app.get("/api/models")
 async def models() -> dict:
     return {"models": available_models()}
+
+
+@app.get("/api/relays", dependencies=[Depends(require_auth)])
+async def relays_list() -> dict:
+    return {"relays": relays.list_relays()}
+
+
+@app.get("/api/relays/active", dependencies=[Depends(require_auth)])
+async def relays_active() -> dict:
+    return relays.get_active_summary()
+
+
+@app.post("/api/relays", dependencies=[Depends(require_auth)])
+async def relays_create(body: RelayCreateBody) -> dict:
+    return await relays.create_relay(body.model_dump())
+
+
+@app.put("/api/relays/{relay_id}", dependencies=[Depends(require_auth)])
+async def relays_update(relay_id: str, body: RelayUpdateBody) -> dict:
+    payload = {k: v for k, v in body.model_dump().items() if v is not None}
+    try:
+        updated = await relays.update_relay(relay_id, payload)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="relay not found") from exc
+    if updated.get("active"):
+        # base_url/api_key may have changed — warm actor still holds old env
+        await get_registry().invalidate()
+    return updated
+
+
+@app.delete("/api/relays/{relay_id}", dependencies=[Depends(require_auth)])
+async def relays_delete(relay_id: str) -> dict:
+    try:
+        await relays.delete_relay(relay_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"deleted": True}
+
+
+@app.post("/api/relays/{relay_id}/activate", dependencies=[Depends(require_auth)])
+async def relays_activate(relay_id: str) -> dict:
+    try:
+        summary = await relays.activate(relay_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="relay not found") from exc
+    await get_registry().invalidate()  # ditch warm actor so new env takes effect
+    return summary
+
+
+@app.post("/api/relays/test", dependencies=[Depends(require_auth)])
+async def relays_test(body: RelayTestBody) -> dict:
+    return await relays.probe(body.base_url, body.api_key, body.protocol)

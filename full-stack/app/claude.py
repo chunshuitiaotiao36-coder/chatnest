@@ -114,17 +114,8 @@ class SessionResumeError(RuntimeError):
 
 
 def available_models() -> list[dict]:
-    models = json.loads(MODELS_PATH.read_text(encoding="utf-8"))
-    return [
-        {
-            "id": str(item["id"]),
-            "label": str(item["label"]),
-            "desc": str(item["desc"]),
-            "thinking": str(item["thinking"]),
-            "primary": bool(item["primary"]),
-        }
-        for item in models
-    ]
+    from app import relays  # local import to avoid startup cycle
+    return relays.active_models_rich()
 
 
 def thinking_options(

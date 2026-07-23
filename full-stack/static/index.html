@@ -384,6 +384,16 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
         </div>
       </div>
     </section>
+    <section class="profile-section">
+      <div class="profile-section-title">中转站</div>
+      <div class="profile-card">
+        <div id="relayList" style="display:flex;flex-direction:column">
+          <div style="padding:12px 4px;color:var(--muted,#888);font-size:13px">加载中…</div>
+        </div>
+        <div class="profile-divider"></div>
+        <div class="profile-name-row"><button type="button" class="profile-mini-button" id="addRelayBtn">＋ 添加中转站</button></div>
+      </div>
+    </section>
     <div class="profile-footer-actions"><button class="profile-text-button" id="deleteProfile">Clear profile</button></div>
   </div>
   <div class="profile-page" id="savedMemoriesPage">
@@ -431,6 +441,45 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
 <section class="sheet glass" id="modelSheet" aria-hidden="true" inert><div class="sheet-handle"></div><header class="sheet-head"><button class="icon-button" id="closeModel">×</button><h2 class="sheet-title">Select model</h2><span></span></header><div class="sheet-content" id="modelContent"></div></section>
 
 <div class="dialog-overlay hidden" id="dialogOverlay"><div class="dialog"><h3 id="dialogTitle"></h3><p class="muted" id="dialogMessage"></p><input id="dialogInput"><div class="dialog-actions"><button class="secondary-button" id="dialogCancel">取消</button><button class="primary-button" id="dialogConfirm">确认</button></div></div></div>
+<div class="dialog-overlay hidden" id="relayModalOverlay">
+  <div class="dialog" style="max-width:440px;width:calc(100% - 32px);max-height:88vh;overflow-y:auto">
+    <h3 id="relayModalTitle">编辑中转站</h3>
+    <div style="display:flex;flex-direction:column;gap:12px;font-size:14px">
+      <label style="display:flex;flex-direction:column;gap:4px">名称
+        <input id="relayFieldName" type="text" placeholder="例如 K 特惠" maxlength="100" autocomplete="off" />
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px">地址
+        <input id="relayFieldBaseUrl" type="text" placeholder="https://..." maxlength="500" autocomplete="off" />
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px">
+        <span>密钥 <span id="relayFieldKeyHint" style="color:var(--muted,#888);font-size:12px"></span></span>
+        <input id="relayFieldApiKey" type="password" placeholder="sk-..." maxlength="500" autocomplete="new-password" />
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px">协议
+        <select id="relayFieldProtocol"><option value="openai-compatible">OpenAI 兼容</option></select>
+      </label>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:13px">
+        <label style="display:flex;align-items:center;gap:6px"><input id="relayCapStreaming" type="checkbox" checked /> 流式</label>
+        <label style="display:flex;align-items:center;gap:6px"><input id="relayCapCache" type="checkbox" checked /> 缓存</label>
+        <label style="display:flex;align-items:center;gap:6px"><input id="relayCapReasoning" type="checkbox" /> 推理</label>
+      </div>
+      <label style="display:flex;flex-direction:column;gap:4px">模型列表 <span style="color:var(--muted,#888);font-size:12px">每行一条，格式 <code>模型ID | 显示名</code></span>
+        <textarea id="relayFieldModels" rows="6" placeholder="[k-特惠]claude-opus-4-8 | Opus 4.8" style="font-family:ui-monospace,monospace;font-size:12px"></textarea>
+      </label>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button type="button" class="secondary-button" id="relayTestBtn">测试连接</button>
+        <span id="relayTestResult" style="font-size:12px;color:var(--muted,#888)"></span>
+      </div>
+    </div>
+    <div class="dialog-actions" style="margin-top:14px;display:flex;gap:8px;align-items:center">
+      <button type="button" class="secondary-button" id="relayDeleteBtn" style="display:none;color:#c00">删除</button>
+      <div style="display:flex;gap:8px;margin-left:auto">
+        <button type="button" class="secondary-button" id="relayCancelBtn">取消</button>
+        <button type="button" class="primary-button" id="relaySaveBtn">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1989,7 +2038,7 @@ function renderSavedMemories(){const list=$('savedMemoriesList');const q=($('mem
 function renderProfile(){profileDraft=normalizeProfileClient(profileDraft);$('profileFullName').value=profileDraft.fullName;$('profileNickname').value=profileDraft.nickname;$('savedMemoriesCount').textContent=`${profileDraft.savedMemories.length} memories`;$('preferencesSummary').textContent=profileDraft.preferences.content.trim()?`${profileDraft.preferences.enabled?'Enabled':'Disabled'} · ${profileDraft.preferences.content.trim().slice(0,34)}${profileDraft.preferences.content.trim().length>34?'…':''}`:'No custom instructions';$('preferencesText').value=profileDraft.preferences.content;$('preferencesEnabled').classList.toggle('on',profileDraft.preferences.enabled);$('preferencesEnabled').setAttribute('aria-pressed',String(profileDraft.preferences.enabled));renderSavedMemories()}
 async function loadProfile(){const r=await api('/api/profile');if(!r.ok)throw Error('load failed');const data=await r.json();profileState=normalizeProfileClient(data.profile);profileDraft=cloneProfile(profileState);renderProfile();setProfileDirty(false)}
 async function saveProfile(){const payload=normalizeProfileClient(profileDraft);const r=await api('/api/profile',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});if(!r.ok)throw Error('save failed');const data=await r.json();profileState=normalizeProfileClient(data.profile||payload);profileDraft=cloneProfile(profileState);renderProfile();setProfileDirty(false);toast('Profile saved')}
-$('openMemory').onclick=async()=>{try{closeDrawer();$('memoryPanel').classList.add('show');$('memoryPanel').setAttribute('aria-hidden','false');showProfilePage('profileHome');await loadProfile()}catch(e){toast('Profile 加载失败')}};
+$('openMemory').onclick=async()=>{try{closeDrawer();$('memoryPanel').classList.add('show');$('memoryPanel').setAttribute('aria-hidden','false');showProfilePage('profileHome');await loadProfile();loadRelays()}catch(e){toast('Profile 加载失败')}};
 $('closeMemory').onclick=()=>{$('memoryPanel').classList.remove('show');$('memoryPanel').setAttribute('aria-hidden','true');$('memorySearchBar').classList.remove('show')};
 let _diaryEntries=[],_diaryMonth='all';
 $('openDiary').onclick=async()=>{try{closeDrawer();$('diaryPanel').classList.add('show');$('diaryPanel').setAttribute('aria-hidden','false');$('diarySearchBar').classList.add('show');$('diarySearchInput').value='';$('diarySearchClear').classList.add('hidden');const r=await api('/api/diary');if(!r.ok)throw Error();const data=await r.json();_diaryEntries=(data.entries||[]).reverse();_diaryMonth='all';renderDiaryMonths();renderDiaryContent()}catch(e){toast('Diary load failed')}};
@@ -2131,6 +2180,134 @@ function clearBg(){localStorage.removeItem('nepeta_bg');localStorage.removeItem(
   opacityRange?.addEventListener('input',e=>setBgOpacity(e.target.value));
   clearBtn?.addEventListener('click',clearBg);
 })();
+
+/* ---- 中转站管理 ---------------------------------------------------------- */
+let _relayEditingId = null;
+function _relayEscape(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+async function loadRelays(){
+  const list=document.getElementById('relayList');
+  try{
+    const r=await api('/api/relays');
+    if(!r.ok)throw Error();
+    const {relays}=await r.json();
+    list.innerHTML='';
+    if(!relays.length){list.innerHTML='<div style="padding:12px 4px;color:var(--muted,#888);font-size:13px">还没有中转站</div>';return}
+    relays.forEach((relay,i)=>{
+      if(i>0){const div=document.createElement('div');div.className='profile-divider';list.append(div)}
+      const row=document.createElement('div');
+      row.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 4px;cursor:pointer;border-radius:8px';
+      row.innerHTML=`
+        <span style="width:9px;height:9px;border-radius:50%;flex-shrink:0;${relay.active?'background:var(--accent);box-shadow:0 0 0 2px rgba(0,0,0,0.05)':'background:transparent;border:1.5px solid rgba(0,0,0,.2)'}"></span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_relayEscape(relay.name)}</div>
+          <div style="font-size:11px;color:var(--muted,#888);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_relayEscape(relay.base_url||'')}${relay.api_key_tail?' · 尾 '+_relayEscape(relay.api_key_tail):''} · ${relay.models.length} 个模型</div>
+        </div>
+        <button type="button" class="profile-mini-button" data-action="edit" style="flex-shrink:0;padding:4px 10px;font-size:12px">编辑</button>`;
+      row.addEventListener('click',async e=>{
+        if(e.target.closest('[data-action="edit"]')){e.stopPropagation();openRelayModal(relay);return}
+        if(relay.active)return;
+        await activateRelay(relay.id);
+      });
+      list.append(row);
+    });
+  }catch{list.innerHTML='<div style="padding:12px 4px;color:#c00;font-size:13px">加载失败</div>'}
+}
+async function activateRelay(id){
+  try{
+    const r=await api(`/api/relays/${encodeURIComponent(id)}/activate`,{method:'POST'});
+    if(!r.ok)throw Error();
+    await loadRelays();
+    await loadModels();
+    toast('已切换中转站');
+  }catch{toast('切换失败')}
+}
+function openRelayModal(relay){
+  _relayEditingId=relay?relay.id:null;
+  document.getElementById('relayModalTitle').textContent=relay?'编辑中转站':'添加中转站';
+  document.getElementById('relayFieldName').value=relay?relay.name:'';
+  document.getElementById('relayFieldBaseUrl').value=relay?relay.base_url:'';
+  const keyEl=document.getElementById('relayFieldApiKey');
+  keyEl.value='';
+  keyEl.placeholder=relay&&relay.api_key_tail?`保持不变（尾 4 位 ${relay.api_key_tail}）`:'sk-...';
+  document.getElementById('relayFieldKeyHint').textContent=relay?'（留空表示不改）':'';
+  document.getElementById('relayFieldProtocol').value=relay?relay.protocol:'openai-compatible';
+  document.getElementById('relayCapStreaming').checked=relay?!!relay.capabilities.streaming:true;
+  document.getElementById('relayCapCache').checked=relay?!!relay.capabilities.cache_control:true;
+  document.getElementById('relayCapReasoning').checked=relay?!!relay.capabilities.reasoning:false;
+  document.getElementById('relayFieldModels').value=relay?relay.models.map(m=>`${m.id} | ${m.label}`).join('\n'):'';
+  document.getElementById('relayDeleteBtn').style.display=(relay&&!relay.active)?'':'none';
+  const res=document.getElementById('relayTestResult');res.textContent='';res.style.color='var(--muted,#888)';
+  document.getElementById('relayModalOverlay').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('relayFieldName').focus(),50);
+}
+function closeRelayModal(){document.getElementById('relayModalOverlay').classList.add('hidden');_relayEditingId=null}
+function _parseRelayModels(text){
+  return text.split('\n').map(line=>{
+    const t=line.trim();if(!t)return null;
+    const idx=t.indexOf('|');
+    if(idx<0)return{id:t,label:t};
+    const id=t.slice(0,idx).trim();const label=t.slice(idx+1).trim()||id;
+    return id?{id,label}:null;
+  }).filter(Boolean);
+}
+async function submitRelayModal(){
+  const name=document.getElementById('relayFieldName').value.trim();
+  const base_url=document.getElementById('relayFieldBaseUrl').value.trim();
+  const api_key=document.getElementById('relayFieldApiKey').value;
+  const protocol=document.getElementById('relayFieldProtocol').value;
+  const capabilities={
+    streaming:document.getElementById('relayCapStreaming').checked,
+    cache_control:document.getElementById('relayCapCache').checked,
+    reasoning:document.getElementById('relayCapReasoning').checked,
+  };
+  const models=_parseRelayModels(document.getElementById('relayFieldModels').value);
+  if(!name){toast('名称必填');return}
+  if(!base_url){toast('地址必填');return}
+  const isCreate=!_relayEditingId;
+  if(isCreate&&!api_key.trim()){toast('新中转站必须填密钥');return}
+  const payload={name,base_url,protocol,capabilities,models};
+  if(api_key.trim())payload.api_key=api_key.trim();
+  const path=isCreate?'/api/relays':`/api/relays/${encodeURIComponent(_relayEditingId)}`;
+  try{
+    const r=await api(path,{method:isCreate?'POST':'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    if(!r.ok){const d=await r.json().catch(()=>({}));toast(d.detail||'保存失败');return}
+    closeRelayModal();
+    await loadRelays();
+    await loadModels();
+    toast(isCreate?'已添加':'已保存');
+  }catch{toast('保存失败')}
+}
+async function deleteRelayFromModal(){
+  if(!_relayEditingId)return;
+  const ok=await askDialog({title:'删除中转站?',message:'该操作无法撤销。',input:false,confirm:'删除'});
+  if(!ok)return;
+  try{
+    const r=await api(`/api/relays/${encodeURIComponent(_relayEditingId)}`,{method:'DELETE'});
+    if(!r.ok){const d=await r.json().catch(()=>({}));toast(d.detail||'删除失败');return}
+    closeRelayModal();
+    await loadRelays();
+    toast('已删除');
+  }catch{toast('删除失败')}
+}
+async function testRelayFromModal(){
+  const base_url=document.getElementById('relayFieldBaseUrl').value.trim();
+  const api_key=document.getElementById('relayFieldApiKey').value.trim();
+  const protocol=document.getElementById('relayFieldProtocol').value;
+  const res=document.getElementById('relayTestResult');
+  if(!base_url){res.textContent='需要填地址';res.style.color='#c00';return}
+  res.textContent='测试中…';res.style.color='var(--muted,#888)';
+  try{
+    const r=await api('/api/relays/test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({base_url,api_key,protocol})});
+    const data=await r.json();
+    res.textContent=data.detail||(data.ok?'可达':'不可达');
+    res.style.color=data.ok?'var(--accent,#0a7)':'#c00';
+  }catch{res.textContent='测试失败';res.style.color='#c00'}
+}
+document.getElementById('addRelayBtn')?.addEventListener('click',()=>openRelayModal(null));
+document.getElementById('relayCancelBtn')?.addEventListener('click',closeRelayModal);
+document.getElementById('relaySaveBtn')?.addEventListener('click',submitRelayModal);
+document.getElementById('relayDeleteBtn')?.addEventListener('click',deleteRelayFromModal);
+document.getElementById('relayTestBtn')?.addEventListener('click',testRelayFromModal);
 </script>
 </body>
 </html>
