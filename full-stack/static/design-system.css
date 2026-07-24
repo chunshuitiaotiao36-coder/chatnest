@@ -241,16 +241,17 @@
   border-radius: 24px;
 }
 
-/* 页面背景：让底下的固定背景图（#bgLayer）透出来，
-   同时留一层薄雾保证开屏语和输入框可读 */
+/* 页面背景：让底下的固定背景图（#bgLayer）以"氛围级"透出，
+   遮罩浓度按字条 2 原设定（.55），保证开屏语和 UI 层次清晰、
+   与侧栏 #F3F3F0 有明确色差 */
 #gate,
 #chat {
-  background: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.55);
 }
 
 @media (prefers-color-scheme: dark) {
   #gate,
   #chat {
-    background: rgba(26, 15, 20, 0.40);
+    background: rgba(26, 15, 20, 0.55);
   }
 }
