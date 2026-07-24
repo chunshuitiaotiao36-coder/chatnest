@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
-<meta name="theme-color" content="#F8F8F6" media="(prefers-color-scheme:light)">
+<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme:light)">
 <meta name="theme-color" content="#1A0F14" media="(prefers-color-scheme:dark)">
 <title>Nepeta</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8C%BF%3C/text%3E%3C/svg%3E">
@@ -12,9 +12,9 @@
 <style></style>
 <style>
 :root{
-  --bg-primary:#F8F8F6;--bg-surface:rgba(246,246,244,.85);--bubble-user:rgba(238,238,236,.9);--bg-sunken:rgba(230,230,228,.9);
+  --bg-primary:#FFFFFF;--bg-surface:rgba(246,246,244,.85);--bubble-user:rgba(238,238,236,.9);--bg-sunken:rgba(230,230,228,.9);
   --text-primary:#1F1E1D;--text-secondary:#6E6D66;--text-faint:#A6A39A;
-  --accent:#E8879B;--accent-hover:#D4708A;--accent-fg:#FFF;
+  --accent:#CC886C;--accent-hover:#C77A5F;--accent-fg:#FFF;
   --border:rgba(31,30,29,.10);--border-strong:rgba(31,30,29,.18);
   --font-serif:ui-serif,Georgia,'PingFang SC',sans-serif;
   --font-sans:-apple-system,system-ui,'PingFang SC',sans-serif;
@@ -86,10 +86,11 @@
 }}
 *{box-sizing:border-box;margin:0;padding:0}html,body{height:100%}
 body{height:100dvh;background:var(--bg-primary);color:var(--text-primary);font:var(--text-base)/var(--leading) var(--font-sans);overflow:hidden;-webkit-font-smoothing:antialiased}
-#bgLayer{position:fixed;inset:0;z-index:-1;background-size:cover;background-position:center;background-repeat:no-repeat;pointer-events:none;transition:opacity 300ms ease}
-body.has-bg{background:transparent}
-body.has-bg #chat,body.has-bg #gate{background:rgba(248,248,246,.55)}
-@media(prefers-color-scheme:dark){body.has-bg #chat,body.has-bg #gate{background:rgba(26,15,20,.55)}}
+#bgLayer{position:fixed;inset:0;z-index:-1;background:url('/bg-light.jpg') center/cover no-repeat fixed;pointer-events:none;transition:opacity 0.5s ease}
+@media(prefers-color-scheme:dark){#bgLayer{background-image:url('/bg-dark.jpg')}}
+body{background:transparent}
+#chat,#gate{background:rgba(248,248,246,.55)}
+@media(prefers-color-scheme:dark){#chat,#gate{background:rgba(26,15,20,.55)}}
 button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}textarea,input{font:inherit;color:inherit}
 .hidden{display:none!important}.brand-mark{display:block;color:var(--accent);fill:currentColor}.mark-48{width:48px;height:48px}.mark-35{width:35px;height:35px}.mark-36{width:36px;height:36px}.mark-24{width:24px;height:24px}.mark-20{width:20px;height:20px}.mark-16{width:16px;height:16px}
 .icon-button{width:36px;height:36px;display:grid;place-items:center;border:1px solid var(--border);border-radius:var(--radius-full)}
@@ -153,8 +154,8 @@ html.context-menu-open,body.context-menu-open{background:var(--claude-context-di
 #diaryPanel{position:fixed;inset:0;z-index:80;display:none;flex-direction:column;background:#fbfaf7;color:#201f1d;overflow:hidden}#diaryPanel.show{display:flex}.diary-months{display:flex;gap:6px;padding:8px 18px 4px;overflow-x:auto;-webkit-overflow-scrolling:touch;flex:none}.diary-months::-webkit-scrollbar{display:none}.diary-month-pill{flex:none;padding:6px 14px;border:0;border-radius:999px;background:#f2f0ed;color:#77736c;font:500 14px/1 var(--font-sans);white-space:nowrap}.diary-month-pill.active{background:#201f1d;color:#fff}.diary-content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:10px 18px calc(env(safe-area-inset-bottom) + 60px)}.diary-date-header{font:600 15px/1.2 var(--font-sans);color:#77736c;padding:16px 4px 8px}.diary-entry{font:400 16px/1.6 var(--font-sans);color:#201f1d;padding:10px 14px;border-radius:16px;background:#f2f0ed;margin-bottom:8px}.diary-empty{padding:40px 20px;text-align:center;color:#77736c;font-size:15px}.diary-search-bar{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 14px);z-index:82;padding:0 28px;pointer-events:none;display:none}.diary-search-bar.show{display:block}.diary-search-bubble{pointer-events:auto;display:flex;align-items:center;gap:10px;height:46px;padding:0 18px;border-radius:999px;background:rgba(244,243,239,.92);border:1px solid rgba(255,255,255,.85);color:rgba(32,31,29,.72);box-shadow:0 0 0 1px rgba(32,31,29,.035),0 8px 24px rgba(32,31,29,.08),0 2px 6px rgba(32,31,29,.05);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}.diary-search-icon{flex:0 0 20px;width:20px;height:20px;color:rgba(32,31,29,.45)}.diary-search-icon svg{width:20px;height:20px}.diary-search-input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:400 17px/1 var(--font-sans);color:#1F1F1D}.diary-search-input::placeholder{color:rgba(32,31,29,.42)}.diary-search-clear{flex:none;width:22px;height:22px;border-radius:50%;background:rgba(32,31,29,.28);color:#fff;font-size:14px;line-height:22px;text-align:center;border:0;padding:0;cursor:pointer}
 @media(prefers-color-scheme:dark){#diaryPanel{background:#1F1F1D;color:#F4F3EF}.diary-date-header{color:rgba(244,243,239,.56)}.diary-entry{background:#2A2A28;color:#F4F3EF}.diary-month-pill{background:#2A2A28;color:rgba(244,243,239,.56)}.diary-month-pill.active{background:#F4F3EF;color:#1F1F1D}.diary-search-bubble{background:rgba(42,42,40,.92);border-color:rgba(255,255,255,.12);color:rgba(244,243,239,.58);box-shadow:0 0 0 1px rgba(255,255,255,.035),0 8px 24px rgba(0,0,0,.30),0 2px 6px rgba(0,0,0,.22)}.diary-search-icon{color:rgba(244,243,239,.58)}.diary-search-input{color:#F4F3EF}.diary-search-input::placeholder{color:rgba(244,243,239,.45)}.diary-search-clear{background:rgba(255,255,255,.25)}}
 @media(prefers-color-scheme:dark){#memoryPanel{background:#1F1F1D;color:#F4F3EF}.profile-round-button,.profile-save-button,.profile-back-button{background:#2A2A28;border-color:rgba(255,255,255,.10);color:#F4F3EF;box-shadow:0 2px 8px rgba(0,0,0,.2)}.profile-save-button{color:var(--accent)}.profile-save-button:disabled{color:#6E6D66}.profile-title{color:#F4F3EF}.profile-subtitle,.profile-section-title,.profile-help-text,.profile-nav-chevron,.profile-nav-row-icon{color:rgba(244,243,239,.56)}.profile-nav-row-note{color:rgba(244,243,239,.42)}.profile-card{background:#2A2A28;border-color:rgba(255,255,255,.10);color:#F4F3EF}.profile-nav-row{background:#2A2A28;color:#F4F3EF}.profile-name-input,.profile-memory-textarea,.profile-preferences-textarea{color:#F4F3EF}.profile-name-input::placeholder,.profile-memory-textarea::placeholder,.profile-preferences-textarea::placeholder{color:#6E6D66}.profile-divider{background:rgba(255,255,255,.10)}.profile-memory-row .profile-memory-card{background:#2A2A28;border:none;outline:2px solid #2A2A28;outline-offset:-1px;box-shadow:none}.profile-empty{background:#2A2A28;color:rgba(244,243,239,.56)}.profile-add-button{background:#2A2A28;color:#F4F3EF;border:1px solid rgba(255,255,255,.12)}.profile-mini-button{background:rgba(255,255,255,.10);color:rgba(244,243,239,.56)}.profile-preferences-card{background:#2A2A28;color:#F4F3EF}.memory-search-bubble{background:rgba(42,42,40,.92);border-color:rgba(255,255,255,.12);color:rgba(244,243,239,.58);box-shadow:0 0 0 1px rgba(255,255,255,.035),0 8px 24px rgba(0,0,0,.30),0 2px 6px rgba(0,0,0,.22)}.memory-search-icon{color:rgba(244,243,239,.58)}.memory-search-input{color:#F4F3EF}.memory-search-input::placeholder{color:rgba(244,243,239,.45)}.memory-search-clear{background:rgba(255,255,255,.25)}.topbar .icon-button{border:1px solid rgba(255,255,255,.16);box-shadow:0 1px 2px rgba(0,0,0,.25)}}
-.dialog-overlay{position:fixed;inset:0;z-index:55;display:grid;place-items:center;padding:var(--space-4);background:var(--border-strong)}.dialog{width:100%;max-width:360px;padding:var(--space-5);background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-lg)}.dialog h3{font:400 var(--text-title) var(--font-serif)}.dialog input{width:100%;margin:var(--space-4) 0;padding:var(--space-3);background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);outline:0}.dialog-actions{display:flex;justify-content:flex-end;gap:var(--space-2)}.secondary-button{padding:var(--space-2) var(--space-3);border:1px solid var(--border);border-radius:var(--radius-md)}
-.toast{position:fixed;z-index:70;left:50%;bottom:calc(env(safe-area-inset-bottom) + 92px);max-width:calc(100% - var(--space-6));padding:var(--space-2) var(--space-4);transform:translate(-50%,12px);opacity:0;pointer-events:none;background:var(--text-primary);color:var(--bg-primary);border-radius:var(--radius-full);font-size:var(--text-sm);transition:opacity var(--transition),transform var(--transition)}.toast.show{opacity:1;transform:translate(-50%,0)}
+.dialog-overlay{position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:var(--space-4);background:var(--border-strong)}.dialog{width:100%;max-width:360px;padding:var(--space-5);background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-lg)}.dialog h3{font:400 var(--text-title) var(--font-serif)}.dialog input{width:100%;margin:var(--space-4) 0;padding:var(--space-3);background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);outline:0}.dialog-actions{display:flex;justify-content:flex-end;gap:var(--space-2)}.secondary-button{padding:var(--space-2) var(--space-3);border:1px solid var(--border);border-radius:var(--radius-md)}
+.toast{position:fixed;z-index:95;left:50%;bottom:calc(env(safe-area-inset-bottom) + 92px);max-width:calc(100% - var(--space-6));padding:var(--space-2) var(--space-4);transform:translate(-50%,12px);opacity:0;pointer-events:none;background:var(--text-primary);color:var(--bg-primary);border-radius:var(--radius-full);font-size:var(--text-sm);transition:opacity var(--transition),transform var(--transition)}.toast.show{opacity:1;transform:translate(-50%,0)}
 #chat{position:fixed;inset:0;z-index:20;background:var(--claude-main-surface);transform:translateX(var(--drawer-x));border-top-left-radius:var(--drawer-radius);border-bottom-left-radius:var(--drawer-radius);box-shadow:var(--drawer-shadow);overflow:hidden;will-change:transform,border-radius,box-shadow;transition:transform 280ms ease-out,border-radius 280ms ease-out,box-shadow 280ms ease-out;touch-action:pan-y}
 #stream,.topbar,.composer-wrap{touch-action:pan-y}
 #chat.drawer-dragging{transition:none}
@@ -366,23 +367,6 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
     <section class="profile-section">
       <button class="profile-nav-row" id="openSavedMemories"><span class="profile-nav-row-icon" data-profile-icon="memory"></span><span class="profile-nav-row-title">Saved memories<span class="profile-nav-row-note" id="savedMemoriesCount">0 enabled</span></span><span class="profile-nav-chevron">›</span></button>
       <button class="profile-nav-row" id="openPreferences"><span class="profile-nav-row-icon" data-profile-icon="pencil"></span><span class="profile-nav-row-title">Preferences<span class="profile-nav-row-note" id="preferencesSummary">No custom instructions</span></span><span class="profile-nav-chevron">›</span></button>
-    </section>
-    <section class="profile-section">
-      <div class="profile-section-title">外观</div>
-      <div class="profile-card">
-        <div class="profile-name-row">
-          <span class="profile-name-label">背景图</span>
-          <input type="file" id="bgFileInput" accept="image/*" hidden>
-          <button type="button" class="profile-mini-button" id="chooseBgBtn">更换背景</button>
-          <span id="bgUploadStatus" style="font-size:12px;color:var(--accent);margin-left:8px;"></span>
-          <button type="button" class="profile-mini-button profile-danger" id="clearBgBtn">恢复默认</button>
-        </div>
-        <div class="profile-divider"></div>
-        <div class="profile-name-row">
-          <span class="profile-name-label">透明度</span>
-          <input type="range" id="bgOpacity" min="0.05" max="0.5" step="0.05" value="0.25" style="flex:1">
-        </div>
-      </div>
     </section>
     <section class="profile-section">
       <div class="profile-section-title">中转站</div>
@@ -2121,64 +2105,10 @@ if(state.token)showChat();resetEmpty();loadModels();updateSessionHeader();update
   });
 })();
 
-/* 自定义背景图：localStorage 持久化 */
-function applyBg(){
-  const el=document.getElementById('bgLayer');
-  if(!el)return;
-  const bg=localStorage.getItem('nepeta_bg');
-  const opacity=parseFloat(localStorage.getItem('nepeta_bg_opacity')||'0.25');
-  if(bg){el.style.backgroundImage=`url(${bg})`;el.style.opacity=opacity;document.body.classList.add('has-bg')}
-  else{el.style.backgroundImage='none';el.style.opacity='0';document.body.classList.remove('has-bg')}
-}
-function uploadBg(file) {
-  if (!file) return;
-  const MAX_DIM = 1920;
-  const QUALITY = 0.7;
-  const statusEl = document.getElementById('bgUploadStatus');
-  if (statusEl) statusEl.textContent = '处理中…';
-  const img = new Image();
-  const url = URL.createObjectURL(file);
-  img.onload = () => {
-    let w = img.width, h = img.height;
-    if (w > MAX_DIM || h > MAX_DIM) {
-      const ratio = Math.min(MAX_DIM / w, MAX_DIM / h);
-      w = Math.round(w * ratio);
-      h = Math.round(h * ratio);
-    }
-    const cvs = document.createElement('canvas');
-    cvs.width = w; cvs.height = h;
-    cvs.getContext('2d').drawImage(img, 0, 0, w, h);
-    URL.revokeObjectURL(url);
-    const dataUrl = cvs.toDataURL('image/jpeg', QUALITY);
-    try {
-      localStorage.setItem('nepeta_bg', dataUrl);
-      applyBg();
-      if (statusEl) statusEl.textContent = '';
-    } catch (e) {
-      if (statusEl) statusEl.textContent = '图片太大，请选一张小一点的';
-      setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3000);
-    }
-  };
-  img.onerror = () => {
-    URL.revokeObjectURL(url);
-    if (statusEl) statusEl.textContent = '图片读取失败';
-    setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3000);
-  };
-  img.src = url;
-}
-function setBgOpacity(v){localStorage.setItem('nepeta_bg_opacity',v);applyBg()}
-function clearBg(){localStorage.removeItem('nepeta_bg');localStorage.removeItem('nepeta_bg_opacity');const r=document.getElementById('bgOpacity');if(r)r.value='0.25';applyBg()}
-(function initBg(){
-  applyBg();
-  const chooseBtn=document.getElementById('chooseBgBtn');
-  const fileInput=document.getElementById('bgFileInput');
-  const opacityRange=document.getElementById('bgOpacity');
-  const clearBtn=document.getElementById('clearBgBtn');
-  if(opacityRange){opacityRange.value=parseFloat(localStorage.getItem('nepeta_bg_opacity')||'0.25')}
-  chooseBtn?.addEventListener('click',()=>fileInput?.click());
-  fileInput?.addEventListener('change',e=>{uploadBg(e.target.files?.[0]);e.target.value=''});
-  opacityRange?.addEventListener('input',e=>setBgOpacity(e.target.value));
-  clearBtn?.addEventListener('click',clearBg);
+/* 清理旧版自定义背景图的 localStorage 残留 */
+(function cleanupOldBg(){
+  localStorage.removeItem('nepeta_bg');
+  localStorage.removeItem('nepeta_bg_opacity');
 })();
 
 /* ---- 中转站管理 ---------------------------------------------------------- */

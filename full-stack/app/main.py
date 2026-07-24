@@ -361,6 +361,24 @@ async def static_font(name: str) -> FileResponse:
     )
 
 
+@app.get("/bg-light.jpg")
+async def bg_light() -> FileResponse:
+    return FileResponse(
+        STATIC / "bg-light.jpg",
+        media_type="image/jpeg",
+        headers={"Cache-Control": "public, max-age=604800"},
+    )
+
+
+@app.get("/bg-dark.jpg")
+async def bg_dark() -> FileResponse:
+    return FileResponse(
+        STATIC / "bg-dark.jpg",
+        media_type="image/jpeg",
+        headers={"Cache-Control": "public, max-age=604800"},
+    )
+
+
 @app.post("/api/auth")
 async def login(body: AuthBody) -> dict:
     token = auth.issue_token(body.password)
