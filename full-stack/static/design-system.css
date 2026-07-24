@@ -22,7 +22,7 @@
 
 :root {
   /* —— 色彩：中性底色 + 粉色 accent，面板半透明让背景图透出来 —— */
-  --bg-primary:    #F8F8F6;                          /* 页面底色：中性暖白 */
+  --bg-primary:    #FFFFFF;                          /* 页面底色：纯白 */
   --bg-surface:    rgba(246, 246, 244, 0.85);        /* 浮层/输入框：半透明 */
   --bubble-user:   rgba(238, 238, 236, 0.9);         /* 用户消息气泡 */
   --bg-sunken:     rgba(230, 230, 228, 0.9);         /* 按压态、代码块底色 */
@@ -30,10 +30,10 @@
   --text-secondary:#6E6D66;
   --text-faint:    #A6A39A;
 
-  /* —— 主题色：柔粉（按钮/发送图标/光标/焦点/tab）—— */
-  --accent:        #E8879B;            /* 柔粉：主色 */
-  --accent-hover:  #D4708A;            /* 深粉：hover / focus */
-  --accent-fg:     #FFFFFF;            /* 粉底上的文字 */
+  /* —— 主题色：Claude 橙（按钮/发送图标/光标/焦点/tab）—— */
+  --accent:        #CC886C;            /* Claude 橙：主色 */
+  --accent-hover:  #C77A5F;            /* 深橙：hover / focus */
+  --accent-fg:     #FFFFFF;            /* 橙底上的文字 */
 
   /* —— 边框：极淡，靠留白而非线条分层 —— */
   --border:        rgba(31, 30, 29, 0.10);
