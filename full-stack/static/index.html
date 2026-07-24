@@ -89,8 +89,7 @@ body{height:100dvh;background:var(--bg-primary);color:var(--text-primary);font:v
 #bgLayer{position:fixed;inset:0;z-index:-1;background:url('/bg-light.jpg') center/cover no-repeat fixed;pointer-events:none;transition:opacity 0.5s ease}
 @media(prefers-color-scheme:dark){#bgLayer{background-image:url('/bg-dark.jpg')}}
 body{background:transparent}
-#chat,#gate{background:rgba(248,248,246,.55)}
-@media(prefers-color-scheme:dark){#chat,#gate{background:rgba(26,15,20,.55)}}
+/* #chat / #gate 的薄雾遮罩在 design-system.css 里定义（避免双写冲突） */
 button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}textarea,input{font:inherit;color:inherit}
 .hidden{display:none!important}.brand-mark{display:block;color:var(--accent);fill:currentColor}.mark-48{width:48px;height:48px}.mark-35{width:35px;height:35px}.mark-36{width:36px;height:36px}.mark-24{width:24px;height:24px}.mark-20{width:20px;height:20px}.mark-16{width:16px;height:16px}
 .icon-button{width:36px;height:36px;display:grid;place-items:center;border:1px solid var(--border);border-radius:var(--radius-full)}
