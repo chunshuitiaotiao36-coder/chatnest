@@ -19,6 +19,9 @@ from uuid import uuid4
 
 
 logger = logging.getLogger(__name__)
+# .info() on a root-attached logger is dropped (no logging config anywhere in
+# this project); borrow uvicorn's for lines that must reach the Coolify log.
+switch_logger = logging.getLogger("uvicorn.error")
 
 STORE_PATH = Path(os.environ.get("RELAYS_FILE", "/data/relays.json")).expanduser()
 _MODELS_SEED_PATH = Path(
@@ -157,7 +160,7 @@ def _apply_env(relay: dict) -> None:
         # ~/.claude when none of these are set — so unset all three.
         for key in _ENV_KEYS:
             os.environ.pop(key, None)
-        logger.info("relays: subscription mode active, ANTHROPIC_* cleared")
+        switch_logger.info("relays: subscription mode active, ANTHROPIC_* cleared")
         return
     api_key = relay.get("api_key") or ""
     _set_or_clear("ANTHROPIC_BASE_URL", relay.get("base_url") or "")

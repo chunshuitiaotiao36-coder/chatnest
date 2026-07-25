@@ -23,6 +23,9 @@ from claude_agent_sdk.types import StreamEvent
 
 
 logger = logging.getLogger(__name__)
+# this project configures no logging at all, so a root-attached logger sits at
+# WARNING and .info() goes nowhere. uvicorn configures its own — borrow it.
+cache_logger = logging.getLogger("uvicorn.error")
 
 
 class ActorBusyError(RuntimeError):
@@ -187,7 +190,7 @@ class ConvActor:
             elif isinstance(sdk_message, ResultMessage):
                 result_seen = True
                 usage = sdk_message.usage or {}
-                logger.info(
+                cache_logger.info(
                     "cache_usage input=%s cache_create=%s cache_read=%s cost=%s",
                     usage.get("input_tokens"),
                     usage.get("cache_creation_input_tokens"),
