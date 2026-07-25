@@ -555,3 +555,20 @@ body.tab-away #chat {
     color: rgba(244, 243, 239, 0.56);
   }
 }
+
+/* 侧栏 z-index:10 且写死 visibility:visible，一直靠不透明的 #chat 盖住。
+   设了背景图之后 #chat 变透明，侧栏就直接露出来了。
+   applyDrawerProgress() 在 drawerProgress<=.01 时已经 toggle inert，直接借用。
+   特异性 (1,1,0) > #drawer 的 (1,0,0)。 */
+#drawer[inert] {
+  visibility: hidden;
+  /* 关闭时 #chat 要 280ms 才滑回原位盖住侧栏（见 index.html 内联的
+     #chat transition）。抽屉必须等它盖住之后再消失，否则这 280ms 里
+     侧栏位置露出的是背景图，看着像"啪"一下没了。
+     打开方向不能延迟，所以下面那条把 transition 关掉。 */
+  transition: visibility 0s linear 280ms;
+}
+#drawer:not([inert]) {
+  visibility: visible;
+  transition: none;
+}
