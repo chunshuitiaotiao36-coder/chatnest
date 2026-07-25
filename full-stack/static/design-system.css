@@ -260,3 +260,176 @@
       linear-gradient(160deg, #1A0F14 0%, #22141B 60%, #2A1620 100%);
   }
 }
+
+/* ============================================================
+   底部导航栏 + Tab 页面框架
+   ============================================================ */
+
+:root {
+  --tabbar-h: 56px;                       /* 导航栏内容高度，不含 safe-area */
+  --tabbar-space: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+}
+
+/* —— 底部导航栏 ——
+   z-index 25：高于 #chat / .tab-page (20)，低于 #drawerOverlay (30)、
+   .overlay (40)、.sheet (41)、.dialog-overlay (90)、.toast (95)。
+   --drawer-x 由 applyDrawerProgress() 同步写入，让导航栏跟着聊天面板
+   一起滑开，否则侧栏被固定在底部的导航栏压住。 */
+#tabBar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 25;
+  display: flex;
+  align-items: stretch;
+  height: var(--tabbar-space);
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--bg-primary);
+  border-top: 1px solid var(--border);
+  transform: translateX(var(--drawer-x, 0px));
+  will-change: transform;
+  transition: transform 280ms ease-out;
+}
+#tabBar.drawer-dragging {
+  transition: none;
+}
+
+.tab-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-faint);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  transition: color var(--transition);
+}
+.tab-item.active {
+  color: var(--accent);
+}
+.tab-icon {
+  width: 24px;
+  height: 24px;
+  flex: none;
+}
+.tab-label {
+  font-family: var(--font-sans);
+  font-weight: 500;
+}
+
+/* 登录页不显示导航栏和 tab 页面 */
+body:not(.chat-ready) #tabBar,
+body:not(.chat-ready) .tab-page {
+  display: none !important;
+}
+
+/* —— Tab 页面容器 ——
+   与 #chat 同层 (z-index 20) 且 DOM 在其之后，靠不透明背景盖住聊天界面。
+   刻意不给 #chat 加 display:none —— 那会让 #stream 的滚动位置归零。 */
+.tab-page {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: var(--tabbar-space);
+  background:
+    radial-gradient(circle at 20% 15%, rgba(244, 182, 182, 0.45), transparent 55%),
+    radial-gradient(circle at 82% 82%, rgba(216, 144, 144, 0.30), transparent 60%),
+    linear-gradient(160deg, #FFF8FA 0%, #FDECEF 55%, #F8DFE4 100%);
+}
+.tab-page[hidden] {
+  display: none !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  .tab-page {
+    background:
+      radial-gradient(circle at 20% 15%, rgba(244, 182, 196, 0.20), transparent 55%),
+      radial-gradient(circle at 82% 82%, rgba(139, 74, 92, 0.30), transparent 60%),
+      linear-gradient(160deg, #1A0F14 0%, #22141B 60%, #2A1620 100%);
+  }
+}
+
+/* —— 占位页 —— */
+.tab-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: var(--space-3);
+  color: var(--text-faint);
+}
+.tab-placeholder-icon {
+  font-size: 48px;
+  line-height: 1;
+}
+.tab-placeholder-title {
+  font-family: 'LXGW WenKai', ui-serif, Georgia, 'PingFang SC', serif;
+  font-weight: 400;
+  font-size: 22px;
+  color: var(--text-secondary);
+}
+.tab-placeholder-sub {
+  font-size: 14px;
+}
+
+/* —— Home tab：memoryPanel / diaryPanel 从全屏 overlay 降级为 tab 内页 ——
+   选择器带 #tabHome 前缀，特异性 (2,0,0) 高于 index.html 内联的
+   #memoryPanel (1,0,0)，覆盖其 position:fixed / z-index:80。 */
+#tabHome {
+  padding-bottom: 0;
+  overflow: hidden;
+}
+#tabHome #memoryPanel,
+#tabHome #diaryPanel {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: transparent;
+  color: inherit;
+}
+@media (prefers-color-scheme: dark) {
+  #tabHome #memoryPanel,
+  #tabHome #diaryPanel {
+    background: transparent;
+    color: inherit;
+  }
+}
+/* diaryPanel 是 Home 的二级页，压在 profile 之上 */
+#tabHome #diaryPanel {
+  z-index: 2;
+}
+
+/* 内页各自的滚动容器给导航栏让位 */
+#tabHome .profile-page {
+  padding-bottom: calc(env(safe-area-inset-bottom) + var(--space-5) + var(--tabbar-h));
+}
+#tabHome .diary-content {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 60px + var(--tabbar-h));
+}
+#tabHome .memory-search-bar,
+#tabHome .diary-search-bar {
+  bottom: calc(env(safe-area-inset-bottom) + 14px + var(--tabbar-h));
+}
+
+/* —— composer 与 toast 给导航栏让位 —— */
+.composer-wrap {
+  padding-bottom: calc(env(safe-area-inset-bottom) + var(--space-2) + var(--tabbar-h));
+}
+.toast {
+  bottom: calc(env(safe-area-inset-bottom) + 92px + var(--tabbar-h));
+}

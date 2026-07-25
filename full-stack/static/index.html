@@ -300,13 +300,6 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
 <aside id="drawer" aria-hidden="true" inert>
   <div class="mobile-sidebar-inner">
     <h1 class="mobile-sidebar-title">Nepeta</h1>
-    <nav class="mobile-sidebar-nav" aria-label="导航">
-      <button class="mobile-sidebar-nav-item" id="drawerChats"><span class="mobile-sidebar-nav-icon" data-icon="chats"></span><span>Chats</span></button>
-      <button class="mobile-sidebar-nav-item" type="button"><span class="mobile-sidebar-nav-icon" data-icon="projects"></span><span>Projects</span></button>
-      <button class="mobile-sidebar-nav-item" type="button"><span class="mobile-sidebar-nav-icon" data-icon="artifacts"></span><span>Artifacts</span></button>
-      <button class="mobile-sidebar-nav-item" id="openMemory"><span class="mobile-sidebar-nav-icon" data-icon="memory"></span><span>Memory</span></button>
-      <button class="mobile-sidebar-nav-item" id="openDiary"><span class="mobile-sidebar-nav-icon" data-icon="diary"></span><span>Diary</span></button>
-    </nav>
     <div class="mobile-sidebar-section-title">Recents</div>
     <div class="drawer-list" id="sessionList"></div>
     <button class="mobile-sidebar-new-chat" id="drawerNewChat"><span>＋</span><span>New chat</span></button>
@@ -342,6 +335,7 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
 </div>
 
 
+<section id="tabHome" class="tab-page" hidden>
 <section id="memoryPanel" aria-hidden="true">
   <div class="profile-page active" id="profileHome">
     <header class="profile-header">
@@ -361,6 +355,7 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
     <section class="profile-section">
       <button class="profile-nav-row" id="openSavedMemories"><span class="profile-nav-row-icon" data-profile-icon="memory"></span><span class="profile-nav-row-title">Saved memories<span class="profile-nav-row-note" id="savedMemoriesCount">0 enabled</span></span><span class="profile-nav-chevron">›</span></button>
       <button class="profile-nav-row" id="openPreferences"><span class="profile-nav-row-icon" data-profile-icon="pencil"></span><span class="profile-nav-row-title">Preferences<span class="profile-nav-row-note" id="preferencesSummary">No custom instructions</span></span><span class="profile-nav-chevron">›</span></button>
+      <button class="profile-nav-row" id="openDiaryFromProfile"><span class="profile-nav-row-icon" data-profile-icon="diary"></span><span class="profile-nav-row-title">Diary<span class="profile-nav-row-note">按月浏览日记</span></span><span class="profile-nav-chevron">›</span></button>
     </section>
     <section class="profile-section">
       <div class="profile-section-title">中转站</div>
@@ -411,6 +406,52 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
   <div class="diary-content" id="diaryContent"></div>
   <div class="diary-search-bar" id="diarySearchBar"><div class="diary-search-bubble"><span class="diary-search-icon"></span><input class="diary-search-input" id="diarySearchInput" type="text" placeholder="Search" autocomplete="off" autocorrect="off" spellcheck="false"><button class="diary-search-clear hidden" id="diarySearchClear" aria-label="Clear">×</button></div></div>
 </section>
+</section>
+
+<section id="tabTidal" class="tab-page" hidden>
+  <div class="tab-placeholder">
+    <span class="tab-placeholder-icon">🌊</span>
+    <span class="tab-placeholder-title">潮汐</span>
+    <span class="tab-placeholder-sub">即将到来</span>
+  </div>
+</section>
+<section id="tabMusic" class="tab-page" hidden>
+  <div class="tab-placeholder">
+    <span class="tab-placeholder-icon">🎹</span>
+    <span class="tab-placeholder-title">琴房</span>
+    <span class="tab-placeholder-sub">即将到来</span>
+  </div>
+</section>
+<section id="tabReading" class="tab-page" hidden>
+  <div class="tab-placeholder">
+    <span class="tab-placeholder-icon">📖</span>
+    <span class="tab-placeholder-title">书房</span>
+    <span class="tab-placeholder-sub">即将到来</span>
+  </div>
+</section>
+
+<nav id="tabBar" aria-label="主导航">
+  <button class="tab-item" type="button" data-tab="tidal">
+    <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2s2.5 2 2.5 2"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2s2.4 2 5 2c2.5 0 2.5-2 5-2s2.5 2 2.5 2"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2s2.4 2 5 2c2.5 0 2.5-2 5-2s2.5 2 2.5 2"/></svg>
+    <span class="tab-label">潮汐</span>
+  </button>
+  <button class="tab-item" type="button" data-tab="music">
+    <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+    <span class="tab-label">琴房</span>
+  </button>
+  <button class="tab-item active" type="button" data-tab="chat">
+    <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    <span class="tab-label">Chat</span>
+  </button>
+  <button class="tab-item" type="button" data-tab="reading">
+    <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+    <span class="tab-label">书房</span>
+  </button>
+  <button class="tab-item" type="button" data-tab="home">
+    <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    <span class="tab-label">Home</span>
+  </button>
+</nav>
 
 <div class="overlay" id="thoughtOverlay" aria-hidden="true" inert></div>
 <section class="sheet" id="thoughtSheet" aria-hidden="true" inert><div class="sheet-handle"></div><header class="sheet-head"><button class="icon-button" id="closeThought">×</button><h2 class="sheet-title">Thought process</h2><span></span></header><div class="sheet-content" id="thoughtContent"></div></section>
@@ -560,7 +601,7 @@ $('input').addEventListener('paste',e=>{const items=e.clipboardData?.items;const
 $('micButton').onclick=()=>toast('语音功能开发中');
 
 function showChat(){document.body.classList.add('chat-ready');$('gate').classList.add('hidden');$('chat').classList.remove('hidden')}
-function showGate(){document.body.classList.remove('chat-ready');closeDrawer();$('chat').classList.add('hidden');$('gate').classList.remove('hidden')}
+function showGate(){document.body.classList.remove('chat-ready');closeDrawer();switchTab('chat');$('chat').classList.add('hidden');$('gate').classList.remove('hidden')}
 async function api(path,options={}){const headers={...(options.headers||{})};if(state.token)headers.Authorization=`Bearer ${state.token}`;const res=await fetch(path,{...options,headers});if(res.status===401){state.token=null;localStorage.removeItem('chat_token');showGate();throw Error('unauthorized')}return res}
 function saveSettings(){localStorage.setItem('chat_model_settings',JSON.stringify(state.settings))}
 function currentModel(){return state.models.find(x=>x.id===state.model)||state.models[0]}
@@ -1761,6 +1802,9 @@ function applyDrawerProgress(progress,dragging=false){
   chat.style.setProperty('--drawer-radius',`${radius}px`);
   chat.style.setProperty('--drawer-shadow',drawerProgress>0?`0 8px 40px rgba(0,0,0,${alpha})`:'none');
   chat.classList.toggle('drawer-dragging',dragging);
+  // 导航栏是 body 级 fixed 元素，不跟 #chat 一起 transform 就会压在侧栏上
+  const tabBarEl=$('tabBar');
+  if(tabBarEl){tabBarEl.style.setProperty('--drawer-x',`${x}px`);tabBarEl.classList.toggle('drawer-dragging',dragging)}
   $('drawer').setAttribute('aria-hidden',String(drawerProgress<=.01));
   $('drawer').toggleAttribute('inert',drawerProgress<=.01);
   gesture.style.left=`${x}px`;
@@ -1771,7 +1815,6 @@ function snapDrawer(open){if(open)loadSessions();requestAnimationFrame(()=>apply
 function openDrawer(){snapDrawer(true)}
 function closeDrawer(){closeSessionContextMenu();snapDrawer(false)}
 $('openDrawer').onclick=openDrawer;
-$('drawerChats').onclick=()=>loadSessions();
 $('drawerOverlay').onclick=closeDrawer;
 let _textSelectionActive=false,_drawerDisabledUntil=0;
 document.addEventListener('selectionchange',()=>{_textSelectionActive=(window.getSelection?.()?.toString()?.length||0)>0});
@@ -2016,11 +2059,16 @@ function renderSavedMemories(){const list=$('savedMemoriesList');const q=($('mem
 function renderProfile(){profileDraft=normalizeProfileClient(profileDraft);$('profileFullName').value=profileDraft.fullName;$('profileNickname').value=profileDraft.nickname;$('savedMemoriesCount').textContent=`${profileDraft.savedMemories.length} memories`;$('preferencesSummary').textContent=profileDraft.preferences.content.trim()?`${profileDraft.preferences.enabled?'Enabled':'Disabled'} · ${profileDraft.preferences.content.trim().slice(0,34)}${profileDraft.preferences.content.trim().length>34?'…':''}`:'No custom instructions';$('preferencesText').value=profileDraft.preferences.content;$('preferencesEnabled').classList.toggle('on',profileDraft.preferences.enabled);$('preferencesEnabled').setAttribute('aria-pressed',String(profileDraft.preferences.enabled));renderSavedMemories()}
 async function loadProfile(){const r=await api('/api/profile');if(!r.ok)throw Error('load failed');const data=await r.json();profileState=normalizeProfileClient(data.profile);profileDraft=cloneProfile(profileState);renderProfile();setProfileDirty(false)}
 async function saveProfile(){const payload=normalizeProfileClient(profileDraft);const r=await api('/api/profile',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});if(!r.ok)throw Error('save failed');const data=await r.json();profileState=normalizeProfileClient(data.profile||payload);profileDraft=cloneProfile(profileState);renderProfile();setProfileDirty(false);toast('Profile saved')}
-$('openMemory').onclick=async()=>{try{closeDrawer();$('memoryPanel').classList.add('show');$('memoryPanel').setAttribute('aria-hidden','false');showProfilePage('profileHome');await loadProfile();loadRelays()}catch(e){toast('Profile 加载失败')}};
-$('closeMemory').onclick=()=>{$('memoryPanel').classList.remove('show');$('memoryPanel').setAttribute('aria-hidden','true');$('memorySearchBar').classList.remove('show')};
+/* Home tab 内的 profile 面板：不再是 overlay，进出由 switchTab 驱动 */
+async function openHomeProfile(){$('memoryPanel').classList.add('show');$('memoryPanel').setAttribute('aria-hidden','false');showProfilePage('profileHome');loadRelays();await loadProfile()}
+function closeHomeProfile(){$('memoryPanel').classList.remove('show');$('memoryPanel').setAttribute('aria-hidden','true');$('memorySearchBar').classList.remove('show')}
+$('closeMemory').onclick=()=>{switchTab('chat')};
 let _diaryEntries=[],_diaryMonth='all';
-$('openDiary').onclick=async()=>{try{closeDrawer();$('diaryPanel').classList.add('show');$('diaryPanel').setAttribute('aria-hidden','false');$('diarySearchBar').classList.add('show');$('diarySearchInput').value='';$('diarySearchClear').classList.add('hidden');const r=await api('/api/diary');if(!r.ok)throw Error();const data=await r.json();_diaryEntries=(data.entries||[]).reverse();_diaryMonth='all';renderDiaryMonths();renderDiaryContent()}catch(e){toast('Diary load failed')}};
-$('closeDiary').onclick=()=>{$('diaryPanel').classList.remove('show');$('diaryPanel').setAttribute('aria-hidden','true');$('diarySearchBar').classList.remove('show')};
+/* Diary 从侧栏入口迁到 Home → Profile 里的一行，是 Home 的二级页 */
+async function openDiaryPage(){try{$('diaryPanel').classList.add('show');$('diaryPanel').setAttribute('aria-hidden','false');$('diarySearchBar').classList.add('show');$('diarySearchInput').value='';$('diarySearchClear').classList.add('hidden');const r=await api('/api/diary');if(!r.ok)throw Error();const data=await r.json();_diaryEntries=(data.entries||[]).reverse();_diaryMonth='all';renderDiaryMonths();renderDiaryContent()}catch(e){closeDiaryPage();toast('Diary load failed')}}
+function closeDiaryPage(){$('diaryPanel').classList.remove('show');$('diaryPanel').setAttribute('aria-hidden','true');$('diarySearchBar').classList.remove('show')}
+$('openDiaryFromProfile').onclick=openDiaryPage;
+$('closeDiary').onclick=closeDiaryPage;
 $('diarySearchBar').querySelector('.diary-search-icon').innerHTML=icon('search');
 $('diarySearchInput').addEventListener('input',()=>{const v=$('diarySearchInput').value;$('diarySearchClear').classList.toggle('hidden',!v);renderDiaryContent()});
 $('diarySearchClear').onclick=()=>{$('diarySearchInput').value='';$('diarySearchClear').classList.add('hidden');renderDiaryContent()};
@@ -2232,6 +2280,25 @@ document.getElementById('relayCancelBtn')?.addEventListener('click',closeRelayMo
 document.getElementById('relaySaveBtn')?.addEventListener('click',submitRelayModal);
 document.getElementById('relayDeleteBtn')?.addEventListener('click',deleteRelayFromModal);
 document.getElementById('relayTestBtn')?.addEventListener('click',testRelayFromModal);
+
+/* —— 底部导航栏 ——
+   Chat 不做 display:none，靠 .tab-page 的不透明背景盖住，
+   这样 #stream 的滚动位置和输入框状态都不会被重置。 */
+var currentTab='chat';
+function tabPages(){return{tidal:$('tabTidal'),music:$('tabMusic'),reading:$('tabReading'),home:$('tabHome')}}
+function switchTab(name){
+  const pages=tabPages();
+  if(name!=='chat'&&!pages[name])return;
+  if(name===currentTab)return;
+  if(currentTab==='home'){closeDiaryPage();closeHomeProfile()}
+  Object.values(pages).forEach(p=>{if(p)p.hidden=true});
+  if(name!=='chat')pages[name].hidden=false;
+  document.querySelectorAll('#tabBar .tab-item').forEach(t=>t.classList.toggle('active',t.dataset.tab===name));
+  currentTab=name;
+  if(name!=='chat')closeDrawer();
+  if(name==='home')openHomeProfile().catch(()=>toast('Profile 加载失败'));
+}
+document.querySelectorAll('#tabBar .tab-item').forEach(t=>{t.addEventListener('click',()=>switchTab(t.dataset.tab))});
 </script>
 </body>
 </html>
