@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
-<meta name="theme-color" content="#F8F8F6" media="(prefers-color-scheme:light)">
+<meta name="theme-color" content="#FFFDFC" media="(prefers-color-scheme:light)">
 <meta name="theme-color" content="#1A0F14" media="(prefers-color-scheme:dark)">
 <title>Nepeta</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8C%BF%3C/text%3E%3C/svg%3E">
@@ -14,7 +14,7 @@
 :root{
   --bg-primary:#F8F8F6;--bg-surface:rgba(246,246,244,.85);--bubble-user:rgba(238,238,236,.9);--bg-sunken:rgba(230,230,228,.9);
   --text-primary:#1F1E1D;--text-secondary:#6E6D66;--text-faint:#A6A39A;
-  --accent:#E8879B;--accent-hover:#D4708A;--accent-fg:#FFF;
+  --accent:#D97757;--accent-hover:#C96442;--accent-fg:#FFF;
   --border:rgba(31,30,29,.10);--border-strong:rgba(31,30,29,.18);
   --font-serif:ui-serif,Georgia,'PingFang SC',sans-serif;
   --font-sans:-apple-system,system-ui,'PingFang SC',sans-serif;
@@ -235,6 +235,8 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js"></script>
 </head>
 <body>
+<div id="bgLayer" aria-hidden="true"></div>
+<div id="bgMask" aria-hidden="true"></div>
 <svg width="0" height="0" style="position:absolute">
   <symbol id="claude-mark" viewBox="0 0 16 16">
     <path d="m3.127 10.604 3.135-1.76.053-.153-.053-.085H6.11l-.525-.032-1.791-.048-1.554-.065-1.505-.08-.38-.081L0 7.832l.036-.234.32-.214.455.04 1.009.069 1.513.105 1.097.064 1.626.17h.259l.036-.105-.089-.065-.068-.064-1.566-1.062-1.695-1.121-.887-.646-.48-.327-.243-.306-.104-.67.435-.48.585.04.15.04.593.456 1.267.981 1.654 1.218.242.202.097-.068.012-.049-.109-.181-.9-1.626-.96-1.655-.428-.686-.113-.411a2 2 0 0 1-.068-.484l.496-.674L4.446 0l.662.089.279.242.411.94.666 1.48 1.033 2.014.302.597.162.553.06.17h.105v-.097l.085-1.134.157-1.392.154-1.792.052-.504.25-.605.497-.327.387.186.319.456-.045.294-.19 1.23-.37 1.93-.243 1.29h.142l.161-.16.654-.868 1.097-1.372.484-.545.565-.601.363-.287h.686l.505.751-.226.775-.707.895-.585.759-.839 1.13-.524.904.048.072.125-.012 1.897-.403 1.024-.186 1.223-.21.553.258.06.263-.218.536-1.307.323-1.533.307-2.284.54-.028.02.032.04 1.029.098.44.024h1.077l2.005.15.525.346.315.424-.053.323-.807.411-3.631-.863-.872-.218h-.12v.073l.726.71 1.331 1.202 1.667 1.55.084.383-.214.302-.226-.032-1.464-1.101-.565-.497-1.28-1.077h-.084v.113l.295.432 1.557 2.34.08.718-.112.234-.404.141-.444-.08-.911-1.28-.94-1.44-.759-1.291-.093.053-.448 4.821-.21.246-.484.186-.403-.307-.214-.496.214-.98.258-1.28.21-1.016.19-1.263.112-.42-.008-.028-.092.012-.953 1.307-1.448 1.957-1.146 1.227-.274.109-.477-.247.045-.44.266-.39 1.586-2.018.956-1.25.617-.723-.004-.105h-.036l-4.212 2.736-.75.096-.324-.302.04-.496.154-.162 1.267-.871z" fill="currentColor"/>
@@ -356,6 +358,40 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
       <button class="profile-nav-row" id="openSavedMemories"><span class="profile-nav-row-icon" data-profile-icon="memory"></span><span class="profile-nav-row-title">Saved memories<span class="profile-nav-row-note" id="savedMemoriesCount">0 enabled</span></span><span class="profile-nav-chevron">›</span></button>
       <button class="profile-nav-row" id="openPreferences"><span class="profile-nav-row-icon" data-profile-icon="pencil"></span><span class="profile-nav-row-title">Preferences<span class="profile-nav-row-note" id="preferencesSummary">No custom instructions</span></span><span class="profile-nav-chevron">›</span></button>
       <button class="profile-nav-row" id="openDiaryFromProfile"><span class="profile-nav-row-icon" data-profile-icon="diary"></span><span class="profile-nav-row-title">Diary<span class="profile-nav-row-note">按月浏览日记</span></span><span class="profile-nav-chevron">›</span></button>
+    </section>
+    <section class="profile-section">
+      <div class="profile-section-title">外观</div>
+      <div class="profile-card">
+        <div class="bg-slot-row">
+          <div class="bg-slot-info">
+            <div class="bg-slot-name">日间背景</div>
+            <div class="bg-slot-state" id="bgStateLight">未设置</div>
+          </div>
+          <div class="bg-slot-actions">
+            <button type="button" class="profile-mini-button" id="bgPickLight">选择图片</button>
+            <button type="button" class="profile-mini-button profile-danger hidden" id="bgClearLight">清除</button>
+          </div>
+        </div>
+        <div class="profile-divider"></div>
+        <div class="bg-slot-row">
+          <div class="bg-slot-info">
+            <div class="bg-slot-name">夜间背景</div>
+            <div class="bg-slot-state" id="bgStateDark">未设置</div>
+          </div>
+          <div class="bg-slot-actions">
+            <button type="button" class="profile-mini-button" id="bgPickDark">选择图片</button>
+            <button type="button" class="profile-mini-button profile-danger hidden" id="bgClearDark">清除</button>
+          </div>
+        </div>
+        <div class="profile-divider"></div>
+        <div class="bg-mask-row">
+          <span class="bg-slot-name">遮罩浓度</span>
+          <input type="range" id="bgMaskRange" min="0" max="90" step="5" value="50" aria-label="遮罩浓度">
+          <span class="bg-mask-value" id="bgMaskValue">50%</span>
+        </div>
+        <div class="profile-help-text">只设一张也可以，另一套继续用默认渐变。遮罩越浓，文字越清楚，图越淡。</div>
+      </div>
+      <input type="file" id="bgFileInput" accept="image/*" hidden>
     </section>
     <section class="profile-section">
       <div class="profile-section-title">中转站</div>
@@ -600,9 +636,112 @@ $('fileInput').onchange=e=>addSelectedFiles([...e.target.files]);
 $('input').addEventListener('paste',e=>{const items=e.clipboardData?.items;const files=e.clipboardData?.files;const collected=[];if(items){for(const it of items){if(it.kind==='file'){const f=it.getAsFile();if(!f)continue;if(it.type.startsWith('image/')){const ext=(it.type.split('/')[1]||'png').replace(/^jpeg$/,'jpg');collected.push(new File([f],`paste-${Date.now()}.${ext}`,{type:it.type}))}else{collected.push(f)}}}}if(!collected.length&&files?.length){for(const f of files)collected.push(f)}if(collected.length){e.preventDefault();addSelectedFiles(collected)}});
 $('micButton').onclick=()=>toast('语音功能开发中');
 
-function showChat(){document.body.classList.add('chat-ready');$('gate').classList.add('hidden');$('chat').classList.remove('hidden')}
+function showChat(){document.body.classList.add('chat-ready');$('gate').classList.add('hidden');$('chat').classList.remove('hidden');loadBg()}
 function showGate(){document.body.classList.remove('chat-ready');closeDrawer();switchTab('chat');$('chat').classList.add('hidden');$('gate').classList.remove('hidden')}
 async function api(path,options={}){const headers={...(options.headers||{})};if(state.token)headers.Authorization=`Bearer ${state.token}`;const res=await fetch(path,{...options,headers});if(res.status===401){state.token=null;localStorage.removeItem('chat_token');showGate();throw Error('unauthorized')}return res}
+
+/* ---- 自定义背景图 -------------------------------------------------------
+   图片走 fetch + Bearer 取回再转 blob: URL，不用 CSS url() 直连后端——
+   那样鉴权就得从路由上摘掉，而 outer_basic_auth 默认不启用（AUTH_MODE=app），
+   摘掉等于把图片挂到公网上。 */
+let bgState={light:{set:false,v:0},dark:{set:false,v:0},mask:0.5};
+const bgBlob={light:{url:'',v:-1},dark:{url:'',v:-1}};
+
+function dropBgBlob(slot){
+  const cur=bgBlob[slot];
+  if(cur.url){URL.revokeObjectURL(cur.url);cur.url='';cur.v=-1}
+  document.documentElement.style.setProperty(`--bg-img-${slot}`,'none');
+  document.body.classList.remove(`has-bg-${slot}`);
+}
+
+async function applyBgSlot(slot){
+  const s=bgState[slot]||{set:false,v:0};
+  if(!s.set){dropBgBlob(slot);return}
+  const cur=bgBlob[slot];
+  /* 图还没取回来就先加 has-bg-* 的话，背景会先透明一帧再补上，看着像塌了 */
+  if(cur.url&&cur.v===s.v){
+    document.documentElement.style.setProperty(`--bg-img-${slot}`,`url('${cur.url}')`);
+    document.body.classList.add(`has-bg-${slot}`);
+    return;
+  }
+  try{
+    const r=await api(`/api/background/file/${slot}?v=${s.v}`);
+    if(!r.ok)throw Error(String(r.status));
+    const url=URL.createObjectURL(await r.blob());
+    if(cur.url)URL.revokeObjectURL(cur.url);
+    cur.url=url;cur.v=s.v;
+    document.documentElement.style.setProperty(`--bg-img-${slot}`,`url('${url}')`);
+    document.body.classList.add(`has-bg-${slot}`);
+  }catch{dropBgBlob(slot)}
+}
+
+function applyBg(){
+  document.documentElement.style.setProperty('--bg-mask',String(bgState.mask));
+  renderBgCard();
+  return Promise.all(['light','dark'].map(applyBgSlot));
+}
+
+async function loadBg(){
+  try{const r=await api('/api/background');if(r.ok){bgState=await r.json();applyBg()}}catch{}
+}
+
+async function uploadBg(slot,file){
+  if(!file)return;
+  const MAX_DIM=1600,QUALITY=0.82;
+  const stateEl=$(`bgState${slot==='light'?'Light':'Dark'}`);
+  if(stateEl)stateEl.textContent='处理中…';
+  try{
+    const bmp=await createImageBitmap(file);
+    let w=bmp.width,h=bmp.height;
+    if(w>MAX_DIM||h>MAX_DIM){const k=Math.min(MAX_DIM/w,MAX_DIM/h);w=Math.round(w*k);h=Math.round(h*k)}
+    const cvs=document.createElement('canvas');cvs.width=w;cvs.height=h;
+    cvs.getContext('2d').drawImage(bmp,0,0,w,h);
+    bmp.close();
+    const blob=await new Promise(ok=>cvs.toBlob(ok,'image/jpeg',QUALITY));
+    if(!blob)throw new Error('encode failed');
+    const fd=new FormData();
+    fd.append('file',new File([blob],`${slot}.jpg`,{type:'image/jpeg'}));
+    const r=await api(`/api/background/${slot}`,{method:'POST',body:fd});
+    if(!r.ok)throw new Error(String(r.status));
+    bgState=await r.json();await applyBg();toast('背景已更新');
+  }catch(e){
+    applyBg();
+    toast(String(e.message)==='413'?'图片太大了':'背景设置失败');
+  }
+}
+
+async function clearBg(slot){
+  try{
+    const r=await api(`/api/background/${slot}`,{method:'DELETE'});
+    if(!r.ok)throw 0;
+    bgState=await r.json();applyBg();toast('已恢复默认背景');
+  }catch{toast('清除失败')}
+}
+
+let bgMaskTimer=null;
+function setBgMask(pct){
+  bgState.mask=pct/100;
+  document.documentElement.style.setProperty('--bg-mask',String(bgState.mask));
+  const v=$('bgMaskValue');if(v)v.textContent=`${pct}%`;
+  clearTimeout(bgMaskTimer);
+  bgMaskTimer=setTimeout(async()=>{
+    try{await api('/api/background/mask',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({mask:bgState.mask})})}catch{}
+  },400);
+}
+
+function renderBgCard(){
+  for(const slot of ['light','dark']){
+    const cap=slot==='light'?'Light':'Dark';
+    const st=$(`bgState${cap}`);
+    const clr=$(`bgClear${cap}`);
+    const on=!!(bgState[slot]&&bgState[slot].set);
+    if(st)st.textContent=on?'已设置':'未设置';
+    if(clr)clr.classList.toggle('hidden',!on);
+  }
+  const pct=Math.round((bgState.mask||0)*100);
+  const sl=$('bgMaskRange');if(sl)sl.value=String(pct);
+  const v=$('bgMaskValue');if(v)v.textContent=`${pct}%`;
+}
 function saveSettings(){localStorage.setItem('chat_model_settings',JSON.stringify(state.settings))}
 function currentModel(){return state.models.find(x=>x.id===state.model)||state.models[0]}
 function modelSetting(model=currentModel()){const s=state.settings[model?.id];if(model?.thinking==='adaptive'||model?.thinking==='extended')return{effort:s?.effort||'medium',extended:s?.extended!==false};return{}}
@@ -2081,6 +2220,20 @@ $('memorySearchBar').querySelector('.memory-search-icon').innerHTML=icon('search
 $('memorySearchInput').addEventListener('input',()=>{const v=$('memorySearchInput').value;$('memorySearchClear').classList.toggle('hidden',!v);renderSavedMemories()});
 $('memorySearchClear').onclick=()=>{$('memorySearchInput').value='';$('memorySearchClear').classList.add('hidden');renderSavedMemories()};
 $('openSavedMemories').onclick=()=>{$('memorySearchInput').value='';$('memorySearchClear').classList.add('hidden');showProfilePage('savedMemoriesPage')};$('openPreferences').onclick=()=>showProfilePage('preferencesPage');$('profileBackFromMemories').onclick=()=>showProfilePage('profileHome');$('profileBackFromPreferences').onclick=()=>showProfilePage('profileHome');
+(()=>{
+  const fileInput=$('bgFileInput');
+  let pendingSlot='light';
+  for(const slot of ['light','dark']){
+    const cap=slot==='light'?'Light':'Dark';
+    const pick=$(`bgPick${cap}`);
+    const clr=$(`bgClear${cap}`);
+    if(pick)pick.onclick=()=>{pendingSlot=slot;fileInput.value='';fileInput.click()};
+    if(clr)clr.onclick=()=>clearBg(slot);
+  }
+  if(fileInput)fileInput.onchange=()=>{const f=fileInput.files&&fileInput.files[0];if(f)uploadBg(pendingSlot,f)};
+  const sl=$('bgMaskRange');
+  if(sl)sl.oninput=()=>setBgMask(Number(sl.value));
+})();
 $('profileFullName').oninput=e=>{profileDraft.fullName=e.target.value;setProfileDirty()};$('profileNickname').oninput=e=>{profileDraft.nickname=e.target.value;setProfileDirty()};$('preferencesText').oninput=e=>{profileDraft.preferences.content=e.target.value;setProfileDirty()};$('preferencesEnabled').onclick=()=>{profileDraft.preferences.enabled=!profileDraft.preferences.enabled;renderProfile();setProfileDirty()};
 $('addSavedMemory').onclick=()=>{profileDraft.savedMemories.unshift({id:profileId(),content:'',enabled:true,source:'manual',createdAt:Date.now(),updatedAt:Date.now()});renderSavedMemories();setProfileDirty();setTimeout(()=>$('savedMemoriesList').querySelector('.profile-memory-row:first-child textarea')?.focus(),30)};
 $('savedMemoriesList').addEventListener('input',e=>{const row=e.target.closest('.profile-memory-row');if(!row)return;const item=profileDraft.savedMemories.find(x=>x.id===row.dataset.id);if(item){item.content=e.target.value;item.updatedAt=Date.now();autoSizeMemoryTextarea(e.target);setProfileDirty()}});
@@ -2294,6 +2447,9 @@ function switchTab(name){
   Object.values(pages).forEach(p=>{if(p)p.hidden=true});
   if(name!=='chat')pages[name].hidden=false;
   document.querySelectorAll('#tabBar .tab-item').forEach(t=>t.classList.toggle('active',t.dataset.tab===name));
+  /* 设了背景图后 .tab-page 会变透明，光靠盖住不够，#chat 的内容会透上来。
+     用 visibility:hidden 而不是 display:none —— 后者会把 #stream 滚动位置清零。 */
+  document.body.classList.toggle('tab-away',name!=='chat');
   currentTab=name;
   if(name!=='chat')closeDrawer();
   if(name==='home')openHomeProfile().catch(()=>toast('Profile 加载失败'));

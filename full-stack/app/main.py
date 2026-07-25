@@ -25,7 +25,7 @@ from starlette.formparsers import MultiPartParser
 
 MultiPartParser.max_part_size = 60 * 1024 * 1024  # 与 uploads.py 的 MAX_FILE_BYTES 对齐
 
-from app import auth, relays
+from app import auth, backgrounds, relays
 from app.actor import ActorBusyError
 from app.claude import (
     SessionResumeError,
@@ -261,6 +261,10 @@ class RelayTestBody(BaseModel):
     base_url: str = Field(min_length=1, max_length=500)
     api_key: str = Field(default="", max_length=500)
     protocol: str = Field(default="openai-compatible", max_length=50)
+
+
+class BackgroundMaskBody(BaseModel):
+    mask: float = Field(ge=0.0, le=0.9)
 
 
 def render_context_prompt(messages: list[dict[str, Any]]) -> str:
@@ -835,3 +839,51 @@ async def relays_activate(relay_id: str) -> dict:
 @app.post("/api/relays/test", dependencies=[Depends(require_auth)])
 async def relays_test(body: RelayTestBody) -> dict:
     return await relays.probe(body.base_url, body.api_key, body.protocol)
+
+
+@app.get("/api/background", dependencies=[Depends(require_auth)])
+async def background_state() -> dict:
+    return backgrounds.get_state()
+
+
+@app.post("/api/background/{slot}", dependencies=[Depends(require_auth)])
+async def background_upload(slot: str, file: UploadFile = File(...)) -> dict:
+    if not backgrounds.valid_slot(slot):
+        raise HTTPException(status_code=404, detail="unknown slot")
+    if file.content_type not in backgrounds.ALLOWED_TYPES:
+        raise HTTPException(status_code=415, detail="unsupported image type")
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="empty file")
+    if len(data) > backgrounds.MAX_BYTES:
+        raise HTTPException(status_code=413, detail="image too large")
+    return backgrounds.store(slot, data)
+
+
+@app.delete("/api/background/{slot}", dependencies=[Depends(require_auth)])
+async def background_clear(slot: str) -> dict:
+    if not backgrounds.valid_slot(slot):
+        raise HTTPException(status_code=404, detail="unknown slot")
+    return backgrounds.clear(slot)
+
+
+@app.put("/api/background/mask", dependencies=[Depends(require_auth)])
+async def background_mask(body: BackgroundMaskBody) -> dict:
+    return backgrounds.set_mask(body.mask)
+
+
+# 保留 require_auth：外层 outer_basic_auth 只在 AUTH_MODE=both 时启用（见 main.py 顶部
+# OUTER_BASIC_AUTH_ENABLED），默认 AUTH_MODE=app 时它是空转的，不能当作访问控制。
+# 前端不用 CSS url() 直连本路由，而是 fetch 带 Bearer 取回后转 blob: URL 再喂给 CSS 变量。
+@app.get("/api/background/file/{slot}", dependencies=[Depends(require_auth)])
+async def background_file(slot: str) -> FileResponse:
+    if not backgrounds.valid_slot(slot):
+        raise HTTPException(status_code=404, detail="unknown slot")
+    path = backgrounds.file_path(slot)
+    if path is None:
+        raise HTTPException(status_code=404, detail="not set")
+    return FileResponse(
+        path,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "private, max-age=31536000, immutable"},
+    )

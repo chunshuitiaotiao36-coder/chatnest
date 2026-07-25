@@ -30,10 +30,10 @@
   --text-secondary:#6E6D66;
   --text-faint:    #A6A39A;
 
-  /* —— 主题色：柔粉（按钮/发送图标/光标/焦点/tab）—— */
-  --accent:        #E8879B;            /* 柔粉：主色 */
-  --accent-hover:  #D4708A;            /* 深粉：hover / focus */
-  --accent-fg:     #FFFFFF;            /* 粉底上的文字 */
+  /* —— 主题色：Claude 赭橙（按钮/发送图标/光标/焦点/tab）—— */
+  --accent:        #D97757;            /* Claude 赭橙：主色 */
+  --accent-hover:  #C96442;            /* 深赭橙：hover / focus */
+  --accent-fg:     #FFFFFF;            /* 橙底上的文字 */
 
   /* —— 边框：极淡，靠留白而非线条分层 —— */
   --border:        rgba(31, 30, 29, 0.10);
@@ -246,9 +246,9 @@
 #gate,
 #chat {
   background:
-    radial-gradient(circle at 20% 15%, rgba(244, 182, 182, 0.45), transparent 55%),
-    radial-gradient(circle at 82% 82%, rgba(216, 144, 144, 0.30), transparent 60%),
-    linear-gradient(160deg, #FFF8FA 0%, #FDECEF 55%, #F8DFE4 100%);
+    radial-gradient(circle at 20% 15%, rgba(244, 182, 182, 0.16), transparent 55%),
+    radial-gradient(circle at 82% 82%, rgba(216, 144, 144, 0.12), transparent 60%),
+    linear-gradient(160deg, #FFFDFC 0%, #FDF7F5 55%, #FAF1EE 100%);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -345,10 +345,11 @@ body:not(.chat-ready) .tab-page {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding-bottom: var(--tabbar-space);
+  /* 必须与 #gate,#chat 的浅色渐变逐行一致，否则切 tab 会看到底色跳变 */
   background:
-    radial-gradient(circle at 20% 15%, rgba(244, 182, 182, 0.45), transparent 55%),
-    radial-gradient(circle at 82% 82%, rgba(216, 144, 144, 0.30), transparent 60%),
-    linear-gradient(160deg, #FFF8FA 0%, #FDECEF 55%, #F8DFE4 100%);
+    radial-gradient(circle at 20% 15%, rgba(244, 182, 182, 0.16), transparent 55%),
+    radial-gradient(circle at 82% 82%, rgba(216, 144, 144, 0.12), transparent 60%),
+    linear-gradient(160deg, #FFFDFC 0%, #FDF7F5 55%, #FAF1EE 100%);
 }
 .tab-page[hidden] {
   display: none !important;
@@ -432,4 +433,125 @@ body:not(.chat-ready) .tab-page {
 }
 .toast {
   bottom: calc(env(safe-area-inset-bottom) + 92px + var(--tabbar-h));
+}
+
+/* ============================================================
+   自定义背景图
+   ============================================================ */
+
+/* --bg-img-light / --bg-img-dark / --bg-mask 由 applyBg() 写到
+   document.documentElement 的行内样式上。未设图时为 none。
+   图片值是 blob: URL（fetch 带 Bearer 取回后生成），不是后端地址。 */
+
+#bgLayer {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background-image: var(--bg-img-light, none);
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  /* 不要加 background-attachment:fixed —— iOS Safari 不支持，
+     本元素已经是 position:fixed，天生跟随视口。 */
+}
+
+#bgMask {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: #FFF8FA;
+  opacity: var(--bg-mask, 0.5);
+  transition: opacity 200ms ease;
+}
+
+/* 设了日间图才让页面背景透明，露出底下的 #bgLayer。
+   特异性 (1,1,1) 高于上面 #gate,#chat 的 (1,0,0)。
+   没设图 → 不命中 → 原渐变照旧 → 界面不会塌。
+   #tabHome 排除在外：Home 是设置页，实心底才读得清（见施工单 F）。 */
+body.has-bg-light #gate,
+body.has-bg-light #chat,
+body.has-bg-light .tab-page:not(#tabHome) {
+  background: transparent;
+}
+
+/* .tab-page 透明之后，光靠盖住已经挡不住 #chat 的内容，必须把它藏起来。
+   用 visibility 而不是 display:none —— 后者会清零 #stream 的滚动位置。 */
+body.tab-away #chat {
+  visibility: hidden;
+}
+
+@media (prefers-color-scheme: dark) {
+  #bgLayer {
+    background-image: var(--bg-img-dark, none);
+  }
+  #bgMask {
+    background: #1A0F14;
+  }
+  /* 暗色下只认 has-bg-dark。这样"只设了日间图"时，
+     夜里仍然走暗色渐变，不会漏出空白。这段重复的渐变是兜底，别删。 */
+  body.has-bg-light #gate,
+  body.has-bg-light #chat,
+  body.has-bg-light .tab-page:not(#tabHome) {
+    background:
+      radial-gradient(circle at 20% 15%, rgba(244, 182, 196, 0.20), transparent 55%),
+      radial-gradient(circle at 82% 82%, rgba(139, 74, 92, 0.30), transparent 60%),
+      linear-gradient(160deg, #1A0F14 0%, #22141B 60%, #2A1620 100%);
+  }
+  body.has-bg-dark #gate,
+  body.has-bg-dark #chat,
+  body.has-bg-dark .tab-page:not(#tabHome) {
+    background: transparent;
+  }
+}
+
+/* —— 外观设置卡片 —— */
+.bg-slot-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.bg-slot-info {
+  min-width: 0;
+}
+.bg-slot-name {
+  font-size: 17px;
+}
+.bg-slot-state {
+  margin-top: 3px;
+  font-size: 13px;
+  line-height: 1.3;
+  color: #77736c;
+}
+.bg-slot-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+.bg-mask-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.bg-mask-row input[type="range"] {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--accent);
+}
+.bg-mask-value {
+  flex: none;
+  width: 44px;
+  text-align: right;
+  font-size: 14px;
+  color: #77736c;
+}
+
+@media (prefers-color-scheme: dark) {
+  .bg-slot-state,
+  .bg-mask-value {
+    color: rgba(244, 243, 239, 0.56);
+  }
 }
