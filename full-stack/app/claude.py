@@ -134,7 +134,9 @@ def thinking_options(
     return {"type": "disabled"}, selected
 
 
-async def build_system_prompt(message: str, model: str) -> str:
+def build_system_prompt(model: str) -> str:
+    """Stable prefix. Only changes when the user edits their profile/memory —
+    never per-turn, so the CLI's prompt cache keeps matching it."""
     profile_context = build_profile_context().strip()
     memory = "" if profile_context else read_memory().strip()
     system_prompt = f"You are running as model {model}. If asked which model you are, answer with that identifier.\n\n{SYSTEM_PROMPT}"
@@ -147,14 +149,28 @@ async def build_system_prompt(message: str, model: str) -> str:
         )
     if memory:
         system_prompt += f"\n\n以下是用户明确保存的长期记忆：\n{memory}"
-    memory_hits = await fetch_memory_hits(message)
-    if memory_hits:
-        system_prompt += (
-            "\n\n以下是从记忆书架向量检索到的相关条目（可能相关也可能没用，"
-            "自己判断是否引用；不要照搬，更不要逐字复读）：\n"
-            f"{memory_hits}"
-        )
     return system_prompt
+
+
+async def build_user_prompt(message: str) -> str:
+    """Memory recall is volatile (re-retrieved per message), so it must never
+    enter system_prompt — that would move the cache-breaking bytes to the very
+    front of the request. Riding on the user turn puts it after every cache
+    breakpoint, and once written into history it never changes again.
+
+    The recall goes before the user's own words so the last thing the model
+    reads is what she actually said."""
+    memory_hits = await fetch_memory_hits(message)
+    if not memory_hits:
+        return message
+    return (
+        "<memory_recall>\n"
+        "以下是从记忆书架向量检索到的相关条目（可能相关也可能没用，"
+        "自己判断是否引用；不要照搬，更不要逐字复读）：\n"
+        f"{memory_hits}\n"
+        "</memory_recall>\n\n"
+        f"{message}"
+    )
 
 
 async def stream_chat(
@@ -176,7 +192,8 @@ async def stream_chat(
         raise SessionResumeError("会话恢复失败")
     thinking, selected_effort = thinking_options(model_config, effort, extended)
 
-    system_prompt = await build_system_prompt(message, model)
+    system_prompt = build_system_prompt(model)
+    prompt = await build_user_prompt(message)
 
     mcp_servers = ombre_mcp_servers()
     allowed_tools = ["Read", "Grep", "Glob", "Write", "Edit", "Bash", "WebSearch", "WebFetch", "TodoWrite"]
@@ -213,7 +230,7 @@ async def stream_chat(
 
     outbox = await get_registry().submit(
         conv_id,
-        message,
+        prompt,
         options,
         fingerprint,
         timing_callback,

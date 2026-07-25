@@ -10,6 +10,7 @@ import anthropic
 from app.claude import (
     available_models,
     build_system_prompt,
+    build_user_prompt,
     thinking_options,
 )
 from app.store import conversation_messages
@@ -54,11 +55,15 @@ async def stream_chat_api(
         raise ValueError("unsupported model")
 
     thinking_cfg, _ = thinking_options(model_config, effort, extended)
-    system_prompt = await build_system_prompt(message, model)
+    system_prompt = build_system_prompt(model)
+    prompt = await build_user_prompt(message)
 
     history = _build_history(conv_id)
-    if not history or history[-1].get("content") != message:
-        history.append({"role": "user", "content": message})
+    if history and history[-1].get("role") == "user" and history[-1].get("content") == message:
+        # already persisted by the caller — swap in the recall-wrapped copy
+        history[-1]["content"] = prompt
+    else:
+        history.append({"role": "user", "content": prompt})
 
     kwargs: dict = {
         "model": model,

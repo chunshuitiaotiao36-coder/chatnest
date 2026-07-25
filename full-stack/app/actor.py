@@ -186,6 +186,14 @@ class ConvActor:
                         })
             elif isinstance(sdk_message, ResultMessage):
                 result_seen = True
+                usage = sdk_message.usage or {}
+                logger.info(
+                    "cache_usage input=%s cache_create=%s cache_read=%s cost=%s",
+                    usage.get("input_tokens"),
+                    usage.get("cache_creation_input_tokens"),
+                    usage.get("cache_read_input_tokens"),
+                    sdk_message.total_cost_usd,
+                )
                 await request.outbox.put(
                     {"event": "done", "session_id": sdk_message.session_id}
                 )

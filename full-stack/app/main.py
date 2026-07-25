@@ -241,8 +241,11 @@ class RelayCapabilitiesBody(BaseModel):
 
 class RelayCreateBody(BaseModel):
     name: str = Field(min_length=1, max_length=100)
-    base_url: str = Field(min_length=1, max_length=500)
-    api_key: str = Field(min_length=1, max_length=500)
+    # empty allowed: a subscription relay has no URL and no key.
+    # relays.create_relay enforces that api-mode has both.
+    base_url: str = Field(default="", max_length=500)
+    api_key: str = Field(default="", max_length=500)
+    mode: str = Field(default="api", max_length=20)
     protocol: str = Field(default="openai-compatible", max_length=50)
     capabilities: RelayCapabilitiesBody = Field(default_factory=RelayCapabilitiesBody)
     models: list[RelayModelBody] = Field(default_factory=list, max_length=200)
@@ -252,6 +255,7 @@ class RelayUpdateBody(BaseModel):
     name: str | None = Field(default=None, max_length=100)
     base_url: str | None = Field(default=None, max_length=500)
     api_key: str | None = Field(default=None, max_length=500)
+    mode: str | None = Field(default=None, max_length=20)
     protocol: str | None = Field(default=None, max_length=50)
     capabilities: RelayCapabilitiesBody | None = None
     models: list[RelayModelBody] | None = Field(default=None, max_length=200)
@@ -801,7 +805,10 @@ async def relays_active() -> dict:
 
 @app.post("/api/relays", dependencies=[Depends(require_auth)])
 async def relays_create(body: RelayCreateBody) -> dict:
-    return await relays.create_relay(body.model_dump())
+    try:
+        return await relays.create_relay(body.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.put("/api/relays/{relay_id}", dependencies=[Depends(require_auth)])
@@ -811,6 +818,8 @@ async def relays_update(relay_id: str, body: RelayUpdateBody) -> dict:
         updated = await relays.update_relay(relay_id, payload)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="relay not found") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if updated.get("active"):
         # base_url/api_key may have changed — warm actor still holds old env
         await get_registry().invalidate()

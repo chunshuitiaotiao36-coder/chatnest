@@ -503,14 +503,21 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
       <label style="display:flex;flex-direction:column;gap:4px">名称
         <input id="relayFieldName" type="text" placeholder="例如 K 特惠" maxlength="100" autocomplete="off" />
       </label>
-      <label style="display:flex;flex-direction:column;gap:4px">地址
+      <label style="display:flex;flex-direction:column;gap:4px">线路类型
+        <select id="relayFieldMode">
+          <option value="api">API 中转站</option>
+          <option value="subscription">订阅额度（直连）</option>
+        </select>
+        <span id="relayModeHint" style="color:var(--muted,#888);font-size:12px"></span>
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px" id="relayRowBaseUrl">地址
         <input id="relayFieldBaseUrl" type="text" placeholder="https://..." maxlength="500" autocomplete="off" />
       </label>
-      <label style="display:flex;flex-direction:column;gap:4px">
+      <label style="display:flex;flex-direction:column;gap:4px" id="relayRowApiKey">
         <span>密钥 <span id="relayFieldKeyHint" style="color:var(--muted,#888);font-size:12px"></span></span>
         <input id="relayFieldApiKey" type="password" placeholder="sk-..." maxlength="500" autocomplete="new-password" />
       </label>
-      <label style="display:flex;flex-direction:column;gap:4px">协议
+      <label style="display:flex;flex-direction:column;gap:4px" id="relayRowProtocol">协议
         <select id="relayFieldProtocol"><option value="openai-compatible">OpenAI 兼容</option></select>
       </label>
       <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:13px">
@@ -521,7 +528,7 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
       <label style="display:flex;flex-direction:column;gap:4px">模型列表 <span style="color:var(--muted,#888);font-size:12px">每行一条，格式 <code>模型ID | 显示名</code></span>
         <textarea id="relayFieldModels" rows="6" placeholder="[k-特惠]claude-opus-4-8 | Opus 4.8" style="font-family:ui-monospace,monospace;font-size:12px"></textarea>
       </label>
-      <div style="display:flex;align-items:center;gap:8px">
+      <div style="display:flex;align-items:center;gap:8px" id="relayRowTest">
         <button type="button" class="secondary-button" id="relayTestBtn">测试连接</button>
         <span id="relayTestResult" style="font-size:12px;color:var(--muted,#888)"></span>
       </div>
@@ -2321,11 +2328,15 @@ async function loadRelays(){
       if(i>0){const div=document.createElement('div');div.className='profile-divider';list.append(div)}
       const row=document.createElement('div');
       row.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 4px;cursor:pointer;border-radius:8px';
+      const isSub=relay.mode==='subscription';
+      const badge=isSub?'<span style="flex-shrink:0;font-size:10px;line-height:1;padding:3px 6px;border-radius:4px;border:1px solid var(--accent);color:var(--accent)">订阅</span>':'';
+      // subscription relays have no url/key — say what the line is instead
+      const sub=isSub?'直连 Anthropic · 订阅额度':`${_relayEscape(relay.base_url||'')}${relay.api_key_tail?' · 尾 '+_relayEscape(relay.api_key_tail):''}`;
       row.innerHTML=`
         <span style="width:9px;height:9px;border-radius:50%;flex-shrink:0;${relay.active?'background:var(--accent);box-shadow:0 0 0 2px rgba(0,0,0,0.05)':'background:transparent;border:1.5px solid rgba(0,0,0,.2)'}"></span>
         <div style="flex:1;min-width:0">
-          <div style="font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_relayEscape(relay.name)}</div>
-          <div style="font-size:11px;color:var(--muted,#888);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_relayEscape(relay.base_url||'')}${relay.api_key_tail?' · 尾 '+_relayEscape(relay.api_key_tail):''} · ${relay.models.length} 个模型</div>
+          <div style="font-size:14px;display:flex;align-items:center;gap:6px"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_relayEscape(relay.name)}</span>${badge}</div>
+          <div style="font-size:11px;color:var(--muted,#888);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sub} · ${relay.models.length} 个模型</div>
         </div>
         <button type="button" class="profile-mini-button" data-action="edit" style="flex-shrink:0;padding:4px 10px;font-size:12px">编辑</button>`;
       row.addEventListener('click',async e=>{
@@ -2346,10 +2357,21 @@ async function activateRelay(id){
     toast('已切换中转站');
   }catch{toast('切换失败')}
 }
+/* 订阅线路没有地址/密钥/协议，那几行直接藏掉 */
+function _syncRelayModeUI(){
+  const sub=document.getElementById('relayFieldMode').value==='subscription';
+  ['relayRowBaseUrl','relayRowApiKey','relayRowProtocol','relayRowTest'].forEach(id=>{
+    document.getElementById(id).style.display=sub?'none':'';
+  });
+  document.getElementById('relayModeHint').textContent=sub
+    ?'直连 Anthropic，用 /root/.claude 里的登录凭据。需容器内先 claude 登录一次。'
+    :'';
+}
 function openRelayModal(relay){
   _relayEditingId=relay?relay.id:null;
   document.getElementById('relayModalTitle').textContent=relay?'编辑中转站':'添加中转站';
   document.getElementById('relayFieldName').value=relay?relay.name:'';
+  document.getElementById('relayFieldMode').value=(relay&&relay.mode)||'api';
   document.getElementById('relayFieldBaseUrl').value=relay?relay.base_url:'';
   const keyEl=document.getElementById('relayFieldApiKey');
   keyEl.value='';
@@ -2362,6 +2384,7 @@ function openRelayModal(relay){
   document.getElementById('relayFieldModels').value=relay?relay.models.map(m=>`${m.id} | ${m.label}`).join('\n'):'';
   document.getElementById('relayDeleteBtn').style.display=(relay&&!relay.active)?'':'none';
   const res=document.getElementById('relayTestResult');res.textContent='';res.style.color='var(--muted,#888)';
+  _syncRelayModeUI();
   document.getElementById('relayModalOverlay').classList.remove('hidden');
   setTimeout(()=>document.getElementById('relayFieldName').focus(),50);
 }
@@ -2377,6 +2400,10 @@ function _parseRelayModels(text){
 }
 async function submitRelayModal(){
   const name=document.getElementById('relayFieldName').value.trim();
+  const mode=document.getElementById('relayFieldMode').value;
+  const isSub=mode==='subscription';
+  // sent as-is even when hidden: keeps the old url/key on the record so
+  // flipping back to 中转站 doesn't mean retyping the key
   const base_url=document.getElementById('relayFieldBaseUrl').value.trim();
   const api_key=document.getElementById('relayFieldApiKey').value;
   const protocol=document.getElementById('relayFieldProtocol').value;
@@ -2387,10 +2414,12 @@ async function submitRelayModal(){
   };
   const models=_parseRelayModels(document.getElementById('relayFieldModels').value);
   if(!name){toast('名称必填');return}
-  if(!base_url){toast('地址必填');return}
   const isCreate=!_relayEditingId;
-  if(isCreate&&!api_key.trim()){toast('新中转站必须填密钥');return}
-  const payload={name,base_url,protocol,capabilities,models};
+  if(!isSub){
+    if(!base_url){toast('地址必填');return}
+    if(isCreate&&!api_key.trim()){toast('新中转站必须填密钥');return}
+  }
+  const payload={name,mode,base_url,protocol,capabilities,models};
   if(api_key.trim())payload.api_key=api_key.trim();
   const path=isCreate?'/api/relays':`/api/relays/${encodeURIComponent(_relayEditingId)}`;
   try{
@@ -2433,6 +2462,7 @@ document.getElementById('relayCancelBtn')?.addEventListener('click',closeRelayMo
 document.getElementById('relaySaveBtn')?.addEventListener('click',submitRelayModal);
 document.getElementById('relayDeleteBtn')?.addEventListener('click',deleteRelayFromModal);
 document.getElementById('relayTestBtn')?.addEventListener('click',testRelayFromModal);
+document.getElementById('relayFieldMode')?.addEventListener('change',_syncRelayModeUI);
 
 /* —— 底部导航栏 ——
    Chat 不做 display:none，靠 .tab-page 的不透明背景盖住，

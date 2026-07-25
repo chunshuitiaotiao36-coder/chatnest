@@ -45,6 +45,13 @@ def _normalize_model(m: dict) -> dict:
     }
 
 
+def _normalize_mode(value: Any) -> str:
+    """`api` = go through a relay (ANTHROPIC_* env vars).
+    `subscription` = no relay at all; let the CLI use the OAuth login in
+    ~/.claude, i.e. the Claude subscription quota."""
+    return "subscription" if str(value or "").strip() == "subscription" else "api"
+
+
 def _normalize_capabilities(c: dict | None) -> dict:
     c = c or {}
     return {
@@ -75,6 +82,7 @@ def _seed_from_env() -> dict:
         "name": "默认（来自环境变量）",
         "base_url": base_url,
         "api_key": api_key,
+        "mode": "api",
         "protocol": "openai-compatible",
         "capabilities": _normalize_capabilities(None),
         "models": _seed_models_from_file(),
@@ -110,6 +118,8 @@ def _load_or_seed() -> dict:
             state = _seed_from_env()
             _save(state)
             return state
+        for r in state["relays"]:
+            r["mode"] = _normalize_mode(r.get("mode"))  # backfill pre-mode files
         active = state.get("active")
         if not active or all(r.get("id") != active for r in state["relays"]):
             state["active"] = state["relays"][0]["id"]
@@ -129,14 +139,30 @@ def _load_or_seed() -> dict:
 # ---------- env application -------------------------------------------------
 
 
+_ENV_KEYS = ("ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY")
+
+
+def _set_or_clear(key: str, value: str) -> None:
+    """Assignment must be symmetric: leaving a stale var behind is how you end
+    up silently talking to the previous relay."""
+    if value:
+        os.environ[key] = value
+    else:
+        os.environ.pop(key, None)
+
+
 def _apply_env(relay: dict) -> None:
-    base_url = relay.get("base_url") or ""
+    if _normalize_mode(relay.get("mode")) == "subscription":
+        # Claude Code CLI only falls back to the OAuth credentials in
+        # ~/.claude when none of these are set — so unset all three.
+        for key in _ENV_KEYS:
+            os.environ.pop(key, None)
+        logger.info("relays: subscription mode active, ANTHROPIC_* cleared")
+        return
     api_key = relay.get("api_key") or ""
-    if base_url:
-        os.environ["ANTHROPIC_BASE_URL"] = base_url
-    if api_key:
-        os.environ["ANTHROPIC_AUTH_TOKEN"] = api_key
-        os.environ["ANTHROPIC_API_KEY"] = api_key
+    _set_or_clear("ANTHROPIC_BASE_URL", relay.get("base_url") or "")
+    _set_or_clear("ANTHROPIC_AUTH_TOKEN", api_key)
+    _set_or_clear("ANTHROPIC_API_KEY", api_key)
 
 
 def _active_relay(state: dict) -> dict:
@@ -169,6 +195,7 @@ def _public_relay(r: dict, active_id: str) -> dict:
         "name": r["name"],
         "base_url": r["base_url"],
         "api_key_tail": _mask_tail(r.get("api_key", "")),
+        "mode": _normalize_mode(r.get("mode")),
         "protocol": r.get("protocol", "openai-compatible"),
         "capabilities": _normalize_capabilities(r.get("capabilities")),
         "models": [{"id": m["id"], "label": m["label"]} for m in r.get("models", [])],
@@ -212,11 +239,19 @@ def active_models_rich() -> list[dict]:
 async def create_relay(payload: dict) -> dict:
     async with _lock:
         now = int(time.time())
+        mode = _normalize_mode(payload.get("mode"))
+        base_url = str(payload.get("base_url", "")).strip()
+        api_key = str(payload.get("api_key", "")).strip()
+        # subscription relays legitimately have neither; _apply_env keys off
+        # `mode`, so anything stored here simply never gets applied.
+        if mode == "api" and (not base_url or not api_key):
+            raise ValueError("API 中转站必须填地址和密钥")
         relay = {
             "id": uuid4().hex,
             "name": str(payload.get("name", "")).strip() or "未命名中转站",
-            "base_url": str(payload.get("base_url", "")).strip(),
-            "api_key": str(payload.get("api_key", "")).strip(),
+            "base_url": base_url,
+            "api_key": api_key,
+            "mode": mode,
             "protocol": str(payload.get("protocol", "openai-compatible")).strip() or "openai-compatible",
             "capabilities": _normalize_capabilities(payload.get("capabilities")),
             "models": [_normalize_model(m) for m in (payload.get("models") or []) if str(m.get("id", "")).strip()],
@@ -233,14 +268,24 @@ async def update_relay(relay_id: str, payload: dict) -> dict:
         target = next((r for r in _cache["relays"] if r["id"] == relay_id), None)
         if target is None:
             raise KeyError("relay not found")
-        if "name" in payload:
-            target["name"] = str(payload["name"]).strip() or target["name"]
-        if "base_url" in payload:
-            target["base_url"] = str(payload["base_url"]).strip()
+        # resolve mode/url/key on the side first: validation must not leave a
+        # half-updated relay behind in _cache when it rejects.
+        mode = _normalize_mode(payload["mode"]) if "mode" in payload else _normalize_mode(target.get("mode"))
+        base_url = str(payload["base_url"]).strip() if "base_url" in payload else (target.get("base_url") or "")
+        api_key = target.get("api_key") or ""
         if "api_key" in payload:
             new_key = str(payload["api_key"] or "").strip()
             if new_key:  # empty string = keep existing (edit form doesn't resend key)
-                target["api_key"] = new_key
+                api_key = new_key
+        # url/key are kept even in subscription mode so flipping back doesn't
+        # make her retype the key; _apply_env ignores them while subscribed.
+        if mode == "api" and (not base_url or not api_key):
+            raise ValueError("API 中转站必须填地址和密钥")
+        target["mode"] = mode
+        target["base_url"] = base_url
+        target["api_key"] = api_key
+        if "name" in payload:
+            target["name"] = str(payload["name"]).strip() or target["name"]
         if "protocol" in payload:
             target["protocol"] = str(payload["protocol"] or "").strip() or "openai-compatible"
         if "capabilities" in payload and payload["capabilities"] is not None:
