@@ -612,7 +612,9 @@ const state={
   legacySessionId:localStorage.getItem('chat_session'),
   model:localStorage.getItem('chat_model')||'claude-sonnet-4-6',
   settings:JSON.parse(localStorage.getItem('chat_model_settings')||'{}'),
-  models:[],busy:false,currentTitle:'新对话',starred:false,pendingFiles:[],menuSession:null
+  models:[],busy:false,currentTitle:'新对话',starred:false,pendingFiles:[],menuSession:null,
+  // 上游回传的实际模型 ID。描述的是"刚才那一轮"，不是设置，所以不进 localStorage。
+  actualModel:null
 };
 const chat=$('chat'),stream=$('stream'),streamInner=$('streamInner'),input=$('input'),send=$('send');
 function drawerDebugUpdate(){}
@@ -793,12 +795,34 @@ async function dismissEmpty(){input.placeholder='想和小忱说……';const el
 async function loadModels(){try{const r=await fetch('/api/models');state.models=(await r.json()).models}catch{state.models=[{id:'claude-sonnet-4-6',label:'Sonnet 4.6',desc:'Everyday tasks',thinking:'adaptive',primary:true}]}
   if(!state.models.some(x=>x.id===state.model))state.model=state.models[0].id;renderModelSheet();updateModelHeader()}
 function modelSettingText(model=currentModel(),s=modelSetting(model)){if(!model||model.thinking==='none')return'';return(s.effort||'medium').replace(/^./,c=>c.toUpperCase())}
-function updateModelHeader(){const m=currentModel(),setting=modelSettingText(m);$('topbarModelText').textContent=m?.label||state.model;$('topbarModelSetting').textContent=setting;if($('modelCapsuleText'))$('modelCapsuleText').textContent=`${m?.label||state.model}${setting?' '+setting:''}`}
+/* 顶栏放不下 [AG3]claude-opus-4-6，要 Opus 4.6。
+   注意：这只影响显示层，模型 id 一个字都不改。
+   认不出来的（gpt-4o / gemini-2.5-pro）原样返回——猜不出就别猜，原样显示比编一个漂亮名字诚实。 */
+function _shortModelName(id){
+  let s=String(id||'').replace(/^\[[^\]]*\]/,'')   // 去掉 [AG3] 这类中转站前缀
+                     .replace(/-\d{8}$/,'')        // 去掉 -20250929 日期后缀
+                     .replace(/-latest$/,'');
+  let suffix='';
+  if(/-thinking$/.test(s)){suffix=' Thinking';s=s.replace(/-thinking$/,'')}
+  const cap=w=>w.charAt(0).toUpperCase()+w.slice(1);
+  let m;
+  if((m=s.match(/^claude-(opus|sonnet|haiku|fable)-(\d+)-(\d+)$/)))return `${cap(m[1])} ${m[2]}.${m[3]}${suffix}`;
+  if((m=s.match(/^claude-(\d+)-(\d+)-(opus|sonnet|haiku)$/)))return `${cap(m[3])} ${m[1]}.${m[2]}${suffix}`;
+  if((m=s.match(/^claude-(opus|sonnet|haiku|fable)-(\d+)$/)))return `${cap(m[1])} ${m[2]}${suffix}`;
+  if((m=s.match(/^(opus|sonnet|haiku|fable)$/)))return cap(m[1])+suffix;
+  return s+suffix;
+}
+/* 优先显示实际跑的那个，没收到过就退回配置里的 label */
+function updateModelHeader(){const m=currentModel(),setting=modelSettingText(m);const shown=state.actualModel?_shortModelName(state.actualModel):(m?.label||state.model);$('topbarModelText').textContent=shown;$('topbarModelSetting').textContent=setting;if($('modelCapsuleText'))$('modelCapsuleText').textContent=`${shown}${setting?' '+setting:''}`}
+/* 收到 model 事件：顶栏 + Home 状态条一起更新 */
+function setActualModel(id){const next=String(id||'')||null;if(state.actualModel===next)return;state.actualModel=next;updateModelHeader();renderRelayRoute()}
+/* 刚切完模型/换了线路，上一轮的实际值已经过期，继续显示它是在撒谎 */
+function clearActualModel(){if(state.actualModel===null)return;state.actualModel=null;updateModelHeader();renderRelayRoute()}
 let _modelPage='main';
 const _EFFORT_OPTS=[{key:'low',label:'Low',desc:'Quick replies to simple questions'},{key:'medium',label:'Medium',desc:'Balanced for everyday work',def:true},{key:'high',label:'High',desc:'Complex, detailed work'},{key:'max',label:'Max',desc:'The hardest problems. Takes longest.'}];
 const _BACK_SVG='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>';
 const _NAV_CHEVRON='<span class="model-nav-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></span>';
-function _selectModel(id){state.model=id;localStorage.setItem('chat_model',id);renderModelSheet();updateModelHeader()}
+function _selectModel(id){state.model=id;localStorage.setItem('chat_model',id);state.actualModel=null;renderModelSheet();updateModelHeader();renderRelayRoute()}
 function renderModelSheet(){const root=$('modelContent');root.innerHTML='';const backBtn=$('closeModel');const titleEl=$('modelSheet').querySelector('.sheet-title');
   if(_modelPage==='effort'){backBtn.innerHTML=_BACK_SVG;backBtn.onclick=()=>{_modelPage='main';renderModelSheet()};titleEl.textContent='Effort';_renderEffortPage(root)}
   else if(_modelPage==='more'){backBtn.innerHTML=_BACK_SVG;backBtn.onclick=()=>{_modelPage='main';renderModelSheet()};titleEl.textContent='More models';_renderMorePage(root)}
@@ -1814,7 +1838,7 @@ async function sendMessage(text,showUser=true,files=[],existingAttachments=[],op
     if(runId!==_chatRunId)return;
     if(r.status===401){showGate();throw Error('登录已失效')}if(!r.ok||!r.body){const detail=await r.json().catch(()=>({}));throw Error(detail.detail||'请求失败')}
     const reader=r.body.getReader(),decoder=new TextDecoder();let buffer='',finished=false;
-    const frame=f=>{if(runId!==_chatRunId)return;let event='',data='';f.split('\n').forEach(line=>{if(line.startsWith('event:'))event=line.slice(6).trim();if(line.startsWith('data:'))data+=line.slice(5).trim()});if(!event||!data)return;const d=JSON.parse(data);if(event==='conversation'){state.convId=d.conversation_id;state.legacySessionId=null;localStorage.setItem('chat_conversation',state.convId);localStorage.removeItem('chat_session');if(d.user_message_id&&userRow)userRow.dataset.msgId=d.user_message_id}if(event==='thinking')msg.thinking(d.text||'');if(event==='delta')msg.text(d.text||'');if(event==='tool_use')msg.toolUse(d);if(event==='tool_result')msg.toolResult(d);if(event==='trace_summary')msg.traceSummary(d.text||'');if(event==='done'){state.convId=d.conversation_id||state.convId;localStorage.setItem('chat_conversation',state.convId);msg.finish();if(d.assistant_message_id&&msg?.row)msg.row.dataset.msgId=d.assistant_message_id;finished=true}if(event==='error'){msg.fail(d.message);finished=true}};
+    const frame=f=>{if(runId!==_chatRunId)return;let event='',data='';f.split('\n').forEach(line=>{if(line.startsWith('event:'))event=line.slice(6).trim();if(line.startsWith('data:'))data+=line.slice(5).trim()});if(!event||!data)return;const d=JSON.parse(data);if(event==='conversation'){state.convId=d.conversation_id;state.legacySessionId=null;localStorage.setItem('chat_conversation',state.convId);localStorage.removeItem('chat_session');if(d.user_message_id&&userRow)userRow.dataset.msgId=d.user_message_id}if(event==='model')setActualModel(d.id);if(event==='thinking')msg.thinking(d.text||'');if(event==='delta')msg.text(d.text||'');if(event==='tool_use')msg.toolUse(d);if(event==='tool_result')msg.toolResult(d);if(event==='trace_summary')msg.traceSummary(d.text||'');if(event==='done'){state.convId=d.conversation_id||state.convId;localStorage.setItem('chat_conversation',state.convId);msg.finish();if(d.assistant_message_id&&msg?.row)msg.row.dataset.msgId=d.assistant_message_id;finished=true}if(event==='error'){msg.fail(d.message);finished=true}};
     while(true){if(runId!==_chatRunId)return;const{value,done}=await reader.read();buffer+=decoder.decode(value||new Uint8Array(),{stream:!done});const parts=buffer.split(/\r?\n\r?\n/);buffer=parts.pop()||'';parts.forEach(frame);if(done)break}
     if(runId!==_chatRunId)return;
     if(buffer.trim())frame(buffer);if(!finished)await recoverAfterBreak(msg,state.convId,'连接意外结束，请重试。',()=>runId===_chatRunId)
@@ -2345,11 +2369,14 @@ if(state.token)showChat();resetEmpty();loadModels();updateSessionHeader();update
 
 /* ---- 中转站管理 ---------------------------------------------------------- */
 let _relayEditingId = null;
+/* 状态条要能在收到 model 事件时单独重画，而那时候手上没有 relays——存一份 */
+let _relaysCache = [];
 function _relayEscape(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function renderRelayRoute(relays){
+  if(relays!==undefined)_relaysCache=relays||[];
   const el=document.getElementById('relayRoute');
   if(!el)return;
-  const cur=(relays||[]).find(r=>r.active);
+  const cur=_relaysCache.find(r=>r.active);
   if(!cur){el.hidden=true;return}
   const isSub=cur.mode==='subscription';
   el.hidden=false;
@@ -2358,7 +2385,9 @@ function renderRelayRoute(relays){
     `<span class="relay-route-dot"></span>`+
     `<span class="relay-route-label">${isSub?'订阅额度':'API 计费'}</span>`+
     `<span class="relay-route-name">${_relayEscape(cur.name)}</span>`+
-    `<span class="relay-route-note">${isSub?'包月，不按 token 结账':'按 token 结账'}</span>`;
+    `<span class="relay-route-note">${isSub?'包月，不按 token 结账':'按 token 结账'}</span>`+
+    // 订阅线路上填 opus 之后，这是唯一能看到真实版本的地方——完整 ID，不缩写
+    (state.actualModel?`<span class="relay-route-actual">实际：${_relayEscape(state.actualModel)}</span>`:'');
 }
 async function loadRelays(){
   const list=document.getElementById('relayList');
@@ -2397,6 +2426,8 @@ async function activateRelay(id){
   try{
     const r=await api(`/api/relays/${encodeURIComponent(id)}/activate`,{method:'POST'});
     if(!r.ok)throw Error();
+    state.actualModel=null;   // 换了线路，上一轮的实际值过期了
+    updateModelHeader();
     await loadRelays();
     await loadModels();
     toast('已切换中转站');

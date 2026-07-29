@@ -651,6 +651,8 @@ body.tab-away #chat {
 .relay-route {
   display: flex;
   align-items: center;
+  /* 实际模型那一段 flex-basis:100%，靠 wrap 独占第二行 */
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 14px;
   padding: 12px 14px;
@@ -688,6 +690,18 @@ body.tab-away #chat {
   flex: none;
   font-size: 11px;
   color: #aaa49c;
+}
+/* 上游实际用的模型 ID，只在收到过 model 事件后出现。
+   完整 ID 不缩写：订阅线路上填 opus 之后这是唯一能看到真实版本的地方。 */
+.relay-route-actual {
+  flex: 0 0 100%;
+  margin-top: -2px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* 订阅线路换一套颜色，跟 API 一眼分得开 */

@@ -147,6 +147,10 @@ class ConvActor:
         first_text_token_seen = False
         got_streaming_text = False
         result_seen = False
+        # 上游实际用的模型 ID。配置里写 `opus` 时 CLI 会自己解析成某个具体版本，
+        # 只有 AssistantMessage.model 说得准。去重是因为一轮里可能有多条
+        # AssistantMessage（多轮工具调用），不去重会刷屏。
+        reported_model = ""
         # CLI 不发结束标记时这个循环会永远挂着（订阅线路上实测过：没有 first_text_token、
         # 没有 ResultMessage、也没有异常）。超时后连同子进程一起收掉，
         # 别把一个已知坏掉的进程留给下一轮。
@@ -180,6 +184,13 @@ class ConvActor:
                                 {"event": "thinking", "text": delta.get("thinking", "")}
                             )
                     elif isinstance(sdk_message, (_AssistantMessage, _UserMessage)):
+                        # _UserMessage 没有 model 字段，所以必须 getattr 带默认值。
+                        # 不挂 ResultMessage：那要等整轮结束，而这里在正文开始流的
+                        # 时候就到了，顶栏能立刻更新。
+                        model_id = getattr(sdk_message, "model", "") or ""
+                        if model_id and model_id != reported_model:
+                            reported_model = model_id
+                            await request.outbox.put({"event": "model", "id": model_id})
                         for block in getattr(sdk_message, "content", []) or []:
                             if isinstance(block, _TextBlock) and not got_streaming_text:
                                 text = block.text or ""
