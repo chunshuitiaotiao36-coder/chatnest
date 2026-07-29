@@ -31,6 +31,8 @@ MEMORY_SEARCH_TOP_K = 6
 MEMORY_SEARCH_BUDGET_CHARS = 1500
 MEMORY_SEARCH_TIMEOUT_S = 2.0
 memlog = logging.getLogger("memory.inject")
+# 借 uvicorn.error：全仓库没有 logging 配置，root logger 默认 WARNING 会把 .info() 吞掉
+cli_logger = logging.getLogger("uvicorn.error")
 
 OMBRE_MCP_URL = os.environ.get("OMBRE_MCP_URL", "")
 OMBRE_MCP_TOKEN = os.environ.get("OMBRE_MCP_TOKEN", "")
@@ -211,6 +213,7 @@ async def stream_chat(
         resume=session_id,
         setting_sources=[],
         cwd=PROJECT_DIR,
+        stderr=lambda line: cli_logger.info("cli_stderr: %s", line),
     )
     if selected_effort is not None:
         option_values["effort"] = selected_effort

@@ -191,7 +191,11 @@ class ConvActor:
                 result_seen = True
                 usage = sdk_message.usage or {}
                 cache_logger.info(
-                    "cache_usage input=%s cache_create=%s cache_read=%s cost=%s",
+                    "cache_usage model=%s stop=%s turns=%s text=%s input=%s cache_create=%s cache_read=%s cost=%s",
+                    ",".join((sdk_message.model_usage or {}).keys()) or "?",
+                    getattr(sdk_message, "stop_reason", None),
+                    getattr(sdk_message, "num_turns", None),
+                    first_text_token_seen,
                     usage.get("input_tokens"),
                     usage.get("cache_creation_input_tokens"),
                     usage.get("cache_read_input_tokens"),
@@ -200,6 +204,8 @@ class ConvActor:
                 await request.outbox.put(
                     {"event": "done", "session_id": sdk_message.session_id}
                 )
+            else:
+                cache_logger.info("sdk_unhandled: %s", type(sdk_message).__name__)
         if not result_seen:
             raise RuntimeError("Claude 连接提前结束")
 
