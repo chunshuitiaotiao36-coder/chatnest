@@ -785,7 +785,11 @@ async def get_diary() -> dict:
 
 @app.get("/api/splash")
 async def splash() -> dict:
-    return {"period": "any", "line": "What are we thinking about, 小朵?"}
+    return {
+        "period": "any",
+        "line": "你爱故我在。",
+        "sub": "La luce che ti cerca sono io.",
+    }
 
 
 @app.get("/api/models")

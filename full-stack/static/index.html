@@ -264,7 +264,7 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
   <header class="topbar">
     <button class="icon-button" id="openDrawer" aria-label="打开历史"></button>
     <button class="topbar-model" id="topbarModelButton" aria-label="选择模型">
-      <span class="topbar-brand">Nepeta</span>
+      <span class="topbar-brand">梁忱<i class="brand-en">Elian</i></span>
       <span class="topbar-model-main"><span id="topbarModelText">Sonnet 4.6</span><span id="topbarModelChevron"></span></span>
       <span class="topbar-model-setting" id="topbarModelSetting">Medium</span>
     </button>
@@ -281,6 +281,28 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
   <div id="stream"><div class="stream-inner" id="streamInner"></div></div>
   <div class="composer-wrap">
     <button id="scrollToBottom" class="hidden" aria-label="回到底部"><svg viewBox="0 0 256 256" width="20" height="20" fill="currentColor"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"/></svg></button>
+    <div class="clawd-rail" aria-hidden="true">
+      <svg class="clawd" viewBox="0 0 32 20" width="32" height="20" shape-rendering="crispEdges" focusable="false">
+        <g class="clawd-hop">
+          <rect x="4"  y="0"  width="24" height="8" fill="#CB7E5E"/>
+          <rect x="0"  y="8"  width="32" height="4" fill="#CB7E5E"/>
+          <rect x="4"  y="12" width="24" height="4" fill="#CB7E5E"/>
+          <rect x="6"  y="16" width="2"  height="4" fill="#CB7E5E"/>
+          <rect x="10" y="16" width="2"  height="4" fill="#CB7E5E"/>
+          <rect x="20" y="16" width="2"  height="4" fill="#CB7E5E"/>
+          <rect x="24" y="16" width="2"  height="4" fill="#CB7E5E"/>
+          <g class="clawd-open">
+            <rect x="8"  y="4" width="2" height="4" fill="#141013"/>
+            <rect x="22" y="4" width="2" height="4" fill="#141013"/>
+          </g>
+          <g class="clawd-shut">
+            <rect x="7"  y="6" width="4" height="2" fill="#141013"/>
+            <rect x="21" y="6" width="4" height="2" fill="#141013"/>
+          </g>
+        </g>
+      </svg>
+    </div>
+
     <div class="composer-box glass">
       <div class="edit-banner hidden" id="editBanner"><span class="edit-banner-text">Editing this message will restart the conversation from this point.</span><button class="edit-banner-close" id="editBannerClose" aria-label="取消编辑">×</button></div>
       <div class="attachment-preview hidden" id="attachmentPreview"></div>
@@ -401,6 +423,7 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
         </div>
         <div class="profile-divider"></div>
         <div class="profile-name-row"><button type="button" class="profile-mini-button" id="addRelayBtn">＋ 添加中转站</button></div>
+        <div class="relay-route" id="relayRoute" hidden></div>
       </div>
     </section>
     <div class="profile-footer-actions"><button class="profile-text-button" id="deleteProfile">Clear profile</button></div>
@@ -756,8 +779,15 @@ function updateSessionHeader(){if(!state.menuSession){$('sessionMenuTitle').text
 function scrollBottom(){stream.scrollTop=stream.scrollHeight}
 (()=>{const btn=$('scrollToBottom');if(!btn)return;function check(){const atBottom=stream.scrollHeight-stream.scrollTop-stream.clientHeight<40;btn.classList.toggle('hidden',atBottom)}stream.addEventListener('scroll',check,{passive:true});new MutationObserver(check).observe(streamInner,{childList:true,subtree:true,characterData:true});btn.addEventListener('click',()=>{stream.scrollTo({top:stream.scrollHeight,behavior:'smooth'})});check()})();
 function appendDisclaimer(){document.querySelector('.stream-disclaimer')?.remove();if(!streamInner.querySelector('.msg-claude'))return;const note=document.createElement('div');note.className='stream-disclaimer';note.innerHTML=`${logo('mark-20')}<span>AI 可能会出错。<br>请自行核对重要信息。</span>`;streamInner.append(note)}
-async function greeting(){try{const r=await fetch('/api/splash');if(r.ok)return(await r.json()).line}catch{}return"What are we thinking about, 小朵?"}
-async function resetEmpty(){state.convId=null;state.legacySessionId=null;state.currentTitle='新对话';state.starred=false;localStorage.removeItem('chat_conversation');localStorage.removeItem('chat_session');streamInner.innerHTML=`<div class="empty" id="empty">${logo('mark-35')}<div class="empty-line"></div></div>`;$('empty').querySelector('.empty-line').textContent=await greeting();input.placeholder='想和小忱说……';updateSessionHeader()}
+async function greeting(){
+  const fallback={line:'你爱故我在。',sub:'La luce che ti cerca sono io.'};
+  try{
+    const r=await fetch('/api/splash');
+    if(r.ok){const d=await r.json();return{line:d.line||fallback.line,sub:d.sub||fallback.sub}}
+  }catch{}
+  return fallback;
+}
+async function resetEmpty(){state.convId=null;state.legacySessionId=null;state.currentTitle='新对话';state.starred=false;localStorage.removeItem('chat_conversation');localStorage.removeItem('chat_session');streamInner.innerHTML=`<div class="empty" id="empty">${logo('mark-35')}<div class="empty-line"></div><div class="empty-sub"></div></div>`;const g=await greeting();$('empty').querySelector('.empty-line').textContent=g.line;$('empty').querySelector('.empty-sub').textContent=g.sub;input.placeholder='想和小忱说……';updateSessionHeader()}
 async function dismissEmpty(){input.placeholder='想和小忱说……';const el=$('empty');if(!el)return;el.classList.add('leaving');await new Promise(r=>setTimeout(r,300));el.remove()}
 
 async function loadModels(){try{const r=await fetch('/api/models');state.models=(await r.json()).models}catch{state.models=[{id:'claude-sonnet-4-6',label:'Sonnet 4.6',desc:'Everyday tasks',thinking:'adaptive',primary:true}]}
@@ -2316,6 +2346,20 @@ if(state.token)showChat();resetEmpty();loadModels();updateSessionHeader();update
 /* ---- 中转站管理 ---------------------------------------------------------- */
 let _relayEditingId = null;
 function _relayEscape(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function renderRelayRoute(relays){
+  const el=document.getElementById('relayRoute');
+  if(!el)return;
+  const cur=(relays||[]).find(r=>r.active);
+  if(!cur){el.hidden=true;return}
+  const isSub=cur.mode==='subscription';
+  el.hidden=false;
+  el.classList.toggle('is-sub',isSub);
+  el.innerHTML=
+    `<span class="relay-route-dot"></span>`+
+    `<span class="relay-route-label">${isSub?'订阅额度':'API 计费'}</span>`+
+    `<span class="relay-route-name">${_relayEscape(cur.name)}</span>`+
+    `<span class="relay-route-note">${isSub?'包月，不按 token 结账':'按 token 结账'}</span>`;
+}
 async function loadRelays(){
   const list=document.getElementById('relayList');
   try{
@@ -2323,7 +2367,7 @@ async function loadRelays(){
     if(!r.ok)throw Error();
     const {relays}=await r.json();
     list.innerHTML='';
-    if(!relays.length){list.innerHTML='<div style="padding:12px 4px;color:var(--muted,#888);font-size:13px">还没有中转站</div>';return}
+    if(!relays.length){list.innerHTML='<div style="padding:12px 4px;color:var(--muted,#888);font-size:13px">还没有中转站</div>';renderRelayRoute([]);return}
     relays.forEach((relay,i)=>{
       if(i>0){const div=document.createElement('div');div.className='profile-divider';list.append(div)}
       const row=document.createElement('div');
@@ -2346,7 +2390,8 @@ async function loadRelays(){
       });
       list.append(row);
     });
-  }catch{list.innerHTML='<div style="padding:12px 4px;color:#c00;font-size:13px">加载失败</div>'}
+    renderRelayRoute(relays);
+  }catch{list.innerHTML='<div style="padding:12px 4px;color:#c00;font-size:13px">加载失败</div>';renderRelayRoute([])}
 }
 async function activateRelay(id){
   try{

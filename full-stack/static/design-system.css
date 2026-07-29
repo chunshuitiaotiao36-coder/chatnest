@@ -48,6 +48,7 @@
   --text-base:   15px;
   --text-sm:     12.5px;
   --text-title:  18px;
+  --text-read:   14px;                 /* 聊天正文。覆盖 index.html:22 的 16.5px */
   --leading:     1.65;                 /* 正文行高，不得低于 1.6 */
 
   /* —— 圆角 —— */
@@ -571,4 +572,137 @@ body.tab-away #chat {
 #drawer:not([inert]) {
   visibility: visible;
   transition: none;
+}
+
+/* —— 顶栏名字 —— */
+.topbar-brand {
+  font-family: 'LXGW WenKai', ui-serif, Georgia, 'PingFang SC', serif;
+  font-weight: 300;
+}
+.topbar-brand .brand-en {
+  margin-left: .38em;
+  font-family: ui-serif, Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+  font-size: .92em;
+  opacity: .55;
+}
+
+/* —— 开屏语 —— */
+.empty-line {
+  letter-spacing: .16em;
+  opacity: .65;
+}
+.empty-sub {
+  margin-top: .55em;
+  font-family: ui-serif, Georgia, serif;
+  font-style: italic;
+  font-size: 13.5px;
+  line-height: 1.45;
+  letter-spacing: .01em;
+  opacity: .42;
+  text-wrap: balance;
+}
+
+/* —— Clawd：蹲在输入框左上沿 ——
+   放在 .composer-box 外面：.glass 带 overflow:hidden，塞进去会被剪掉。
+   导轨与 .composer-box 同宽同居中（max-width:720px;margin:auto），
+   高度为 0，所以 Clawd 能自动跟着输入框左边缘走，手机桌面都对。 */
+.clawd-rail {
+  position: relative;
+  max-width: 720px;
+  margin: 0 auto;
+  height: 0;
+  pointer-events: none;
+}
+.clawd {
+  position: absolute;
+  left: 22px;
+  bottom: -3px;          /* 往下压 3px，腿卡在输入框上边框上 */
+  display: block;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+.clawd-hop { animation: clawd-hop 2.6s steps(1) infinite; }
+@keyframes clawd-hop {
+  0%, 62%   { transform: translateY(0) }
+  63%, 100% { transform: translateY(-2px) }
+}
+.clawd-open { animation: clawd-open 4.4s steps(1) infinite; }
+.clawd-shut { animation: clawd-shut 4.4s steps(1) infinite; }
+@keyframes clawd-open {
+  0%, 93%   { opacity: 1 }
+  94%, 97%  { opacity: 0 }
+  98%, 100% { opacity: 1 }
+}
+@keyframes clawd-shut {
+  0%, 93%   { opacity: 0 }
+  94%, 97%  { opacity: 1 }
+  98%, 100% { opacity: 0 }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clawd-hop, .clawd-open, .clawd-shut { animation: none }
+  .clawd-shut { opacity: 0 }
+}
+
+/* —— 当前线路状态条 —— */
+.relay-route {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(217, 119, 87, .07);
+  border: 1px solid rgba(217, 119, 87, .20);
+  font-size: 13px;
+  line-height: 1.3;
+}
+.relay-route[hidden] { display: none }
+/* 橙和绿在这里是语义色：橙 = API 计费，绿 = 订阅额度，表达的是线路性质
+   不是主题风格。所以写死，不挂 var(--accent)——主题色改了不该让状态条串味。
+   下面 .is-sub 那组绿本来就是写死的，两边规矩保持一致。 */
+.relay-route-dot {
+  flex: none;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: #D97757;
+  box-shadow: 0 0 0 3px rgba(217, 119, 87, .18);
+}
+.relay-route-label {
+  flex: none;
+  font-weight: 600;
+  color: #D97757;
+}
+.relay-route-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #77736c;
+}
+.relay-route-note {
+  flex: none;
+  font-size: 11px;
+  color: #aaa49c;
+}
+
+/* 订阅线路换一套颜色，跟 API 一眼分得开 */
+.relay-route.is-sub {
+  background: rgba(107, 158, 122, .09);
+  border-color: rgba(107, 158, 122, .24);
+}
+.relay-route.is-sub .relay-route-dot {
+  background: #6B9E7A;
+  box-shadow: 0 0 0 3px rgba(107, 158, 122, .18);
+}
+.relay-route.is-sub .relay-route-label { color: #5C8A69 }
+
+@media (prefers-color-scheme: dark) {
+  .relay-route-name { color: rgba(244, 243, 239, .58) }
+  .relay-route-note { color: rgba(244, 243, 239, .40) }
+  .relay-route.is-sub .relay-route-label { color: #8FBF9C }
 }

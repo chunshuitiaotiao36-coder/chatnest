@@ -218,6 +218,7 @@ def get_active_summary() -> dict:
     return {
         "id": relay["id"],
         "name": relay["name"],
+        "mode": _normalize_mode(relay.get("mode")),
         "models": [
             {
                 "id": m["id"],
