@@ -828,25 +828,29 @@ let _modelPage='main';
 const _EFFORT_OPTS=[{key:'low',label:'Low',desc:'Quick replies to simple questions'},{key:'medium',label:'Medium',desc:'Balanced for everyday work',def:true},{key:'high',label:'High',desc:'Complex, detailed work'},{key:'max',label:'Max',desc:'The hardest problems. Takes longest.'}];
 const _BACK_SVG='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>';
 const _NAV_CHEVRON='<span class="model-nav-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></span>';
-function _selectModel(id){state.model=id;localStorage.setItem('chat_model',id);state.actualModel=null;renderModelSheet();updateModelHeader();renderRelayRoute()}
+function _selectModel(id){state.model=id;localStorage.setItem('chat_model',id);state.actualModel=null;renderModelSheet();updateModelHeader();renderRelayRoute();renderRelayModels()}
+/* 拉取回来十几个模型全是 primary:true 会把 Select model 主页撑爆，加个上限。
+   一个都没标 primary 时退回全部，否则主页会空着。 */
+function _primaryModels(){const p=state.models.filter(x=>x.primary);return(p.length?p:state.models).slice(0,6)}
+function _moreModels(){const s=new Set(_primaryModels().map(m=>m.id));return state.models.filter(m=>!s.has(m.id))}
 function renderModelSheet(){const root=$('modelContent');root.innerHTML='';const backBtn=$('closeModel');const titleEl=$('modelSheet').querySelector('.sheet-title');
   if(_modelPage==='effort'){backBtn.innerHTML=_BACK_SVG;backBtn.onclick=()=>{_modelPage='main';renderModelSheet()};titleEl.textContent='Effort';_renderEffortPage(root)}
   else if(_modelPage==='more'){backBtn.innerHTML=_BACK_SVG;backBtn.onclick=()=>{_modelPage='main';renderModelSheet()};titleEl.textContent='More models';_renderMorePage(root)}
   else{backBtn.innerHTML='×';backBtn.onclick=()=>sheet('model',false);titleEl.textContent='Select model';_renderMainPage(root)}}
 function _renderMainPage(root){
   const g=document.createElement('div');g.className='model-group';
-  state.models.filter(x=>x.primary).forEach(m=>{const b=document.createElement('button');b.className='model-group-item';b.innerHTML=`<span class="model-info"><span class="model-name">${m.label}</span><span class="model-desc">${m.desc||''}</span></span>${m.id===state.model?'<span class="model-check">✓</span>':''}`;b.onclick=()=>{_selectModel(m.id);sheet('model',false)};g.append(b)});
+  _primaryModels().forEach(m=>{const b=document.createElement('button');b.className='model-group-item';b.innerHTML=`<span class="model-info"><span class="model-name">${m.label}</span><span class="model-desc">${m.desc||''}</span></span>${m.id===state.model?'<span class="model-check">✓</span>':''}`;b.onclick=()=>{_selectModel(m.id);sheet('model',false)};g.append(b)});
   root.append(g);
   const m=currentModel();
   if(m&&m.thinking!=='none'){const eg=document.createElement('div');eg.className='model-group';const r=document.createElement('button');r.className='model-group-item';r.innerHTML=`<span class="model-name" style="font-size:16px;font-family:var(--font-sans)">Effort</span><span class="model-nav-right">${modelSettingText()} ${_NAV_CHEVRON}</span>`;r.onclick=()=>{_modelPage='effort';renderModelSheet()};eg.append(r);root.append(eg)}
-  if(state.models.some(x=>!x.primary)){const mg=document.createElement('div');mg.className='model-group';const r=document.createElement('button');r.className='model-group-item';r.innerHTML=`<span class="model-name" style="font-size:16px;font-family:var(--font-sans)">More models</span><span class="model-nav-right">${_NAV_CHEVRON}</span>`;r.onclick=()=>{_modelPage='more';renderModelSheet()};mg.append(r);root.append(mg)}}
+  if(_moreModels().length){const mg=document.createElement('div');mg.className='model-group';const r=document.createElement('button');r.className='model-group-item';r.innerHTML=`<span class="model-name" style="font-size:16px;font-family:var(--font-sans)">More models</span><span class="model-nav-right">${_NAV_CHEVRON}</span>`;r.onclick=()=>{_modelPage='more';renderModelSheet()};mg.append(r);root.append(mg)}}
 function _renderEffortPage(root){const m=currentModel(),s=modelSetting(m);
   if(m?.thinking==='adaptive'||m?.thinking==='extended'){const g=document.createElement('div');g.className='model-group';
     _EFFORT_OPTS.forEach(o=>{const b=document.createElement('button');b.className='model-group-item';const active=(s.effort||'medium')===o.key;b.innerHTML=`<span class="model-info"><span class="effort-option-name">${o.label}${o.def?'<span class="effort-option-badge">Default</span>':''}</span><span class="effort-option-desc">${o.desc}</span></span>${active?'<span class="model-check">✓</span>':''}`;b.onclick=()=>{const c=state.settings[m.id]||{};state.settings[m.id]={...c,effort:o.key};saveSettings();renderModelSheet();updateModelHeader()};g.append(b)});
     root.append(g);const note=document.createElement('div');note.className='effort-note';note.textContent='Higher effort means more thorough responses, but takes longer and uses your limits faster.';root.append(note)}
   if(m?.thinking==='adaptive'||m?.thinking==='extended'){const eg=document.createElement('div');eg.className='model-group';const row=document.createElement('div');row.className='extended-row';const isOn=s.extended!==false;row.innerHTML=`<span class="extended-info"><span class="extended-label">Extended</span><span class="extended-desc">Always uses deep reasoning</span></span>`;const tgl=document.createElement('button');tgl.className='toggle'+(isOn?' on':'');tgl.onclick=()=>{const c=state.settings[m.id]||{};state.settings[m.id]={...c,extended:!isOn};saveSettings();renderModelSheet();updateModelHeader()};row.append(tgl);eg.append(row);root.append(eg)}}
 function _renderMorePage(root){const g=document.createElement('div');g.className='model-group';
-  state.models.filter(x=>!x.primary).forEach(m=>{const b=document.createElement('button');b.className='model-group-item';b.innerHTML=`<span class="model-name">${m.label}</span>${m.id===state.model?'<span class="model-check">✓</span>':''}`;b.onclick=()=>_selectModel(m.id);g.append(b)});
+  _moreModels().forEach(m=>{const b=document.createElement('button');b.className='model-group-item';b.innerHTML=`<span class="model-name">${m.label}</span>${m.id===state.model?'<span class="model-check">✓</span>':''}`;b.onclick=()=>_selectModel(m.id);g.append(b)});
   root.append(g)}
 function setLayerState(element,open){element.classList.toggle('show',open);element.setAttribute('aria-hidden',String(!open));element.toggleAttribute('inert',!open)}
 function sheet(name,open){const s=$(`${name}Sheet`);if(open){s.classList.remove('expanded');s.style.transform=''}setLayerState($(`${name}Overlay`),open);setLayerState(s,open)}
@@ -2399,12 +2403,38 @@ function renderRelayRoute(relays){
     // 订阅线路上填 opus 之后，这是唯一能看到真实版本的地方——完整 ID，不缩写
     (state.actualModel?`<span class="relay-route-actual">实际：${_relayEscape(state.actualModel)}</span>`:'');
 }
+/* 只渲染 active 那条中转站的模型。非活动站的模型选不了，列出来只会误导。
+   大字是短名（label），小字是完整 ID 一个字不改。 */
+function renderRelayModels(){
+  const p=document.getElementById('relayModels');
+  if(!p)return;
+  p.innerHTML='';
+  const cur=_relaysCache.find(r=>r.active);
+  if(!cur)return;
+  (cur.models||[]).forEach(m=>{
+    const on=m.id===state.model;
+    const row=document.createElement('div');
+    row.className='relay-model-row'+(on?' is-on':'');
+    row.innerHTML=
+      `<span class="relay-model-check">${on?'✓':''}</span>`+
+      `<span class="relay-model-info">`+
+        `<span class="relay-model-name">${_relayEscape(m.label||_shortModelName(m.id))}</span>`+
+        `<span class="relay-model-id">${_relayEscape(m.id)}</span>`+
+      `</span>`;
+    // _selectModel 已经调了 updateModelHeader()，再补一句重渲染这个面板
+    row.addEventListener('click',()=>{if(m.id===state.model)return;_selectModel(m.id);renderRelayModels();toast('已切换模型')});
+    p.append(row);
+  });
+}
 async function loadRelays(){
   const list=document.getElementById('relayList');
   try{
     const r=await api('/api/relays');
     if(!r.ok)throw Error();
     const {relays}=await r.json();
+    // 先落缓存：renderRelayModels() 在下面就要读它，而 renderRelayRoute()
+    // 排在更后面，等它来写就晚了（面板会渲染成空的）
+    _relaysCache=relays;
     list.innerHTML='';
     if(!relays.length){list.innerHTML='<div style="padding:12px 4px;color:var(--muted,#888);font-size:13px">还没有中转站</div>';renderRelayRoute([]);return}
     relays.forEach((relay,i)=>{
@@ -2428,7 +2458,12 @@ async function loadRelays(){
         await activateRelay(relay.id);
       });
       list.append(row);
+      // 面板挂成 active 那一行的紧邻兄弟，不是整个列表底下。
+      // 做实样时那么放过：active 是第一条、订阅站是第二条时，面板贴在订阅站
+      // 下面，看着像是订阅站的模型——正好把归属讲反了。
+      if(relay.active){const p=document.createElement('div');p.className='relay-models';p.id='relayModels';list.append(p)}
     });
+    renderRelayModels();
     renderRelayRoute(relays);
   }catch{list.innerHTML='<div style="padding:12px 4px;color:#c00;font-size:13px">加载失败</div>';renderRelayRoute([])}
 }

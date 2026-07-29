@@ -647,6 +647,58 @@ body.tab-away #chat {
   .clawd-shut { opacity: 0 }
 }
 
+/* —— 当前中转站的模型清单 ——
+   挂在 active 那一行的正下方，缩进 + 左侧竖线把归属说清楚。
+   橙色同 .relay-route 的规矩：这里表达的是「当前选中」这个状态，
+   跟主题 accent 同源，所以用写死的赭橙保持整块视觉一致。 */
+.relay-models {
+  margin: 2px 0 8px 22px;          /* 22px 对齐上一行站名的起点 */
+  padding-left: 11px;
+  border-left: 2px solid rgba(217, 119, 87, .09);
+  max-height: 270px;               /* 超过 8 条就滚，别把 Home 页撑成长条 */
+  overflow-y: auto;
+}
+.relay-model-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  cursor: pointer;
+  border-top: 1px solid var(--border);
+  transition: background .12s;
+}
+.relay-model-row.is-on { background: rgba(217, 119, 87, .09) }
+.relay-model-check {
+  width: 14px;
+  flex: none;
+  color: var(--accent);
+  font-size: 13px;
+  line-height: 1;
+}
+/* 大字短名 / 小字完整 ID 要上下两行，所以这里必须是 column —— 两个 span
+   默认是 inline，不加会挤在同一行，.relay-model-id 的省略号也不生效。 */
+.relay-model-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.relay-model-name { font-size: 13.5px; line-height: 1.3 }
+.relay-model-row.is-on .relay-model-name { color: var(--accent); font-weight: 500 }
+.relay-model-id {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 10.5px;
+  color: var(--text-faint);
+  margin-top: 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (prefers-color-scheme: dark) {
+  .relay-models { border-left-color: rgba(224, 138, 107, .12) }
+  .relay-model-row.is-on { background: rgba(224, 138, 107, .12) }
+}
+
 /* —— 当前线路状态条 —— */
 .relay-route {
   display: flex;
@@ -739,4 +791,8 @@ body.tab-away #chat {
   .relay-route-name { color: rgba(244, 243, 239, .58) }
   .relay-route-note { color: rgba(244, 243, 239, .40) }
   .relay-route.is-sub .relay-route-label { color: #8FBF9C }
+  /* --text-faint 的暗色值是 #7A5A6A，压在状态条底上对比度只有 1.92，读不清。
+     跟同组件的 .relay-route-name / -note 一样改用暖白半透明；这一段载的是
+     真实模型 ID，比 note 更需要读得清，所以比 .40 亮一档。 */
+  .relay-route-actual { color: rgba(244, 243, 239, .62) }
 }
