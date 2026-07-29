@@ -555,6 +555,12 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
         <button type="button" class="secondary-button" id="relayTestBtn">测试连接</button>
         <span id="relayTestResult" style="font-size:12px;color:var(--muted,#888)"></span>
       </div>
+      <!-- 刻意放在 relayRowTest 外面：订阅线路会把地址/密钥/协议/测试连接整排藏掉，
+           但拉取按钮照样要能点（点了填入三条 CLI 别名）。 -->
+      <div class="relay-fetch-row" id="relayRowFetch">
+        <button type="button" class="secondary-button" id="relayFetchBtn">拉取模型</button>
+        <span class="relay-fetch-result" id="relayFetchResult"></span>
+      </div>
     </div>
     <div class="dialog-actions" style="margin-top:14px;display:flex;gap:8px;align-items:center">
       <button type="button" class="secondary-button" id="relayDeleteBtn" style="display:none;color:#c00">删除</button>
@@ -2369,6 +2375,10 @@ if(state.token)showChat();resetEmpty();loadModels();updateSessionHeader();update
 
 /* ---- 中转站管理 ---------------------------------------------------------- */
 let _relayEditingId = null;
+/* 正在编辑的那条完整记录：保存时按 id 从它继承 desc/thinking/primary */
+let _relayEditingRelay = null;
+/* 上游拉回来的全部模型，「全部填入」用 */
+let _relayFetchAll = [];
 /* 状态条要能在收到 model 事件时单独重画，而那时候手上没有 relays——存一份 */
 let _relaysCache = [];
 function _relayEscape(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -2445,6 +2455,8 @@ function _syncRelayModeUI(){
 }
 function openRelayModal(relay){
   _relayEditingId=relay?relay.id:null;
+  _relayEditingRelay=relay||null;
+  _relayFetchAll=[];
   document.getElementById('relayModalTitle').textContent=relay?'编辑中转站':'添加中转站';
   document.getElementById('relayFieldName').value=relay?relay.name:'';
   document.getElementById('relayFieldMode').value=(relay&&relay.mode)||'api';
@@ -2460,11 +2472,57 @@ function openRelayModal(relay){
   document.getElementById('relayFieldModels').value=relay?relay.models.map(m=>`${m.id} | ${m.label}`).join('\n'):'';
   document.getElementById('relayDeleteBtn').style.display=(relay&&!relay.active)?'':'none';
   const res=document.getElementById('relayTestResult');res.textContent='';res.style.color='var(--muted,#888)';
+  const fres=document.getElementById('relayFetchResult');fres.textContent='';fres.style.color='';
   _syncRelayModeUI();
   document.getElementById('relayModalOverlay').classList.remove('hidden');
   setTimeout(()=>document.getElementById('relayFieldName').focus(),50);
 }
-function closeRelayModal(){document.getElementById('relayModalOverlay').classList.add('hidden');_relayEditingId=null}
+function closeRelayModal(){document.getElementById('relayModalOverlay').classList.add('hidden');_relayEditingId=null;_relayEditingRelay=null;_relayFetchAll=[]}
+/* —— 从上游拉取模型 ——
+   短名优先用上游给的 display_name（Anthropic 格式白送一个），没有就自己生成。
+   ID 一个字都不改，短名只落在 | 右边。 */
+function _fillRelayModels(list){
+  document.getElementById('relayFieldModels').value=
+    list.map(m=>`${m.id} | ${m.display_name||_shortModelName(m.id)}`).join('\n');
+}
+/* 去掉 [k-特惠] 这类中转站前缀之后再看含不含 claude */
+function _isClaudeModel(id){return /claude/i.test(String(id||'').replace(/^\[[^\]]*\]/,''))}
+async function fetchRelayModels(){
+  const btn=document.getElementById('relayFetchBtn');
+  const res=document.getElementById('relayFetchResult');
+  const mode=document.getElementById('relayFieldMode').value;
+  const isSub=mode==='subscription';
+  const base_url=document.getElementById('relayFieldBaseUrl').value.trim();
+  const api_key=document.getElementById('relayFieldApiKey').value.trim();
+  const protocol=document.getElementById('relayFieldProtocol').value;
+  if(!isSub&&!base_url){res.textContent='需要填地址';res.style.color='#c00';return}
+  const label=btn.textContent;
+  btn.disabled=true;btn.textContent='拉取中…';
+  res.textContent='';res.style.color='';
+  try{
+    const payload={base_url,api_key,protocol,mode};
+    // 密钥框留空表示「不改」，这时候让后端去存档里取真 key
+    if(_relayEditingId)payload.relay_id=_relayEditingId;
+    const r=await api('/api/relays/models/fetch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const d=await r.json();
+    if(!d.ok){res.textContent=d.detail||'拉取失败';res.style.color='#c00';return}
+    const all=d.models||[];
+    _relayFetchAll=all;
+    if(isSub){_fillRelayModels(all);res.textContent=d.detail||`填入 ${all.length} 条别名`;return}
+    // 中转站动辄挂几百个模型，一股脑填进去 textarea 和模型菜单都没法看。
+    // 这是过滤不是筛选：不按版本号挑、不去重、不排序，上游什么顺序就什么顺序。
+    const picked=all.filter(m=>_isClaudeModel(m.id));
+    _fillRelayModels(picked);
+    res.textContent=`上游 ${all.length} 个模型，已填入 ${picked.length} 个 Claude 模型`;
+    if(picked.length<all.length){
+      const link=document.createElement('a');
+      link.href='#';link.className='relay-fetch-link';link.textContent='全部填入';
+      link.onclick=e=>{e.preventDefault();_fillRelayModels(_relayFetchAll);res.textContent=`已填入全部 ${_relayFetchAll.length} 个模型`};
+      res.append(document.createTextNode(' · '),link);
+    }
+  }catch{res.textContent='拉取失败';res.style.color='#c00'}
+  finally{btn.disabled=false;btn.textContent=label}
+}
 function _parseRelayModels(text){
   return text.split('\n').map(line=>{
     const t=line.trim();if(!t)return null;
@@ -2488,7 +2546,13 @@ async function submitRelayModal(){
     cache_control:document.getElementById('relayCapCache').checked,
     reasoning:document.getElementById('relayCapReasoning').checked,
   };
-  const models=_parseRelayModels(document.getElementById('relayFieldModels').value);
+  // textarea 只产出 {id,label}，直接提交会让后端把 desc/thinking/primary 补成
+  // 默认值——种子里设的 primary:false 和 desc 就是这么被抹掉的。按 id 继承回来。
+  const _old=new Map((_relayEditingRelay?.models||[]).map(m=>[m.id,m]));
+  const models=_parseRelayModels(document.getElementById('relayFieldModels').value).map(m=>{
+    const o=_old.get(m.id);
+    return o?{...m,desc:o.desc,thinking:o.thinking,primary:o.primary}:m;
+  });
   if(!name){toast('名称必填');return}
   const isCreate=!_relayEditingId;
   if(!isSub){
@@ -2538,6 +2602,7 @@ document.getElementById('relayCancelBtn')?.addEventListener('click',closeRelayMo
 document.getElementById('relaySaveBtn')?.addEventListener('click',submitRelayModal);
 document.getElementById('relayDeleteBtn')?.addEventListener('click',deleteRelayFromModal);
 document.getElementById('relayTestBtn')?.addEventListener('click',testRelayFromModal);
+document.getElementById('relayFetchBtn')?.addEventListener('click',fetchRelayModels);
 document.getElementById('relayFieldMode')?.addEventListener('change',_syncRelayModeUI);
 
 /* —— 底部导航栏 ——

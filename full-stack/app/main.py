@@ -231,6 +231,12 @@ class StarBody(BaseModel):
 class RelayModelBody(BaseModel):
     id: str = Field(min_length=1, max_length=200)
     label: str = Field(min_length=1, max_length=200)
+    # 前端保存时按 id 从原记录继承这三个再发回来。不在这里声明的话 pydantic
+    # 会把它们丢掉，relays._normalize_model 再补成默认值——种子里设的
+    # primary:false / desc 就是这么被抹平的。
+    desc: str = Field(default="", max_length=500)
+    thinking: str = Field(default="adaptive", max_length=20)
+    primary: bool = True
 
 
 class RelayCapabilitiesBody(BaseModel):
@@ -265,6 +271,16 @@ class RelayTestBody(BaseModel):
     base_url: str = Field(min_length=1, max_length=500)
     api_key: str = Field(default="", max_length=500)
     protocol: str = Field(default="openai-compatible", max_length=50)
+
+
+class RelayModelsFetchBody(BaseModel):
+    # 订阅线路没有地址，所以这里不能像 RelayTestBody 那样要求 min_length=1
+    base_url: str = Field(default="", max_length=500)
+    api_key: str = Field(default="", max_length=500)
+    protocol: str = Field(default="openai-compatible", max_length=50)
+    mode: str = Field(default="api", max_length=20)
+    # 给了就用存档里那条的真 key，她编辑一个已存在的站时不用重新输密钥
+    relay_id: str = Field(default="", max_length=64)
 
 
 class BackgroundMaskBody(BaseModel):
@@ -852,6 +868,13 @@ async def relays_activate(relay_id: str) -> dict:
 @app.post("/api/relays/test", dependencies=[Depends(require_auth)])
 async def relays_test(body: RelayTestBody) -> dict:
     return await relays.probe(body.base_url, body.api_key, body.protocol)
+
+
+@app.post("/api/relays/models/fetch", dependencies=[Depends(require_auth)])
+async def relays_models_fetch(body: RelayModelsFetchBody) -> dict:
+    return await relays.fetch_models_for(
+        body.base_url, body.api_key, body.protocol, body.mode, body.relay_id
+    )
 
 
 @app.get("/api/background", dependencies=[Depends(require_auth)])

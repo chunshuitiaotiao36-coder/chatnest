@@ -704,6 +704,26 @@ body.tab-away #chat {
   white-space: nowrap;
 }
 
+/* —— 编辑弹窗里的「拉取模型」那一行 ——
+   提示语可能很长（上游 187 个模型，已填入 12 个 Claude 模型 · 全部填入），
+   所以允许换行，别把弹窗撑宽。 */
+.relay-fetch-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.relay-fetch-result {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-faint);
+}
+.relay-fetch-link {
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 /* 订阅线路换一套颜色，跟 API 一眼分得开 */
 .relay-route.is-sub {
   background: rgba(107, 158, 122, .09);
