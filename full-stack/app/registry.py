@@ -44,6 +44,7 @@ class ConvRegistry:
         options: ClaudeAgentOptions,
         fingerprint: str,
         timing_callback: Callable[[str], None] | None,
+        allow_reuse: bool = True,
     ) -> asyncio.Queue:
         async with self._lock:
             actor = self._actor
@@ -61,7 +62,7 @@ class ConvRegistry:
                 self._actor = actor
             stage = (
                 "actor_warm_hit"
-                if actor.is_warm_for(fingerprint)
+                if allow_reuse and actor.is_warm_for(fingerprint)
                 else "actor_cold_start"
             )
             outbox = await actor.submit(
@@ -69,6 +70,7 @@ class ConvRegistry:
                 options,
                 fingerprint,
                 timing_callback,
+                force_fresh=not allow_reuse,
             )
             if timing_callback:
                 timing_callback(stage)

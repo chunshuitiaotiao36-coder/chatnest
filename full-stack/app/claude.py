@@ -19,6 +19,7 @@ from claude_agent_sdk import (
 )
 from claude_agent_sdk.types import StreamEvent
 
+from app import relays
 from app.actor import ActorBusyError
 from app.memory import build_profile_context, memory_tool_permission, read_memory
 from app.registry import get_registry
@@ -231,12 +232,23 @@ async def stream_chat(
         ).encode("utf-8")
     ).hexdigest()
 
+    # 订阅线路上复用的 CLI 子进程从第二次 query 起会静默停止产出内容
+    # （实测 cold 2/2 成功、warm 3/4 失败，stderr 空、无异常、ResultMessage 不到）。
+    # 根因在 CLI 内部，这里先绕开：订阅模式每次新建子进程。
+    # 中转站不受影响，热复用照旧。
+    try:
+        is_subscription = relays.get_active_summary().get("mode") == "subscription"
+    except Exception:
+        logging.getLogger("uvicorn.error").exception("relay mode 判定失败，按中转站处理")
+        is_subscription = False
+
     outbox = await get_registry().submit(
         conv_id,
         prompt,
         options,
         fingerprint,
         timing_callback,
+        allow_reuse=not is_subscription,
     )
     while True:
         item = await outbox.get()

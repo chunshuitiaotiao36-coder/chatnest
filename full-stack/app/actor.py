@@ -28,7 +28,17 @@ logger = logging.getLogger(__name__)
 cache_logger = logging.getLogger("uvicorn.error")
 
 
+# CLI 不发结束标记时 receive_response() 会永远挂着，用户只看到一个空白气泡。
+# 180 秒：实测正常首字 3.3-6.6 秒，长回复带思考和工具调用可能到几十秒，
+# 这个值足够宽，不会误伤真实的长回复。
+RESPONSE_TIMEOUT_SECONDS = 180
+
+
 class ActorBusyError(RuntimeError):
+    pass
+
+
+class ActorTimeoutError(RuntimeError):
     pass
 
 
@@ -39,6 +49,7 @@ class TurnRequest:
     fingerprint: str
     timing_callback: Callable[[str], None] | None
     outbox: asyncio.Queue
+    force_fresh: bool = False
 
 
 class ConvActor:
@@ -74,6 +85,7 @@ class ConvActor:
         options: ClaudeAgentOptions,
         fingerprint: str,
         timing_callback: Callable[[str], None] | None,
+        force_fresh: bool = False,
     ) -> asyncio.Queue:
         async with self._state_lock:
             if not self.alive:
@@ -89,6 +101,7 @@ class ConvActor:
                 fingerprint=fingerprint,
                 timing_callback=timing_callback,
                 outbox=outbox,
+                force_fresh=force_fresh,
             )
         )
         return outbox
@@ -111,7 +124,11 @@ class ConvActor:
                 self._fingerprint = None
 
     async def _ensure_client(self, request: TurnRequest) -> None:
-        if self._client is not None and self._fingerprint == request.fingerprint:
+        if (
+            not request.force_fresh
+            and self._client is not None
+            and self._fingerprint == request.fingerprint
+        ):
             return
         await self._disconnect()
         client = ClaudeSDKClient(request.options)
@@ -130,82 +147,96 @@ class ConvActor:
         first_text_token_seen = False
         got_streaming_text = False
         result_seen = False
-        async for sdk_message in self._client.receive_response():
-            if not first_sdk_event_seen:
-                first_sdk_event_seen = True
-                if callback:
-                    callback("sdk_first_event")
-            if isinstance(sdk_message, SystemMessage):
-                if sdk_message.subtype == "init":
-                    initialized_cwd = sdk_message.data.get("cwd")
-                    if initialized_cwd != self.project_dir:
-                        raise RuntimeError("会话恢复失败")
-            elif isinstance(sdk_message, StreamEvent):
-                event = sdk_message.event
-                if event.get("type") != "content_block_delta":
-                    continue
-                delta = event.get("delta", {})
-                if delta.get("type") == "text_delta":
-                    text = delta.get("text", "")
-                    if text and not first_text_token_seen:
-                        first_text_token_seen = True
+        # CLI 不发结束标记时这个循环会永远挂着（订阅线路上实测过：没有 first_text_token、
+        # 没有 ResultMessage、也没有异常）。超时后连同子进程一起收掉，
+        # 别把一个已知坏掉的进程留给下一轮。
+        try:
+            async with asyncio.timeout(RESPONSE_TIMEOUT_SECONDS):
+                async for sdk_message in self._client.receive_response():
+                    if not first_sdk_event_seen:
+                        first_sdk_event_seen = True
                         if callback:
-                            callback("first_text_token")
-                    got_streaming_text = True
-                    await request.outbox.put({"event": "delta", "text": text})
-                elif delta.get("type") == "thinking_delta":
-                    await request.outbox.put(
-                        {"event": "thinking", "text": delta.get("thinking", "")}
-                    )
-            elif isinstance(sdk_message, (_AssistantMessage, _UserMessage)):
-                for block in getattr(sdk_message, "content", []) or []:
-                    if isinstance(block, _TextBlock) and not got_streaming_text:
-                        text = block.text or ""
-                        if text and not first_text_token_seen:
-                            first_text_token_seen = True
-                            if callback:
-                                callback("first_text_token")
-                        if text:
+                            callback("sdk_first_event")
+                    if isinstance(sdk_message, SystemMessage):
+                        if sdk_message.subtype == "init":
+                            initialized_cwd = sdk_message.data.get("cwd")
+                            if initialized_cwd != self.project_dir:
+                                raise RuntimeError("会话恢复失败")
+                    elif isinstance(sdk_message, StreamEvent):
+                        event = sdk_message.event
+                        if event.get("type") != "content_block_delta":
+                            continue
+                        delta = event.get("delta", {})
+                        if delta.get("type") == "text_delta":
+                            text = delta.get("text", "")
+                            if text and not first_text_token_seen:
+                                first_text_token_seen = True
+                                if callback:
+                                    callback("first_text_token")
+                            got_streaming_text = True
                             await request.outbox.put({"event": "delta", "text": text})
-                    elif isinstance(block, _ToolUseBlock):
-                        await request.outbox.put({
-                            "event": "tool_use",
-                            "id": block.id,
-                            "name": block.name,
-                            "input": block.input,
-                        })
-                    elif isinstance(block, _ToolResultBlock):
-                        content = block.content
-                        if isinstance(content, list):
-                            content = "".join(
-                                c.get("text", "") if isinstance(c, dict) else str(c)
-                                for c in content
+                        elif delta.get("type") == "thinking_delta":
+                            await request.outbox.put(
+                                {"event": "thinking", "text": delta.get("thinking", "")}
                             )
-                        await request.outbox.put({
-                            "event": "tool_result",
-                            "tool_use_id": block.tool_use_id,
-                            "content": content or "",
-                            "is_error": bool(block.is_error),
-                        })
-            elif isinstance(sdk_message, ResultMessage):
-                result_seen = True
-                usage = sdk_message.usage or {}
-                cache_logger.info(
-                    "cache_usage model=%s stop=%s turns=%s text=%s input=%s cache_create=%s cache_read=%s cost=%s",
-                    ",".join((sdk_message.model_usage or {}).keys()) or "?",
-                    getattr(sdk_message, "stop_reason", None),
-                    getattr(sdk_message, "num_turns", None),
-                    first_text_token_seen,
-                    usage.get("input_tokens"),
-                    usage.get("cache_creation_input_tokens"),
-                    usage.get("cache_read_input_tokens"),
-                    sdk_message.total_cost_usd,
-                )
-                await request.outbox.put(
-                    {"event": "done", "session_id": sdk_message.session_id}
-                )
-            else:
-                cache_logger.info("sdk_unhandled: %s", type(sdk_message).__name__)
+                    elif isinstance(sdk_message, (_AssistantMessage, _UserMessage)):
+                        for block in getattr(sdk_message, "content", []) or []:
+                            if isinstance(block, _TextBlock) and not got_streaming_text:
+                                text = block.text or ""
+                                if text and not first_text_token_seen:
+                                    first_text_token_seen = True
+                                    if callback:
+                                        callback("first_text_token")
+                                if text:
+                                    await request.outbox.put({"event": "delta", "text": text})
+                            elif isinstance(block, _ToolUseBlock):
+                                await request.outbox.put({
+                                    "event": "tool_use",
+                                    "id": block.id,
+                                    "name": block.name,
+                                    "input": block.input,
+                                })
+                            elif isinstance(block, _ToolResultBlock):
+                                content = block.content
+                                if isinstance(content, list):
+                                    content = "".join(
+                                        c.get("text", "") if isinstance(c, dict) else str(c)
+                                        for c in content
+                                    )
+                                await request.outbox.put({
+                                    "event": "tool_result",
+                                    "tool_use_id": block.tool_use_id,
+                                    "content": content or "",
+                                    "is_error": bool(block.is_error),
+                                })
+                    elif isinstance(sdk_message, ResultMessage):
+                        result_seen = True
+                        usage = sdk_message.usage or {}
+                        cache_logger.info(
+                            "cache_usage model=%s stop=%s turns=%s text=%s input=%s cache_create=%s cache_read=%s cost=%s",
+                            ",".join((sdk_message.model_usage or {}).keys()) or "?",
+                            getattr(sdk_message, "stop_reason", None),
+                            getattr(sdk_message, "num_turns", None),
+                            first_text_token_seen,
+                            usage.get("input_tokens"),
+                            usage.get("cache_creation_input_tokens"),
+                            usage.get("cache_read_input_tokens"),
+                            sdk_message.total_cost_usd,
+                        )
+                        await request.outbox.put(
+                            {"event": "done", "session_id": sdk_message.session_id}
+                        )
+                    else:
+                        cache_logger.info("sdk_unhandled: %s", type(sdk_message).__name__)
+        except TimeoutError:
+            cache_logger.warning(
+                "sdk_response_timeout after %ss, killing actor",
+                RESPONSE_TIMEOUT_SECONDS,
+            )
+            await self._disconnect()
+            raise ActorTimeoutError(
+                f"Claude 超过 {RESPONSE_TIMEOUT_SECONDS} 秒没有返回完整回复，已断开重来"
+            ) from None
         if not result_seen:
             raise RuntimeError("Claude 连接提前结束")
 
