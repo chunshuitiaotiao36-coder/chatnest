@@ -2400,8 +2400,10 @@ function renderRelayRoute(relays){
     `<span class="relay-route-label">${isSub?'订阅额度':'API 计费'}</span>`+
     `<span class="relay-route-name">${_relayEscape(cur.name)}</span>`+
     `<span class="relay-route-note">${isSub?'包月，不按 token 结账':'按 token 结账'}</span>`+
-    // 订阅线路上填 opus 之后，这是唯一能看到真实版本的地方——完整 ID，不缩写
-    (state.actualModel?`<span class="relay-route-actual">实际：${_relayEscape(state.actualModel)}</span>`:'');
+    // 订阅线路上填 opus 之后，这是唯一能看到真实版本的地方——完整 ID，不缩写。
+    // 模型 ID 单独包一层 <b>：真正要读的是 ID，不是「实际」两个字，
+    // 配色分工在 design-system.css 的 .relay-route-actual b 上
+    (state.actualModel?`<span class="relay-route-actual">实际：<b>${_relayEscape(state.actualModel)}</b></span>`:'');
 }
 /* 只渲染 active 那条中转站的模型。非活动站的模型选不了，列出来只会误导。
    大字是短名（label），小字是完整 ID 一个字不改。 */

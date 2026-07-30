@@ -26,7 +26,7 @@ from starlette.formparsers import MultiPartParser
 MultiPartParser.max_part_size = 60 * 1024 * 1024  # 与 uploads.py 的 MAX_FILE_BYTES 对齐
 
 from app import auth, backgrounds, relays
-from app.actor import ActorBusyError
+from app.actor import ActorBusyError, _mem_kv
 from app.claude import (
     SessionResumeError,
     available_models,
@@ -403,12 +403,15 @@ async def chat(body: ChatBody) -> StreamingResponse:
         if stage in timing_stages:
             return
         timing_stages.add(stage)
+        # 每个 stage 一张内存快照，往现有日志行尾巴上接一段、不新增日志条目。
+        # actor_cold_start 和 first_text_token 之间那一跳就是子进程的内存代价。
         timing_logger.info(
-            "chat_timing request_id=%s stage=%s at_utc=%s elapsed_ms=%.1f",
+            "chat_timing request_id=%s stage=%s at_utc=%s elapsed_ms=%.1f %s",
             request_id,
             stage,
             datetime.now(UTC).isoformat(timespec="milliseconds"),
             (perf_counter() - request_started) * 1000,
+            _mem_kv(),
         )
 
     timing_logger.info(

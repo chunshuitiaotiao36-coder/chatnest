@@ -755,6 +755,11 @@ body.tab-away #chat {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* 这行真正要读的是模型 ID，不是「实际」两个字：ID 挂 accent，标签退到
+   faint。结构跟状态条上半行一致（accent 标签 + muted 值），500 不到 600，
+   整行不会变重。写在 .relay-route-actual 之后、也比它多一个类型选择符，
+   所以下面那条暗色覆盖只落在「实际：」上，ID 在暗色下照样是 accent。 */
+.relay-route-actual b { color: var(--accent); font-weight: 500 }
 
 /* —— 编辑弹窗里的「拉取模型」那一行 ——
    提示语可能很长（上游 187 个模型，已填入 12 个 Claude 模型 · 全部填入），

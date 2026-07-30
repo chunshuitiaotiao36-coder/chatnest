@@ -28,6 +28,43 @@ logger = logging.getLogger(__name__)
 cache_logger = logging.getLogger("uvicorn.error")
 
 
+def _mem_kv() -> str:
+    """内存快照。psutil 不装：2G 上连一个 pip 包都不想多要，/proc 现成的。
+
+    三个数各有分工，要一起看：
+      self_rss  这个 python 进程自己。Node 子进程是独立进程，不计在内。
+      cg_used   整个容器（cgroup v2）。self_rss 平稳而 cg_used 涨，
+                就是 CLI 子进程在吃——这正是要盯的那条曲线。
+      host_avail 宿主机还剩多少可分配。容器里 /proc/meminfo 读到的是宿主机的，
+                这里正好要的就是它：OOM killer 按整机压力动手。
+
+    放在 actor.py 而不是 main.py：main 要用它，而 actor 反向 import main
+    是循环。main.py 从这里 import，全仓库只有这一份。
+    """
+    def _field(path: str, key: str) -> int:
+        try:
+            with open(path) as f:
+                for line in f:
+                    if line.startswith(key):
+                        return int(line.split()[1]) // 1024
+        except OSError:
+            pass
+        return -1
+
+    def _int_file(path: str) -> int:
+        try:
+            with open(path) as f:
+                return int(f.read().strip()) // 1024 // 1024
+        except (OSError, ValueError):
+            return -1
+
+    return (
+        f"self_rss_mb={_field('/proc/self/status', 'VmRSS:')} "
+        f"cg_used_mb={_int_file('/sys/fs/cgroup/memory.current')} "
+        f"host_avail_mb={_field('/proc/meminfo', 'MemAvailable:')}"
+    )
+
+
 # CLI 不发结束标记时 receive_response() 会永远挂着，用户只看到一个空白气泡。
 # 180 秒：实测正常首字 3.3-6.6 秒，长回复带思考和工具调用可能到几十秒，
 # 这个值足够宽，不会误伤真实的长回复。
@@ -224,7 +261,7 @@ class ConvActor:
                         result_seen = True
                         usage = sdk_message.usage or {}
                         cache_logger.info(
-                            "cache_usage model=%s stop=%s turns=%s text=%s input=%s cache_create=%s cache_read=%s cost=%s",
+                            "cache_usage model=%s stop=%s turns=%s text=%s input=%s cache_create=%s cache_read=%s cost=%s %s",
                             ",".join((sdk_message.model_usage or {}).keys()) or "?",
                             getattr(sdk_message, "stop_reason", None),
                             getattr(sdk_message, "num_turns", None),
@@ -233,6 +270,7 @@ class ConvActor:
                             usage.get("cache_creation_input_tokens"),
                             usage.get("cache_read_input_tokens"),
                             sdk_message.total_cost_usd,
+                            _mem_kv(),
                         )
                         await request.outbox.put(
                             {"event": "done", "session_id": sdk_message.session_id}
