@@ -1992,7 +1992,23 @@ $('msgContextMenu').addEventListener('click',async e=>{
 let _keyboardTimers=[];
 function clearKeyboardTimers(){_keyboardTimers.forEach(clearTimeout);_keyboardTimers=[]}
 function keyboardViewportBottom(){const vv=window.visualViewport;return vv?vv.offsetTop+vv.height:innerHeight}
-function keepComposerVisible(){const wrap=input.closest('.composer-wrap');if(!wrap)return;if(document.activeElement!==input){wrap.style.transform='';stream.style.paddingBottom='';return}wrap.style.transform='';const lift=Math.max(0,Math.ceil(wrap.getBoundingClientRect().bottom-keyboardViewportBottom()+8));wrap.style.transform=lift?`translateY(${-lift}px)`:'';stream.style.paddingBottom=lift?`calc(var(--space-6) + ${lift}px)`:'';scrollBottom()}
+/* 键盘是不是真的起来了。不能只看聚焦——桌面端点输入框也聚焦，但没有键盘，
+   照着收导航栏就是白收（newChat() 每次都会 input.focus()）。也不能只比
+   visualViewport：viewport meta 是 interactive-widget=resizes-content，
+   键盘会把布局视口和可视视口一起压小，vv.height 和 innerHeight 谁都不比谁小。
+   所以留一个「没有键盘时」的高度基线来比。只涨不落，免得 blur 后键盘还在
+   收的那几十毫秒里把基线记成压小后的值；转屏时才硬重置。 */
+let _vhBase=0;
+function _noteVh(){const vv=window.visualViewport;const h=Math.min(innerHeight,vv?vv.height:innerHeight);if(h>_vhBase)_vhBase=h}
+_noteVh();
+window.addEventListener('orientationchange',()=>{_vhBase=0;setTimeout(_noteVh,300);setTimeout(scheduleComposerVisible,320)});
+function keyboardOpen(){
+  if(document.activeElement!==input)return false;
+  const vv=window.visualViewport;
+  // 120px：软键盘最矮也有 250px 上下，而 iOS 地址栏收起只有 50-60px，不会误判
+  return _vhBase-Math.min(innerHeight,vv?vv.height:innerHeight)>120;
+}
+function keepComposerVisible(){const wrap=input.closest('.composer-wrap');if(!wrap)return;document.body.classList.toggle('keyboard-open',keyboardOpen());if(document.activeElement!==input){_noteVh();wrap.style.transform='';stream.style.paddingBottom='';return}wrap.style.transform='';const lift=Math.max(0,Math.ceil(wrap.getBoundingClientRect().bottom-keyboardViewportBottom()+8));wrap.style.transform=lift?`translateY(${-lift}px)`:'';stream.style.paddingBottom=lift?`calc(var(--space-6) + ${lift}px)`:'';scrollBottom()}
 function scheduleComposerVisible(){clearKeyboardTimers();[0,80,180,320,520,800].forEach(t=>_keyboardTimers.push(setTimeout(keepComposerVisible,t)));requestAnimationFrame(keepComposerVisible)}
 input.addEventListener('focus',scheduleComposerVisible);
 input.addEventListener('click',scheduleComposerVisible);

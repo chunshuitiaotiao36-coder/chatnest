@@ -290,10 +290,25 @@
   border-top: 1px solid var(--border);
   transform: translateX(var(--drawer-x, 0px));
   will-change: transform;
-  transition: transform 280ms ease-out;
+  transition: transform 280ms ease-out, translate 220ms ease-out;
 }
 #tabBar.drawer-dragging {
   transition: none;
+}
+
+/* —— 键盘弹起时把导航栏收下去 ——
+   viewport meta 是 interactive-widget=resizes-content：键盘一出来布局视口就
+   被压小，position:fixed;bottom:0 的导航栏于是被抬到键盘上沿；再加上
+   .composer-wrap 一直给它预留的 var(--tabbar-h)，打字时底部就叠成
+   「键盘 / 导航栏 / 输入框」三层夹心。收走导航栏，同时把那份预留一起撤掉，
+   输入框才贴得住键盘。
+
+   用独立的 translate 属性而不是写进 transform：transform 那一格被抽屉的
+   translateX(--drawer-x) 占着，覆盖它会把侧栏联动弄坏。两个属性各自合成。
+   body.keyboard-open 由 keepComposerVisible() 挂，判据见 index.html。 */
+body.keyboard-open #tabBar {
+  translate: 0 100%;
+  pointer-events: none;
 }
 
 .tab-item {
@@ -431,6 +446,10 @@ body:not(.chat-ready) .tab-page {
 /* —— composer 与 toast 给导航栏让位 —— */
 .composer-wrap {
   padding-bottom: calc(env(safe-area-inset-bottom) + var(--space-2) + var(--tabbar-h));
+}
+/* 导航栏收起来了，这份让位就是凭空多出来的一截，输入框会浮在键盘上方。 */
+body.keyboard-open .composer-wrap {
+  padding-bottom: calc(env(safe-area-inset-bottom) + var(--space-2));
 }
 .toast {
   bottom: calc(env(safe-area-inset-bottom) + 92px + var(--tabbar-h));
