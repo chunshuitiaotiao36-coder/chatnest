@@ -120,6 +120,11 @@ You are a warm, concise assistant in a personal chat app. Reply naturally, respe
 PROJECT_ROOT = Path(os.environ.get("AGENT_APP_ROOT", Path(__file__).resolve().parent.parent)).expanduser().resolve()
 MODELS_PATH = Path(os.environ.get("MODELS_FILE", PROJECT_ROOT / "models.json")).expanduser().resolve()
 PROJECT_DIR = str(PROJECT_ROOT)
+# TG 那条线专用的轻量人设。副本随镜像走，源文件在
+# Loved-Before-Words/小窝prompt-Telegram日常.md。
+TELEGRAM_PROMPT_FILE = Path(
+    os.environ.get("TELEGRAM_PROMPT_FILE", PROJECT_ROOT / "telegram_prompt.md")
+).expanduser()
 SUMMARY_PROMPT = (
     "你是一个摘要工具。你将收到一段AI的内心思考过程，你的唯一任务是输出一句不超过20字的中文概括。"
     "要求：动词短语开头，写出决策或权衡，不要复述内容，不要加’思考’/’分析’等元描述词。"
@@ -158,9 +163,37 @@ def thinking_options(
     return {"type": "disabled"}, selected
 
 
-def build_system_prompt(model: str) -> str:
+def build_system_prompt(model: str, lean: bool = False) -> str:
     """Stable prefix. Only changes when the user edits their profile/memory —
-    never per-turn, so the CLI's prompt cache keeps matching it."""
+    never per-turn, so the CLI's prompt cache keeps matching it.
+
+    lean=True 只走 Telegram 那条线：读 telegram_prompt.md，不带 profile、
+    不带完整记忆。lean=False 是网页端的路径，行为跟这一单之前一模一样——
+    下面那一段一个字符都没动，本地有一条断言拿改动前的实现逐字节比对。
+    """
+    if lean:
+        # 那句 model 声明仍要拼在最前面：她刚为「你是 opus 几答不上来」
+        # 改过模型列表，别在这里把它弄丢。
+        model_line = (
+            f"You are running as model {model}. "
+            "If asked which model you are, answer with that identifier."
+        )
+        try:
+            lean_body = TELEGRAM_PROMPT_FILE.read_text(encoding="utf-8").strip()
+            # 空文件跟读不到同样处理：宁可啰嗦，不要哑着上一个空人设
+            if not lean_body:
+                cli_logger.warning(
+                    "telegram prompt 是空的（%s），回落到完整版人设", TELEGRAM_PROMPT_FILE
+                )
+        except OSError as exc:
+            lean_body = ""
+            cli_logger.warning(
+                "telegram prompt 读不到（%s: %s），回落到完整版人设", TELEGRAM_PROMPT_FILE, exc
+            )
+        if lean_body:
+            return f"{model_line}\n\n{lean_body}"
+        # 读不到就落到下面的默认路径（完整版）
+
     profile_context = build_profile_context().strip()
     memory = "" if profile_context else read_memory().strip()
     system_prompt = f"You are running as model {model}. If asked which model you are, answer with that identifier.\n\n{SYSTEM_PROMPT}"
@@ -205,7 +238,10 @@ async def stream_chat(
     effort: str = "medium",
     extended: bool = True,
     timing_callback: Callable[[str], None] | None = None,
+    lean: bool = False,
 ) -> AsyncGenerator[dict, None]:
+    """lean=True 是 Telegram 那条轻量线：轻量人设 + 不挂 Ombre MCP。
+    默认 False，网页端的行为一个字没变。"""
     model_config = next(
         (item for item in available_models() if item["id"] == model),
         None,
@@ -216,10 +252,13 @@ async def stream_chat(
         raise SessionResumeError("会话恢复失败")
     thinking, selected_effort = thinking_options(model_config, effort, extended)
 
-    system_prompt = build_system_prompt(model)
+    system_prompt = build_system_prompt(model, lean=lean)
     prompt = await build_user_prompt(message)
 
-    mcp_servers = ombre_mcp_servers()
+    # 第一批的单子写着「不接 Ombre MCP」，实现时没断，这里补上。语义一致：
+    # TG 那条线就是轻量线。注意 allowed_tools 里的 Read 必须留着——识图
+    # 全靠它去读存下来的图片文件。
+    mcp_servers = {} if lean else ombre_mcp_servers()
     allowed_tools = ["Read", "Grep", "Glob", "Write", "Edit", "Bash", "WebSearch", "WebFetch", "TodoWrite"]
     if mcp_servers:
         allowed_tools.append("mcp__ombre")

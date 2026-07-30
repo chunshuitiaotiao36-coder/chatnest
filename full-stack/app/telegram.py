@@ -12,7 +12,11 @@ Ombre MCP），人是同一个。
 import asyncio
 import json
 import logging
+import mimetypes
 import os
+import re
+import time
+from datetime import datetime
 from pathlib import Path
 
 import httpx
@@ -41,6 +45,16 @@ TYPING_REFRESH_S = 4          # Telegram 的 typing 状态大约 5 秒过期
 # 不持久化，每次部署 TG 这条线的上下文就断——而 Coolify 每改一次环境变量
 # 就是一次重部署。
 STATE_PATH = Path(os.environ.get("AGENT_APP_ROOT", "/data")) / "telegram_state.json"
+
+# 图片存这儿。生产上是 /data/uploads/telegram/，跟网页端的附件同一个根。
+UPLOAD_DIR = Path(os.environ.get("AGENT_APP_ROOT", "/data")) / "uploads" / "telegram"
+# Bot API 的文件下载上限就是 20MB，超了 getFile 直接报错
+TG_FILE_LIMIT = 20 * 1024 * 1024
+TOO_BIG_TEXT = "这张太大了，发小一点的"
+PHOTO_PLACEHOLDER = "[图片]"
+# /data 是持久卷，聊天记录也在上面。盘满了写不进去，聊天记录一起遭殃，
+# 所以图片必须有上限。启动时清 7 天前的，够用，不做 LRU。
+UPLOAD_TTL_DAYS = 7
 
 _state: dict = {"offset": 0, "session_id": None}
 _client: httpx.AsyncClient | None = None
@@ -133,6 +147,93 @@ async def _keep_typing(chat_id: str) -> None:
         await asyncio.sleep(TYPING_REFRESH_S)
 
 
+# ---------- 图片 ------------------------------------------------------------
+
+
+class _FileTooBig(Exception):
+    pass
+
+
+def _mask(text: str) -> str:
+    """下载 URL 里带 token，这条 URL 泄露等于 bot 被接管，日志一律打成 ***。
+
+    httpx 的异常字符串里会带上完整 URL，所以下载那一圈的 except 必须过这里，
+    不能直接 exception()/str(exc) 往日志里丢。"""
+    text = str(text)
+    if BOT_TOKEN:
+        text = text.replace(BOT_TOKEN, "***")
+    # 兜底：token 变量万一没设或换过，按 bot token 的形状再兜一层
+    return re.sub(r"bot\d{5,}:[A-Za-z0-9_-]+", "bot***", text)
+
+
+def _extract_media(msg: dict) -> dict | None:
+    """photo 是按尺寸升序的数组，取最后一个（最大的）。
+    document 是她发原图时走的路，按 mime_type 以 image/ 开头筛。"""
+    photos = msg.get("photo") or []
+    if photos:
+        biggest = photos[-1] or {}
+        if biggest.get("file_id"):
+            return {
+                "file_id": biggest["file_id"],
+                "mime": "image/jpeg",
+                "size": biggest.get("file_size") or 0,
+            }
+    doc = msg.get("document") or {}
+    mime = doc.get("mime_type") or ""
+    if doc.get("file_id") and mime.startswith("image/"):
+        return {"file_id": doc["file_id"], "mime": mime, "size": doc.get("file_size") or 0}
+    return None
+
+
+async def _download_media(media: dict, update_id: int) -> Path:
+    size = media.get("size") or 0
+    if size > TG_FILE_LIMIT:
+        raise _FileTooBig("file_size=%d" % size)
+    info = await _api("getFile", {"file_id": media["file_id"]})
+    if not isinstance(info, dict) or not info.get("file_path"):
+        # getFile 失败最常见的原因就是超过 20MB。回她一句人话，别静默失败。
+        raise _FileTooBig("getFile 没给 file_path")
+    file_path = info["file_path"]
+    suffix = (
+        Path(file_path).suffix
+        or mimetypes.guess_extension(media.get("mime") or "")
+        or ".jpg"
+    )
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    target = UPLOAD_DIR / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{update_id}{suffix}"
+    url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"
+    resp = await _client.get(url, timeout=90)
+    resp.raise_for_status()
+    if len(resp.content) > TG_FILE_LIMIT:
+        raise _FileTooBig("下载回来 %d bytes" % len(resp.content))
+    target.write_bytes(resp.content)
+    # 只记本地路径和字节数，URL 一个字都不进日志
+    cli_logger.info("telegram: 图片已存 %s (%d bytes)", target, len(resp.content))
+    return target
+
+
+def _cleanup_uploads() -> None:
+    """启动时清掉 UPLOAD_TTL_DAYS 天前的图片。/data 是持久卷，聊天记录也在
+    上面——盘满了写不进去，聊天记录一起遭殃。够用就行，不做 LRU。"""
+    if not UPLOAD_DIR.is_dir():
+        return
+    cutoff = time.time() - UPLOAD_TTL_DAYS * 86400
+    removed = freed = 0
+    for path in UPLOAD_DIR.iterdir():
+        try:
+            if not path.is_file() or path.stat().st_mtime >= cutoff:
+                continue
+            freed += path.stat().st_size
+            path.unlink()
+            removed += 1
+        except OSError as exc:
+            cli_logger.warning("telegram: 清理 %s 失败: %s", path.name, exc)
+    if removed:
+        cli_logger.info(
+            "telegram: 清掉 %d 张 %d 天前的图片，腾出 %d KB", removed, UPLOAD_TTL_DAYS, freed // 1024
+        )
+
+
 # ---------- 白名单 ----------------------------------------------------------
 
 
@@ -208,6 +309,9 @@ async def _stream_reply(text: str, model: str, session_id: str | None) -> tuple[
         session_id=session_id,
         model=model,
         extended=False,
+        # TG 那条线：轻量人设（telegram_prompt.md）+ 不挂 Ombre MCP。
+        # 全仓库只有这一处传 True，网页端一个字没变。
+        lean=True,
     ):
         event = chunk.get("event")
         if event == "delta":
@@ -262,9 +366,16 @@ async def _handle_update(upd: dict) -> None:
         # debug 级别，被扫到时不刷屏。
         cli_logger.debug("telegram: 忽略非白名单 chat_id=***")
         return
-    text = ((upd.get("message") or {}).get("text") or "").strip()
+    msg = upd.get("message") or {}
+    # caption 就是这一轮的用户消息（图片带的那句话）
+    text = (msg.get("text") or msg.get("caption") or "").strip()
+    media = _extract_media(msg)
+    if media and not text:
+        # 纯图片没 caption 时必须给个占位，不然下面那个 if not text 会把
+        # 整条图片消息直接丢掉——这是最容易踩的一脚。
+        text = PHOTO_PLACEHOLDER
     if not text:
-        # 图片、语音、贴纸、文件这一批都不处理
+        # 语音、贴纸、非图片文件这一批都不处理
         return
 
     typing = asyncio.create_task(_keep_typing(ALLOWED_CHAT_ID))
@@ -273,6 +384,24 @@ async def _handle_update(upd: dict) -> None:
     await asyncio.sleep(0)
     reply, new_session = "", None
     try:
+        if media:
+            try:
+                saved = await _download_media(media, upd.get("update_id", 0))
+            except _FileTooBig as exc:
+                cli_logger.info("telegram: 图片超限（%s）", _mask(exc))
+                await _send_message(ALLOWED_CHAT_ID, TOO_BIG_TEXT)
+                return
+            except Exception as exc:
+                # httpx 的异常字符串里带完整下载 URL，必须过 _mask
+                cli_logger.warning("telegram: 图片下载失败: %s", _mask(exc))
+                await _send_message(ALLOWED_CHAT_ID, FALLBACK_TEXT)
+                return
+            # 照抄网页端 main.py 的格式，一个字都不改——格式一致，
+            # 模型的行为才一致。CLI 会自己用 Read 工具去读这个路径。
+            text += (
+                "\n\n[用户上传了以下文件，请使用 Read 工具查看：\n"
+                f"{saved}\n]"
+            )
         # 不抄 main.py sse() 里的 locked() fail-fast：那是给正看着屏幕的人的。
         # 她在 TG 上发完就放下手机了，排队等几秒毫无感觉。同一把锁，两种表现。
         from app.main import chat_lock  # 局部 import：main 在启动时 import 我们
@@ -325,6 +454,7 @@ async def _poll_forever() -> None:
     _client = httpx.AsyncClient(timeout=HTTP_TIMEOUT)
     fresh = not STATE_PATH.exists()
     _load_state()
+    _cleanup_uploads()
     cli_logger.info("telegram: 已启动，offset=%s session=%s",
                     _state["offset"], bool(_state["session_id"]))
     backoff = 1
