@@ -29,6 +29,25 @@ from app.registry import get_registry
 # 而 100-200MB 是实打实的。峰值从「主回复 + 2 摘要」降到「主回复 + 1 摘要」。
 _haiku_sem = asyncio.Semaphore(1)
 
+
+def _summary_model() -> str:
+    """摘要要用当前线路上真实存在的模型。硬编码 ID 换条线路就必然失败，
+    而失败之前 Node 子进程已经起来了——2G 上这是白付一份内存。
+    按 haiku > sonnet > 最后一条 挑：订阅线路有 haiku 别名，
+    中转站种子里 Sonnet 4.6 本来就是标了 primary:false 的摘要位。"""
+    try:
+        ids = [m["id"] for m in relays.active_models_rich() if m.get("id")]
+    except Exception:
+        cli_logger.exception("摘要模型挑选失败")
+        return ""
+    if not ids:
+        return ""
+    for want in ("haiku", "sonnet"):
+        for mid in ids:
+            if want in mid.lower():
+                return mid
+    return ids[-1]
+
 MEMORY_SEARCH_URL = os.environ.get("MEMORY_SEARCH_URL", "http://127.0.0.1:3900/search")
 MEMORY_SEARCH_TOP_K = 6
 MEMORY_SEARCH_BUDGET_CHARS = 1500
@@ -266,10 +285,15 @@ async def stream_chat(
 
 
 async def summarize_thinking(thinking: str) -> str:
+    # 挑不到模型就直接回空，不要起进程——提前返回放在 _haiku_sem 外面，
+    # 挑不到模型连信号量都不必占。前端两边都 catch，"" 和 raise 等效。
+    model = _summary_model()
+    if not model:
+        return ""
     async with _haiku_sem:
         logger = logging.getLogger(__name__)
         options = ClaudeAgentOptions(
-            model="[k-特惠]claude-sonnet-4-6",
+            model=model,
             system_prompt=SUMMARY_PROMPT,
             allowed_tools=[],
             max_turns=1,
@@ -346,9 +370,12 @@ async def summarize_traces(traces: list[dict]) -> str:
     if not parts:
         return ""
     prompt = "\n---\n".join(parts)
+    model = _summary_model()
+    if not model:
+        return ""
     async with _haiku_sem:
         options = ClaudeAgentOptions(
-            model="claude-haiku-4-5",
+            model=model,
             system_prompt=TRACE_SUMMARY_PROMPT,
             allowed_tools=[],
             max_turns=1,
@@ -395,9 +422,12 @@ async def summarize_tool_use(tool_name: str, tool_input, tool_output: str) -> st
         input_str = str(tool_input or "")
     output_snip = (tool_output or "")[:600]
     prompt = "工具名：" + tool_name + "\n输入：" + input_str[:400] + "\n输出片段：" + output_snip
+    model = _summary_model()
+    if not model:
+        return ""
     async with _haiku_sem:
         options = ClaudeAgentOptions(
-            model="claude-haiku-4-5",
+            model=model,
             system_prompt=(
                 "你是一个摘要工具。你的唯一任务是输出一句不超过15字的中文概括。"
                 "动词短语开头，写出目的而非动作本身，不要引号，不要描述结果，"
