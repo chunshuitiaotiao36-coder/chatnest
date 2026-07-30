@@ -267,6 +267,12 @@ class ConvActor:
                     async with self._state_lock:
                         self.busy = False
                     await request.outbox.put(None)
+                    # 这一轮是 force_fresh 的话，下一轮铁定要丢掉这个子进程。
+                    # 留着等 IDLE_TTL 到期，等于白占 100-200MB 十五分钟——
+                    # 2G 上没有这种预算。放在 put(None) 之后：断开有 IO 开销，
+                    # 不让前端替它等。
+                    if request.force_fresh:
+                        await self._disconnect()
         finally:
             await self._disconnect()
             self.closed = True

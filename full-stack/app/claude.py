@@ -25,7 +25,9 @@ from app.memory import build_profile_context, memory_tool_permission, read_memor
 from app.registry import get_registry
 
 
-_haiku_sem = asyncio.Semaphore(2)
+# 2G 上第二个并发摘要子进程没有任何收益：摘要是装饰性的，晚两秒出来无所谓，
+# 而 100-200MB 是实打实的。峰值从「主回复 + 2 摘要」降到「主回复 + 1 摘要」。
+_haiku_sem = asyncio.Semaphore(1)
 
 MEMORY_SEARCH_URL = os.environ.get("MEMORY_SEARCH_URL", "http://127.0.0.1:3900/search")
 MEMORY_SEARCH_TOP_K = 6
