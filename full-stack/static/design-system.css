@@ -455,6 +455,24 @@ body.keyboard-open .composer-wrap {
   bottom: calc(env(safe-area-inset-bottom) + 92px + var(--tabbar-h));
 }
 
+/* —— 输入框字号 ——
+   基线内联表里写死 18px，而 --text-read 已经从 16.5px 调到 14px，只有它没
+   跟上，于是 placeholder 看着格外硕大。统一到 16px：iOS Safari 上输入框
+   字号低于 16px 会在聚焦时自动放大整个页面，16 是不触发缩放的最小值，
+   离 14px 正文只差 2px。打字前后同一个字号，不跳。 */
+#input {
+  font-size: 16px;
+}
+/* 苹方没有真正的意大利体，font-style:italic 在 iOS 上取的是合成倾斜——
+   「斜体苹方」在移动端就是这个效果。放外部表而不是内联 <style>：
+   link 在内联表之后，同特异性下外部表覆盖内联，这是踩过的坑。 */
+#input::placeholder {
+  font-family: 'PingFang SC', var(--font-sans);
+  font-style: italic;
+  font-size: 16px;
+  color: var(--text-faint);
+}
+
 /* ============================================================
    自定义背景图
    ============================================================ */
