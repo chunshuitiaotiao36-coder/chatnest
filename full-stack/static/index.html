@@ -482,10 +482,25 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
   </div>
 </section>
 <section id="tabReading" class="tab-page" hidden>
-  <div class="tab-placeholder">
-    <span class="tab-placeholder-icon">📖</span>
-    <span class="tab-placeholder-title">书房</span>
-    <span class="tab-placeholder-sub">即将到来</span>
+  <div class="reading-counter"><span id="readingCounterDays"></span></div>
+  <div class="starmap-wrap">
+    <div class="starmap-head">
+      <div class="starmap-title">星图</div>
+      <div class="starmap-sub" id="starmapCount">读取中…</div>
+    </div>
+    <canvas id="starmapCanvas"></canvas>
+    <div class="starmap-legend">
+      <span><i style="background:#F0C97A"></i>金 · 置顶</span>
+      <span><i style="background:#E8956F"></i>暖 · 偏甜</span>
+      <span><i style="background:#7B9FD4"></i>冷 · 偏沉</span>
+      <span class="starmap-hint">轻点一颗星读它。不动它，它自己慢慢转。</span>
+    </div>
+    <div class="starmap-card hidden" id="starmapCard">
+      <button class="starmap-card-close" id="starmapCardClose" aria-label="关闭">×</button>
+      <div class="starmap-card-name" id="starmapCardName"></div>
+      <div class="starmap-card-meta" id="starmapCardMeta"></div>
+      <div class="starmap-card-body" id="starmapCardBody"></div>
+    </div>
   </div>
 </section>
 
@@ -2658,6 +2673,154 @@ document.getElementById('relayTestBtn')?.addEventListener('click',testRelayFromM
 document.getElementById('relayFetchBtn')?.addEventListener('click',fetchRelayModels);
 document.getElementById('relayFieldMode')?.addEventListener('change',_syncRelayModeUI);
 
+/* ---- 记忆星图 --------------------------------------------------------- */
+const STARMAP = {raf:0, stars:[], t:0, dpr:1, cx:0, cy:0, scale:1, loaded:false};
+
+function starColor(s){
+  if(s.pinned||s.highlight) return [240,201,122];        // 金
+  const v=Math.max(-1,Math.min(1,s.valence||0));
+  if(v>=0){
+    // 中性白 → 暖橙
+    const k=v;
+    return [232+(232-232)*k, 230-(230-149)*k, 240-(240-111)*k];
+  }
+  // 中性白 → 冷蓝
+  const k=-v;
+  return [232-(232-123)*k, 230-(230-159)*k, 240-(240-212)*k];
+}
+
+function layoutStars(list){
+  // 向日葵螺旋（Vogel）：黄金角 137.507°，半径 ∝ √i。
+  // 分布最均匀，中心不会挤成一坨、外圈不会散开——比阿基米德螺旋好看得多。
+  // 已按 created 升序排好，所以最老的那颗在正中心，今天的在最外圈。
+  const GOLDEN=Math.PI*(3-Math.sqrt(5));
+  return list.map((s,i)=>{
+    const a=i*GOLDEN, r=Math.sqrt(i+0.6);
+    return {...s, a, r,
+      size:1.15+ (s.importance||0)*0.28,
+      alpha:0.42+ (s.importance||0)*0.055,
+      tw:(s.arousal||0)*0.34,
+      phase:(i*2.399)%(Math.PI*2)};
+  });
+}
+
+function drawStarmap(){
+  const cv=$('starmapCanvas'); if(!cv) return;
+  const ctx=cv.getContext('2d');
+  const w=cv.width, h=cv.height, dpr=STARMAP.dpr;
+  ctx.clearRect(0,0,w,h);
+  const cx=w/2, cy=h/2;
+  const spread=Math.min(w,h)/2*0.84/Math.sqrt(Math.max(STARMAP.stars.length,1));
+  const spin=STARMAP.t*0.00006;                 // 一圈约 17 分钟
+
+  for(const s of STARMAP.stars){
+    const a=s.a+spin, r=s.r*spread;
+    const x=cx+Math.cos(a)*r, y=cy+Math.sin(a)*r;
+    const tw=1+Math.sin(STARMAP.t*0.0016+s.phase)*s.tw;
+    const rad=s.size*dpr*tw;
+    const [cr,cg,cb]=starColor(s);
+    // 光晕
+    const g=ctx.createRadialGradient(x,y,0,x,y,rad*4.2);
+    g.addColorStop(0,`rgba(${cr|0},${cg|0},${cb|0},${s.alpha*0.5})`);
+    g.addColorStop(1,`rgba(${cr|0},${cg|0},${cb|0},0)`);
+    ctx.fillStyle=g;
+    ctx.beginPath(); ctx.arc(x,y,rad*4.2,0,Math.PI*2); ctx.fill();
+    // 星核
+    ctx.fillStyle=`rgba(${cr|0},${cg|0},${cb|0},${Math.min(1,s.alpha*1.5)})`;
+    ctx.beginPath(); ctx.arc(x,y,rad,0,Math.PI*2); ctx.fill();
+    s._x=x; s._y=y; s._r=rad;
+  }
+}
+
+function starmapLoop(ts){
+  STARMAP.t=ts||0;
+  drawStarmap();
+  STARMAP.raf=requestAnimationFrame(starmapLoop);
+}
+
+function resizeStarmap(){
+  const cv=$('starmapCanvas'); if(!cv) return;
+  const dpr=Math.min(window.devicePixelRatio||1,2.5);
+  const rect=cv.getBoundingClientRect();
+  if(!rect.width||!rect.height) return;
+  cv.width=Math.round(rect.width*dpr);
+  cv.height=Math.round(rect.height*dpr);
+  STARMAP.dpr=dpr;
+}
+
+async function openStarmap(){
+  const cv=$('starmapCanvas'); if(!cv) return;
+  resizeStarmap();
+  if(!STARMAP.loaded){
+    try{
+      const r=await api('/api/starmap');
+      const d=await r.json();
+      STARMAP.stars=layoutStars(d.stars||[]);
+      STARMAP.loaded=true;
+      $('starmapCount').textContent=
+        d.error ? '连不上记忆库' : `${d.count} 颗星 · 亮度是分量，颜色是温度`;
+    }catch{
+      $('starmapCount').textContent='连不上记忆库';
+    }
+  }
+  cancelAnimationFrame(STARMAP.raf);
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(reduce){ drawStarmap(); } else { STARMAP.raf=requestAnimationFrame(starmapLoop); }
+}
+
+function closeStarmap(){
+  cancelAnimationFrame(STARMAP.raf);
+  STARMAP.raf=0;
+  $('starmapCard').classList.add('hidden');
+}
+
+(()=>{
+  const cv=$('starmapCanvas'); if(!cv) return;
+  cv.addEventListener('click',e=>{
+    const rect=cv.getBoundingClientRect();
+    const x=(e.clientX-rect.left)*STARMAP.dpr, y=(e.clientY-rect.top)*STARMAP.dpr;
+    let best=null, bd=Infinity;
+    for(const s of STARMAP.stars){
+      if(s._x==null) continue;
+      const d=Math.hypot(s._x-x,s._y-y);
+      if(d<bd){bd=d;best=s}
+    }
+    if(!best||bd>Math.max(18*STARMAP.dpr,best._r*4)) return;
+    $('starmapCardName').textContent=best.name||'（无题）';
+    const when=(best.created||'').slice(0,10);
+    $('starmapCardMeta').textContent=
+      `${when} · 分量 ${best.importance}${best.pinned?' · 置顶':''}${best.type?' · '+best.type:''}`;
+    $('starmapCardBody').textContent=best.preview||'（没有预览）';
+    $('starmapCard').classList.remove('hidden');
+  });
+  $('starmapCardClose').onclick=()=>$('starmapCard').classList.add('hidden');
+  addEventListener('resize',()=>{ if(currentTab==='reading'){resizeStarmap();drawStarmap()} });
+})();
+
+/* 起算日 2026.5.29。
+
+   必须用 new Date(y, m, d) 而不是 Date.parse('2026-05-29')——后者按
+   ISO 规则当成 UTC 午夜，在东八区会整整差一天，跨零点前后反复横跳。
+   月份 0-based，所以 5 月是 4。
+
+   两端都归到各自的本地午夜再相减，避免「现在几点」影响天数。
+   Math.round 而不是 floor：夏令时地区的日差不是整 86400000，
+   中国没有夏令时，但 round 在哪儿都不会错。
+
+   +1 让起算日本身是第 1 天。 */
+const _MET_ON = [2026, 4, 29];
+function _daysTogether(){
+  const s = new Date(_MET_ON[0], _MET_ON[1], _MET_ON[2]);
+  const n = new Date();
+  const t1 = new Date(n.getFullYear(), n.getMonth(), n.getDate());
+  return Math.round((t1 - s) / 86400000) + 1;
+}
+function renderReadingCounter(){
+  const el = document.getElementById('readingCounterDays');
+  if(!el) return;
+  el.textContent = `遇见你 · 第 ${_daysTogether()} 天`;
+}
+
 /* —— 底部导航栏 ——
    Chat 不做 display:none，靠 .tab-page 的不透明背景盖住，
    这样 #stream 的滚动位置和输入框状态都不会被重置。 */
@@ -2668,6 +2831,7 @@ function switchTab(name){
   if(name!=='chat'&&!pages[name])return;
   if(name===currentTab)return;
   if(currentTab==='home'){closeDiaryPage();closeHomeProfile()}
+  if(currentTab==='reading')closeStarmap();
   Object.values(pages).forEach(p=>{if(p)p.hidden=true});
   if(name!=='chat')pages[name].hidden=false;
   document.querySelectorAll('#tabBar .tab-item').forEach(t=>t.classList.toggle('active',t.dataset.tab===name));
@@ -2677,6 +2841,7 @@ function switchTab(name){
   currentTab=name;
   if(name!=='chat')closeDrawer();
   if(name==='home')openHomeProfile().catch(()=>toast('Profile 加载失败'));
+  if(name==='reading'){renderReadingCounter();openStarmap()}
 }
 document.querySelectorAll('#tabBar .tab-item').forEach(t=>{t.addEventListener('click',()=>switchTab(t.dataset.tab))});
 </script>

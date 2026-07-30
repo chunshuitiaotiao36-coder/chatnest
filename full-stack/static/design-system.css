@@ -838,3 +838,165 @@ body.tab-away #chat {
      真实模型 ID，比 note 更需要读得清，所以比 .40 亮一档。 */
   .relay-route-actual { color: rgba(244, 243, 239, .62) }
 }
+
+/* ============================================================
+   记忆星图（书房）
+   ============================================================ */
+
+/* 星图恒定深色，不跟随主题 —— 星空就该是黑的。
+   这是刻意的，不是漏了亮色模式。 */
+#tabReading {
+  padding-bottom: 0;
+  overflow: hidden;
+}
+.starmap-wrap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(ellipse 120% 80% at 50% 42%, #1B2038 0%, #10121F 55%, #07080F 100%);
+  color: #E8E6F0;
+  padding-bottom: var(--tabbar-space);
+}
+.starmap-head {
+  flex: none;
+  padding: calc(env(safe-area-inset-top) + 18px) 20px 0;
+}
+.starmap-title {
+  font-family: 'LXGW WenKai', ui-serif, Georgia, serif;
+  font-weight: 400;
+  font-size: 22px;
+  letter-spacing: .06em;
+}
+.starmap-sub {
+  margin-top: 3px;
+  font-size: 12.5px;
+  font-style: italic;
+  color: rgba(232, 230, 240, .42);
+}
+#starmapCanvas {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: block;
+  touch-action: manipulation;
+}
+.starmap-legend {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  padding: 10px 20px 16px;
+  font-size: 11.5px;
+  color: rgba(232, 230, 240, .5);
+}
+.starmap-legend i {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 5px;
+  vertical-align: middle;
+}
+.starmap-hint {
+  flex-basis: 100%;
+  color: rgba(232, 230, 240, .3);
+  line-height: 1.5;
+}
+
+.starmap-card {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: calc(var(--tabbar-space) + 16px);
+  padding: 16px 18px 18px;
+  border-radius: 20px;
+  background: rgba(22, 25, 42, .93);
+  border: 1px solid rgba(232, 230, 240, .14);
+  box-shadow: 0 14px 44px rgba(0, 0, 0, .5);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  animation: starmap-card-in 220ms ease-out;
+}
+@keyframes starmap-card-in {
+  from { opacity: 0; transform: translateY(10px) }
+  to   { opacity: 1; transform: translateY(0) }
+}
+.starmap-card.hidden { display: none }
+.starmap-card-close {
+  position: absolute;
+  top: 10px; right: 12px;
+  width: 28px; height: 28px;
+  border: 0; border-radius: 50%;
+  background: rgba(232, 230, 240, .10);
+  color: rgba(232, 230, 240, .7);
+  font-size: 17px; line-height: 1;
+}
+.starmap-card-name {
+  font-family: 'LXGW WenKai', ui-serif, Georgia, serif;
+  font-size: 17px;
+  padding-right: 34px;
+}
+.starmap-card-meta {
+  margin-top: 5px;
+  font-size: 11.5px;
+  letter-spacing: .04em;
+  color: rgba(232, 230, 240, .45);
+}
+.starmap-card-body {
+  margin-top: 10px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: rgba(232, 230, 240, .78);
+  max-height: 33vh;
+  overflow-y: auto;
+}
+
+/* ============================================================
+   书房页眉：遇见你 · 第 N 天
+   ============================================================ */
+
+/* 书房页眉。字重 300 是第二批美化定的，文楷 Light 早在 static/fonts/。
+   颜色走 var()，不写死——星图 canvas 是刻意的恒定深色，但这行字在
+   浅色主题下也要能读。用 primary 不用 faint：状态条那三个类在浅色下
+   只有 2.17-2.74，别再添一个（见 ROADMAP 队列 25）。
+
+   高度写死是有原因的：下面 .starmap-wrap 的 top 要跟它对齐，
+   两个值必须同源，所以抽成 --reading-counter-h。
+   18(上) + 26(行高) + 6(下) = 50。 */
+:root {
+  --reading-counter-h: calc(env(safe-area-inset-top) + 50px);
+}
+.reading-counter {
+  box-sizing: border-box;
+  height: var(--reading-counter-h);
+  padding: calc(env(safe-area-inset-top) + 18px) 20px 6px;
+  font-family: var(--font-serif, inherit);
+  font-weight: 300;
+  font-size: 17px;
+  line-height: 26px;
+  letter-spacing: .08em;
+  color: var(--text-primary);
+}
+
+/* —— 施工单外的两条，必须留档 ——
+   施工单第 7.1 节把计数器当成普通文档流的兄弟元素，但第 4 节的
+   .starmap-wrap 是 position:absolute + inset:0，包含块是 #tabReading 的
+   padding box（padding 也在里面，加 padding-top 没用），所以它会连同
+   计数器一起整个盖住，而且背景不透明——照原样写，这行字看不见。
+
+   验收 C 要求这行字在浅色主题下走 --text-primary 且读得清，说明它必须落在
+   #tabReading 自己的主题渐变上，不能压在星图那块恒定深色上。于是星图的
+   top 必须让开。下面两条是让开的最小改动：
+     1. 只覆盖 top 一个属性，第 4 节 .starmap-wrap 的规则块一个字没动，
+        HTML 结构也和第 3 节完全一致（验收 15）。
+     2. safe-area 现在由计数器吃掉了，.starmap-head 不能再吃第二遍，
+        否则刘海屏上「星图」两个字会被压低约 47px。 */
+#tabReading .starmap-wrap {
+  top: var(--reading-counter-h);
+}
+#tabReading .starmap-head {
+  padding-top: 14px;
+}

@@ -25,7 +25,7 @@ from starlette.formparsers import MultiPartParser
 
 MultiPartParser.max_part_size = 60 * 1024 * 1024  # 与 uploads.py 的 MAX_FILE_BYTES 对齐
 
-from app import auth, backgrounds, relays, telegram
+from app import auth, backgrounds, relays, starmap, telegram
 from app.actor import ActorBusyError, _mem_kv
 from app.claude import (
     SessionResumeError,
@@ -882,6 +882,12 @@ async def relays_models_fetch(body: RelayModelsFetchBody) -> dict:
     return await relays.fetch_models_for(
         body.base_url, body.api_key, body.protocol, body.mode, body.relay_id
     )
+
+
+@app.get("/api/starmap", dependencies=[Depends(require_auth)])
+async def starmap_data(refresh: bool = False) -> dict:
+    # urllib 是阻塞的，跟 relays.probe 一样甩到线程里，别堵事件循环
+    return await asyncio.to_thread(starmap.fetch_stars, refresh)
 
 
 @app.get("/api/background", dependencies=[Depends(require_auth)])
