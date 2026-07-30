@@ -122,8 +122,11 @@ MODELS_PATH = Path(os.environ.get("MODELS_FILE", PROJECT_ROOT / "models.json")).
 PROJECT_DIR = str(PROJECT_ROOT)
 # TG 那条线专用的轻量人设。副本随镜像走，源文件在
 # Loved-Before-Words/小窝prompt-Telegram日常.md。
+# 按代码路径找，别跟着 AGENT_APP_ROOT 走：生产上它是 /data（数据卷），
+# 而这个文件是随镜像装进 /app 的，跟过去就每轮都读不到。
+APP_DIR = Path(__file__).resolve().parent.parent
 TELEGRAM_PROMPT_FILE = Path(
-    os.environ.get("TELEGRAM_PROMPT_FILE", PROJECT_ROOT / "telegram_prompt.md")
+    os.environ.get("TELEGRAM_PROMPT_FILE", APP_DIR / "telegram_prompt.md")
 ).expanduser()
 SUMMARY_PROMPT = (
     "你是一个摘要工具。你将收到一段AI的内心思考过程，你的唯一任务是输出一句不超过20字的中文概括。"

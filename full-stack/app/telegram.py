@@ -22,7 +22,7 @@ from pathlib import Path
 import httpx
 
 from app import relays
-from app.claude import SessionResumeError, stream_chat
+from app.claude import TELEGRAM_PROMPT_FILE, SessionResumeError, stream_chat
 
 
 cli_logger = logging.getLogger("uvicorn.error")
@@ -497,6 +497,31 @@ async def _poll_forever() -> None:
 # ---------- lifespan 挂钩 ---------------------------------------------------
 
 
+def _check_lean_prompt() -> None:
+    """启动自检：轻量人设文件在不在、是不是空的。
+
+    读不到时 build_system_prompt 会静默回落到完整版人设，每轮那条 warning
+    会被日志淹掉；启动时这一条才看得见，所以路径要原样打出来。
+    """
+    try:
+        body = TELEGRAM_PROMPT_FILE.read_text(encoding="utf-8").strip()
+    except OSError as exc:
+        cli_logger.warning(
+            "telegram: 轻量人设读不到（%s: %s），TG 每轮都会回落到完整版人设",
+            TELEGRAM_PROMPT_FILE, exc,
+        )
+        return
+    if not body:
+        cli_logger.warning(
+            "telegram: 轻量人设是空的（%s），TG 每轮都会回落到完整版人设",
+            TELEGRAM_PROMPT_FILE,
+        )
+        return
+    cli_logger.info(
+        "telegram: 轻量人设就位 %s (%d 字符)", TELEGRAM_PROMPT_FILE, len(body)
+    )
+
+
 def start() -> asyncio.Task | None:
     """没配环境变量就返回 None。绝不允许因为没配 TG 把小窝启动搞挂。"""
     global BOT_TOKEN, ALLOWED_CHAT_ID
@@ -506,6 +531,7 @@ def start() -> asyncio.Task | None:
         # 只配 token 不配 chat_id 也不启动：宁可不开，也不能开一个不锁门的
         cli_logger.info("telegram: 未配置，跳过")
         return None
+    _check_lean_prompt()
     return asyncio.create_task(_poll_forever(), name="telegram-poll")
 
 
