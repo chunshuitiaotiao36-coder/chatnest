@@ -29,6 +29,8 @@ BOT_TOKEN = ""
 ALLOWED_CHAT_ID = ""
 
 CONV_ID = "telegram"
+# 异常和空回复都发这一句。宁可她收到一句「再说一遍」，也不能让她对着空气等。
+FALLBACK_TEXT = "卡了一下，你再说一遍？"
 TG_LIMIT = 4096
 POLL_TIMEOUT = 30
 # HTTP 超时必须比 long polling 的 timeout 大，否则每一轮都会被自己掐断
@@ -192,39 +194,66 @@ def _pick_model() -> str:
     return ""
 
 
-async def _stream_reply(text: str, model: str) -> tuple[str, str | None]:
-    reply, session = "", None
+async def _stream_reply(text: str, model: str, session_id: str | None) -> tuple[str, str | None, int]:
+    """返回 (正文, 新 session_id, thinking 字符数)。
+
+    thinking 的**字符数**要带出来：空回复那几轮的 assistant 消息里只有一个
+    thinking 块、没有 text 块，所以「清掉 session 之后 thinking 还在不在」
+    是区分「resume 有毒」和「thinking 和 resume 合谋」的那把尺。只记长度，
+    不记内容。"""
+    reply, session, thinking_chars = "", None, 0
     async for chunk in stream_chat(
         message=text,
         conv_id=CONV_ID,
-        session_id=_state.get("session_id"),
+        session_id=session_id,
         model=model,
-        # thinking 事件这一批直接丢，那就别让它先产生：省 token 也省首字
-        # 延迟，正配「随手说两句」
         extended=False,
     ):
         event = chunk.get("event")
         if event == "delta":
             reply += chunk.get("text", "")
+        elif event == "thinking":
+            thinking_chars += len(chunk.get("text", "") or "")
         elif event == "done":
             session = chunk.get("session_id")
-        # thinking / tool_use / tool_result 一律丢掉（也没接 MCP，本来不该有）
-    return reply, session
+        # tool_use / tool_result 一律丢掉
+    return reply, session, thinking_chars
 
 
 async def _run_turn(text: str) -> tuple[str, str | None]:
     model = _pick_model()
     if not model:
         return "", None
+    resumed = bool(_state.get("session_id"))
     try:
-        return await _stream_reply(text, model)
+        reply, session, thinking = await _stream_reply(text, model, _state.get("session_id"))
     except SessionResumeError:
         # 换线路/重部署之后会话恢复失败是正常的，不该让她看见报错：
         # 清掉 session 从头开一条，重试一次
         cli_logger.info("telegram: session 恢复失败，清空后重试一次")
         _state["session_id"] = None
         _save_state()
-        return await _stream_reply(text, model)
+        resumed = False
+        reply, session, thinking = await _stream_reply(text, model, None)
+    cli_logger.info(
+        "telegram: turn done resumed=%s text_chars=%d thinking_chars=%d",
+        resumed, len(reply), thinking,
+    )
+    if reply.strip() or not resumed:
+        return reply, session
+
+    # 空回复，而且这一轮是 resume 的：清掉会话再跑一次。
+    # 这一刀是诊断不是解药——真成了，说明每轮都得开新会话，那 TG 就成了
+    # 金鱼，「刚才说的那个」永远接不上，而「会话独立但连续」是架构表里
+    # 定死的一条。所以它只负责换回一句回音 + 换回一条线索，不算收工。
+    cli_logger.warning("telegram: 空回复且本轮是 resume，清 session 重试一次")
+    _state["session_id"] = None
+    _save_state()
+    reply, session, thinking = await _stream_reply(text, model, None)
+    cli_logger.info(
+        "telegram: retry(fresh) text_chars=%d thinking_chars=%d", len(reply), thinking
+    )
+    return reply, session
 
 
 async def _handle_update(upd: dict) -> None:
@@ -242,6 +271,7 @@ async def _handle_update(upd: dict) -> None:
     # create_task 只是排期。锁空闲时 Lock.acquire() 不会让出控制权，不给一个
     # 调度点的话「正在输入…」要等到 stream_chat 第一次真正 await 才发得出去。
     await asyncio.sleep(0)
+    reply, new_session = "", None
     try:
         # 不抄 main.py sse() 里的 locked() fail-fast：那是给正看着屏幕的人的。
         # 她在 TG 上发完就放下手机了，排队等几秒毫无感觉。同一把锁，两种表现。
@@ -252,17 +282,26 @@ async def _handle_update(upd: dict) -> None:
             reply, new_session = await _run_turn(text)
         finally:
             chat_lock.release()
+    except Exception:
+        # CancelledError 是 BaseException，不会被这里吞掉，lifespan 照样关得掉
+        cli_logger.exception("telegram: 这一轮炸了")
     finally:
         typing.cancel()
 
-    if not reply.strip():
-        cli_logger.warning("telegram: 空回复，不发送")
-        return
-    for chunk in _split_for_tg(reply):
-        await _send_message(ALLOWED_CHAT_ID, chunk)
     if new_session:
         _state["session_id"] = new_session
         _save_state()
+
+    if not reply.strip():
+        # offset 在轮询那边已经提前推进了，这条消息不会重来——不推进的话
+        # 一条中毒消息会无限重试，把整条线堵死，比丢一条糟得多。代价用
+        # 「一定有回音」来兜：她盯着屏幕的时候，「出错了」和「什么都没发生」
+        # 是同一种体验，所以异常和空回复走同一条路。
+        cli_logger.warning("telegram: 空回复，发兜底文案")
+        await _send_message(ALLOWED_CHAT_ID, FALLBACK_TEXT)
+        return
+    for chunk in _split_for_tg(reply):
+        await _send_message(ALLOWED_CHAT_ID, chunk)
 
 
 # ---------- 主循环 ----------------------------------------------------------
