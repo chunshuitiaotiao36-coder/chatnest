@@ -25,7 +25,7 @@ from starlette.formparsers import MultiPartParser
 
 MultiPartParser.max_part_size = 60 * 1024 * 1024  # 与 uploads.py 的 MAX_FILE_BYTES 对齐
 
-from app import auth, backgrounds, relays
+from app import auth, backgrounds, relays, telegram
 from app.actor import ActorBusyError, _mem_kv
 from app.claude import (
     SessionResumeError,
@@ -95,9 +95,13 @@ async def lifespan(app: FastAPI):
     relays.initialize()  # must run before any Claude subprocess is spawned
     registry = configure_registry(os.environ.get("AGENT_APP_ROOT", str(ROOT)))
     await registry.start()
+    # 寄生在本进程里的一个协程，不是独立服务。没配 TG 环境变量时返回 None，
+    # 小窝照常跑。
+    tg_task = telegram.start()
     try:
         yield
     finally:
+        await telegram.stop(tg_task)
         await registry.stop()
 
 
