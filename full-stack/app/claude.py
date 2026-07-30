@@ -19,7 +19,7 @@ from claude_agent_sdk import (
 )
 from claude_agent_sdk.types import StreamEvent
 
-from app import relays
+from app import relays, store
 from app.actor import ActorBusyError
 from app.memory import build_profile_context, memory_tool_permission, read_memory
 from app.registry import get_registry
@@ -233,6 +233,34 @@ async def build_user_prompt(message: str) -> str:
     )
 
 
+def _record_usage(
+    usage: dict | None,
+    conv_id: str,
+    source: str,
+    active_summary: dict,
+) -> None:
+    """把一轮的 token / 成本写进旁路账本。
+
+    落库放在这里而不是 actor：actor 拿得到 usage 但不知道走的是哪条中转站，
+    stream_chat 两样都有（它本来就在调 relays.get_active_summary() 判断订阅）。
+    """
+    if not usage:
+        return
+    store.record_usage({
+        "source": source,
+        "conv_id": conv_id,
+        "relay_id": active_summary.get("id"),
+        "relay_name": active_summary.get("name"),
+        "relay_mode": active_summary.get("mode"),
+        "model": usage.get("model"),
+        "input_tokens": usage.get("input_tokens"),
+        "output_tokens": usage.get("output_tokens"),
+        "cache_create": usage.get("cache_create"),
+        "cache_read": usage.get("cache_read"),
+        "cost_usd": usage.get("cost_usd"),
+    })
+
+
 async def stream_chat(
     message: str,
     conv_id: str,
@@ -242,9 +270,13 @@ async def stream_chat(
     extended: bool = True,
     timing_callback: Callable[[str], None] | None = None,
     lean: bool = False,
+    source: str = "web",
 ) -> AsyncGenerator[dict, None]:
     """lean=True 是 Telegram 那条轻量线：轻量人设 + 不挂 Ombre MCP。
-    默认 False，网页端的行为一个字没变。"""
+    默认 False，网页端的行为一个字没变。
+
+    source 只用来给用量账本分「网页 / TG」，不要拿 lean 当它的代理——
+    那是两件事，以后会分开。"""
     model_config = next(
         (item for item in available_models() if item["id"] == model),
         None,
@@ -300,9 +332,11 @@ async def stream_chat(
     # 根因在 CLI 内部，这里先绕开：订阅模式每次新建子进程。
     # 中转站不受影响，热复用照旧。
     try:
-        is_subscription = relays.get_active_summary().get("mode") == "subscription"
+        active_summary = relays.get_active_summary()
+        is_subscription = active_summary.get("mode") == "subscription"
     except Exception:
         logging.getLogger("uvicorn.error").exception("relay mode 判定失败，按中转站处理")
+        active_summary = {}
         is_subscription = False
 
     outbox = await get_registry().submit(
@@ -323,6 +357,16 @@ async def stream_chat(
             if "resume" in str(item).lower():
                 raise SessionResumeError("会话恢复失败") from item
             raise item
+        if item.get("event") == "done":
+            # pop 必须在 try 外面、yield 之前：main.py 的 SSE 是 chunk.pop("event")
+            # 之后原样 json.dumps 透传，不 pop 就会把成本数据一路发到前端。
+            # 前端要数据走 /api/usage，职责分开。
+            usage_payload = item.pop("usage", None)
+            try:
+                _record_usage(usage_payload, conv_id, source, active_summary)
+            except Exception:
+                # 记账是旁路功能，绝不允许因为它写不进去而让她收不到回复
+                cli_logger.warning("用量记账失败（不影响回复）", exc_info=True)
         yield item
 
 

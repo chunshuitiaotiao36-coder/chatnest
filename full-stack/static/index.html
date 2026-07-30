@@ -426,6 +426,37 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
         <div class="relay-route" id="relayRoute" hidden></div>
       </div>
     </section>
+    <section class="profile-section">
+      <div class="profile-section-title">用量</div>
+      <div class="profile-card">
+        <div class="usage-range" id="usageRange">
+          <button type="button" class="usage-range-btn is-on" data-range="today">今天</button>
+          <button type="button" class="usage-range-btn" data-range="7">近 7 天</button>
+        </div>
+        <div class="usage-cols">
+          <div class="usage-col is-api">
+            <div class="usage-col-title">API 计费</div>
+            <div class="usage-col-cost" id="usageApiCost">¥0.00</div>
+            <div class="usage-col-note">按 token 结账</div>
+            <div class="usage-col-line" id="usageApiTurns">0 轮</div>
+            <div class="usage-col-line" id="usageApiHit">缓存命中 —</div>
+          </div>
+          <div class="usage-col is-sub">
+            <div class="usage-col-title">订阅额度</div>
+            <div class="usage-col-cost" id="usageSubCost">¥0.00</div>
+            <div class="usage-col-note">等价成本，不实际扣费</div>
+            <div class="usage-col-line" id="usageSubTurns">0 轮</div>
+            <div class="usage-col-line" id="usageSubHit">缓存命中 —</div>
+          </div>
+        </div>
+        <div class="usage-table-wrap">
+          <table class="usage-table">
+            <thead><tr><th>时间</th><th>来源</th><th>渠道</th><th>模型</th><th class="num">input</th><th class="num">缓存读</th><th class="num">缓存写</th><th class="num">花费</th></tr></thead>
+            <tbody id="usageRows"><tr><td colspan="8" class="usage-empty">加载中…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
     <div class="profile-footer-actions"><button class="profile-text-button" id="deleteProfile">Clear profile</button></div>
   </div>
   <div class="profile-page" id="savedMemoriesPage">
@@ -483,23 +514,32 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
 </section>
 <section id="tabReading" class="tab-page" hidden>
   <div class="reading-counter"><span id="readingCounterDays"></span></div>
-  <div class="starmap-wrap">
-    <div class="starmap-head">
-      <div class="starmap-title">星图</div>
-      <div class="starmap-sub" id="starmapCount">读取中…</div>
-    </div>
-    <canvas id="starmapCanvas"></canvas>
-    <div class="starmap-legend">
-      <span><i style="background:#F0C97A"></i>金 · 置顶</span>
-      <span><i style="background:#E8956F"></i>暖 · 偏甜</span>
-      <span><i style="background:#7B9FD4"></i>冷 · 偏沉</span>
-      <span class="starmap-hint">轻点一颗星读它。不动它，它自己慢慢转。</span>
-    </div>
-    <div class="starmap-card hidden" id="starmapCard">
-      <button class="starmap-card-close" id="starmapCardClose" aria-label="关闭">×</button>
-      <div class="starmap-card-name" id="starmapCardName"></div>
-      <div class="starmap-card-meta" id="starmapCardMeta"></div>
-      <div class="starmap-card-body" id="starmapCardBody"></div>
+  <!-- 书房是手风琴：每块自带标题栏，点标题栏收起/展开。星图是第一块，
+       以后共读是第二块。计数器不进手风琴，它是书房的页眉，永远露着。 -->
+  <div class="study-acc" id="studyStarmap">
+    <button type="button" class="study-acc-head" id="studyStarmapHead" aria-expanded="true" aria-controls="studyStarmapBody">
+      <span class="study-acc-title">星图</span>
+      <span class="study-acc-sub" id="starmapCount">读取中…</span>
+      <span class="study-acc-chevron" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </span>
+    </button>
+    <div class="study-acc-body" id="studyStarmapBody">
+      <div class="starmap-wrap">
+        <canvas id="starmapCanvas"></canvas>
+        <div class="starmap-legend">
+          <span><i style="background:#F0C97A"></i>金 · 置顶</span>
+          <span><i style="background:#E8956F"></i>暖 · 偏甜</span>
+          <span><i style="background:#7B9FD4"></i>冷 · 偏沉</span>
+          <span class="starmap-hint">轻点一颗星读它。不动它，它自己慢慢转。</span>
+        </div>
+        <div class="starmap-card hidden" id="starmapCard">
+          <button class="starmap-card-close" id="starmapCardClose" aria-label="关闭">×</button>
+          <div class="starmap-card-name" id="starmapCardName"></div>
+          <div class="starmap-card-meta" id="starmapCardMeta"></div>
+          <div class="starmap-card-body" id="starmapCardBody"></div>
+        </div>
+      </div>
     </div>
   </div>
 </section>
@@ -2301,7 +2341,7 @@ function renderProfile(){profileDraft=normalizeProfileClient(profileDraft);$('pr
 async function loadProfile(){const r=await api('/api/profile');if(!r.ok)throw Error('load failed');const data=await r.json();profileState=normalizeProfileClient(data.profile);profileDraft=cloneProfile(profileState);renderProfile();setProfileDirty(false)}
 async function saveProfile(){const payload=normalizeProfileClient(profileDraft);const r=await api('/api/profile',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});if(!r.ok)throw Error('save failed');const data=await r.json();profileState=normalizeProfileClient(data.profile||payload);profileDraft=cloneProfile(profileState);renderProfile();setProfileDirty(false);toast('Profile saved')}
 /* Home tab 内的 profile 面板：不再是 overlay，进出由 switchTab 驱动 */
-async function openHomeProfile(){$('memoryPanel').classList.add('show');$('memoryPanel').setAttribute('aria-hidden','false');showProfilePage('profileHome');loadRelays();await loadProfile()}
+async function openHomeProfile(){$('memoryPanel').classList.add('show');$('memoryPanel').setAttribute('aria-hidden','false');showProfilePage('profileHome');loadRelays();loadUsage();await loadProfile()}
 function closeHomeProfile(){$('memoryPanel').classList.remove('show');$('memoryPanel').setAttribute('aria-hidden','true');$('memorySearchBar').classList.remove('show')}
 $('closeMemory').onclick=()=>{switchTab('chat')};
 let _diaryEntries=[],_diaryMonth='all';
@@ -2673,6 +2713,80 @@ document.getElementById('relayTestBtn')?.addEventListener('click',testRelayFromM
 document.getElementById('relayFetchBtn')?.addEventListener('click',fetchRelayModels);
 document.getElementById('relayFieldMode')?.addEventListener('change',_syncRelayModeUI);
 
+/* ---- 用量 ---------------------------------------------------------------
+   汇率不写死，跟着 /api/usage 一起下来（USD_TO_CNY），写死在前端以后改不动。
+   API 和订阅两栏永远分开：订阅是额度制，那一栏的金额是「这些 token 走 API
+   计费会是多少」的等价参考值，不是账单。 */
+let _usageRange = 'today';
+let _usdToCny = 7.2;
+function _usageSince(range){
+  // 「今天」= 她本地时区的今天零点。服务器在 UTC 上算不出这个，所以由前端给。
+  if(range!=='today') return null;
+  const n=new Date();
+  return Math.floor(new Date(n.getFullYear(),n.getMonth(),n.getDate()).getTime()/1000);
+}
+function _cny(usd,digits){return '¥'+((usd||0)*_usdToCny).toFixed(digits)}
+function _num(n){return (n||0).toLocaleString('en-US')}
+/* 缓存命中率 = cache_read / (input + cache_read + cache_create)。
+   这一栏是整个面板最值钱的地方：中转站不透传 cache_control，那一栏永远是 0%。 */
+function _hitRate(b){
+  const total=(b.input||0)+(b.cache_read||0)+(b.cache_create||0);
+  if(!total) return '缓存命中 —';
+  return '缓存命中 '+(b.cache_read*100/total).toFixed(1).replace(/\.0$/,'')+'%';
+}
+function _usageTime(ts){
+  const d=new Date((ts||0)*1000);
+  const p=n=>String(n).padStart(2,'0');
+  return `${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function renderUsage(data){
+  _usdToCny=data.usd_to_cny||_usdToCny;
+  const s=data.summary||{};
+  const api=s.api||{}, sub=s.subscription||{};
+  $('usageApiCost').textContent=_cny(api.cost_usd,2);
+  $('usageApiTurns').textContent=`${api.turns||0} 轮`;
+  $('usageApiHit').textContent=_hitRate(api);
+  $('usageSubCost').textContent=_cny(sub.cost_usd,2);
+  $('usageSubTurns').textContent=`${sub.turns||0} 轮`;
+  $('usageSubHit').textContent=_hitRate(sub);
+  const tb=$('usageRows');
+  const rows=data.rows||[];
+  if(!rows.length){tb.innerHTML='<tr><td colspan="8" class="usage-empty">这段时间还没有记录</td></tr>';return}
+  tb.innerHTML=rows.map(r=>{
+    const isSub=r.relay_mode==='subscription';
+    // 订阅那行的金额前面留个 ≈：明细里也别让她把等价成本当账单看
+    const cost=(isSub?'≈':'')+_cny(r.cost_usd,4);
+    return '<tr>'+
+      `<td>${_relayEscape(_usageTime(r.ts))}</td>`+
+      `<td>${r.source==='telegram'?'TG':'网页'}</td>`+
+      `<td class="usage-relay">${_relayEscape(r.relay_name||'—')}</td>`+
+      `<td class="usage-relay">${_relayEscape(_shortModelName(r.model||'')||'—')}</td>`+
+      `<td class="num">${_num(r.input_tokens)}</td>`+
+      `<td class="num">${_num(r.cache_read)}</td>`+
+      `<td class="num">${_num(r.cache_create)}</td>`+
+      `<td class="num${isSub?' is-eq':''}">${cost}</td>`+
+    '</tr>';
+  }).join('');
+}
+async function loadUsage(){
+  const tb=$('usageRows'); if(!tb) return;
+  const since=_usageSince(_usageRange);
+  const q=since?`since=${since}&limit=50`:`days=${_usageRange}&limit=50`;
+  try{
+    const r=await api('/api/usage?'+q);
+    if(!r.ok)throw Error();
+    renderUsage(await r.json());
+  }catch{
+    tb.innerHTML='<tr><td colspan="8" class="usage-empty">用量读取失败</td></tr>';
+  }
+}
+document.getElementById('usageRange')?.addEventListener('click',e=>{
+  const btn=e.target.closest('.usage-range-btn'); if(!btn) return;
+  _usageRange=btn.dataset.range;
+  document.querySelectorAll('#usageRange .usage-range-btn').forEach(b=>b.classList.toggle('is-on',b===btn));
+  loadUsage();
+});
+
 /* ---- 记忆星图 --------------------------------------------------------- */
 const STARMAP = {raf:0, stars:[], t:0, dpr:1, cx:0, cy:0, scale:1, loaded:false};
 
@@ -2794,7 +2908,47 @@ function closeStarmap(){
     $('starmapCard').classList.remove('hidden');
   });
   $('starmapCardClose').onclick=()=>$('starmapCard').classList.add('hidden');
-  addEventListener('resize',()=>{ if(currentTab==='reading'){resizeStarmap();drawStarmap()} });
+  addEventListener('resize',()=>{ if(currentTab==='reading'&&!starmapCollapsed()){resizeStarmap();drawStarmap()} });
+})();
+
+/* —— 书房手风琴 ——
+   收起不用 display:none：星图是 canvas，display:none 会把它的尺寸变成 0，
+   展开回来要重算、还容易糊。收的是容器高度（max-height + overflow:hidden）。
+   跟「切 tab 不能用 display:none」是同一个坑的两种形状。
+
+   收起时必须停 rAF：看不见还在转就是白烧电。停动画的逻辑 closeStarmap()
+   早就有了（切 tab 时就在用），这里复用它，不重写一套。 */
+const STUDY_ACC_KEY='reading_panel_starmap';
+function starmapCollapsed(){return !!$('studyStarmap')?.classList.contains('is-collapsed')}
+function applyStarmapCollapsed(collapsed,persist){
+  const acc=$('studyStarmap'); if(!acc) return;
+  acc.classList.toggle('is-collapsed',collapsed);
+  $('studyStarmapHead')?.setAttribute('aria-expanded',String(!collapsed));
+  if(persist) localStorage.setItem(STUDY_ACC_KEY,collapsed?'collapsed':'open');
+  if(collapsed){closeStarmap();return}
+  if(currentTab!=='reading') return;
+  openStarmap();
+  /* openStarmap() 里那次 resizeStarmap() 必然空转：这一刻 max-height 还是 0，
+     rect 高度为 0，它自己会 return。真正定尺寸的是过渡结束后那次；
+     prefers-reduced-motion 下过渡被关掉、transitionend 不会来，所以这里
+     再补一次兜底。多跑一次 resize 没有副作用。 */
+  setTimeout(()=>{
+    if(starmapCollapsed()||currentTab!=='reading')return;
+    resizeStarmap(); drawStarmap();
+  },300);
+}
+(()=>{
+  const head=$('studyStarmapHead'), body=$('studyStarmapBody');
+  if(!head||!body) return;
+  if(localStorage.getItem(STUDY_ACC_KEY)==='collapsed') applyStarmapCollapsed(true,false);
+  head.addEventListener('click',()=>applyStarmapCollapsed(!starmapCollapsed(),true));
+  /* 展开的那一下高度是渐变的，rAF 已经在按中途的尺寸画了。等过渡结束再
+     按最终高度重算一次 canvas 缓冲区，不然展开回来是糊的。 */
+  body.addEventListener('transitionend',e=>{
+    if(e.target!==body||e.propertyName!=='max-height') return;
+    if(starmapCollapsed()||currentTab!=='reading') return;
+    resizeStarmap(); drawStarmap();
+  });
 })();
 
 /* 起算日 2026.5.29。
@@ -2841,7 +2995,7 @@ function switchTab(name){
   currentTab=name;
   if(name!=='chat')closeDrawer();
   if(name==='home')openHomeProfile().catch(()=>toast('Profile 加载失败'));
-  if(name==='reading'){renderReadingCounter();openStarmap()}
+  if(name==='reading'){renderReadingCounter();if(!starmapCollapsed())openStarmap()}
 }
 document.querySelectorAll('#tabBar .tab-item').forEach(t=>{t.addEventListener('click',()=>switchTab(t.dataset.tab))});
 </script>

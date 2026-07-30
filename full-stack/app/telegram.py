@@ -312,6 +312,8 @@ async def _stream_reply(text: str, model: str, session_id: str | None) -> tuple[
         # TG 那条线：轻量人设（telegram_prompt.md）+ 不挂 Ombre MCP。
         # 全仓库只有这一处传 True，网页端一个字没变。
         lean=True,
+        # 用量账本的来源标记。跟 lean 是两件事，各传各的。
+        source="telegram",
     ):
         event = chunk.get("event")
         if event == "delta":

@@ -2,6 +2,7 @@ import json
 import os
 import re
 import sqlite3
+import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -85,6 +86,27 @@ def initialize_store() -> None:
             );
             CREATE INDEX IF NOT EXISTS message_branches_conv_base
                 ON message_branches(conv_id, base_message_id);
+            /* 旁路账本：每轮 ResultMessage 的 token / 成本落一行。
+               刻意不给 conv_id 加 REFERENCES conversations(conv_id)——
+               Telegram 那条线的 conv_id 是个固定常量，根本不在 conversations
+               里，而上面 _connect() 开着 PRAGMA foreign_keys = ON，加了外键
+               TG 每一轮插入都会失败。这张表是旁路，不是主数据，故意无约束。 */
+            CREATE TABLE IF NOT EXISTS usage_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ts INTEGER NOT NULL,
+                source TEXT NOT NULL DEFAULT 'web',
+                conv_id TEXT,
+                relay_id TEXT,
+                relay_name TEXT,
+                relay_mode TEXT,
+                model TEXT,
+                input_tokens INTEGER,
+                output_tokens INTEGER,
+                cache_create INTEGER,
+                cache_read INTEGER,
+                cost_usd REAL
+            );
+            CREATE INDEX IF NOT EXISTS idx_usage_ts ON usage_log(ts DESC);
             """
         )
         message_columns = {
@@ -811,3 +833,105 @@ def delete_conversation(conv_id: str) -> None:
             delete_session(session_id, directory=PROJECT_DIR)
         except Exception:
             pass
+
+
+# ---------- 用量账本 ---------------------------------------------------------
+
+
+def record_usage(entry: dict[str, Any]) -> None:
+    """一轮回复的 token / 成本落一行。调用方负责 try/except——
+    记账写不进去绝不允许影响回复。"""
+    with _connect() as db:
+        db.execute(
+            """
+            INSERT INTO usage_log(
+                ts, source, conv_id, relay_id, relay_name, relay_mode, model,
+                input_tokens, output_tokens, cache_create, cache_read, cost_usd
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                int(entry.get("ts") or time.time()),
+                str(entry.get("source") or "web"),
+                entry.get("conv_id"),
+                entry.get("relay_id"),
+                entry.get("relay_name"),
+                entry.get("relay_mode"),
+                entry.get("model"),
+                entry.get("input_tokens"),
+                entry.get("output_tokens"),
+                entry.get("cache_create"),
+                entry.get("cache_read"),
+                entry.get("cost_usd"),
+            ),
+        )
+
+
+def usage_report(
+    days: int = 7,
+    limit: int = 50,
+    since: int | None = None,
+) -> dict[str, Any]:
+    """按 relay_mode 分栏的汇总 + 明细。
+
+    api 和 subscription 永远分开统计，一行都不许加在一起：订阅是额度制，
+    它那一栏的 cost_usd 是「这些 token 走 API 计费会是多少」的等价参考值，
+    不是账单。合起来看她会以为自己在烧钱，其实烧的是 5 小时窗口。
+    """
+    days = max(1, min(int(days or 7), 90))
+    limit = max(1, min(int(limit or 50), 200))
+    window_start = int(since) if since else int(time.time()) - days * 86400
+
+    def _blank() -> dict[str, Any]:
+        return {
+            "turns": 0,
+            "input": 0,
+            "output": 0,
+            "cache_create": 0,
+            "cache_read": 0,
+            "cost_usd": 0.0,
+        }
+
+    summary: dict[str, dict[str, Any]] = {"api": _blank(), "subscription": _blank()}
+    with _connect() as db:
+        for row in db.execute(
+            """
+            SELECT relay_mode,
+                   COUNT(*)                     AS turns,
+                   COALESCE(SUM(input_tokens),0)  AS input,
+                   COALESCE(SUM(output_tokens),0) AS output,
+                   COALESCE(SUM(cache_create),0)  AS cache_create,
+                   COALESCE(SUM(cache_read),0)    AS cache_read,
+                   COALESCE(SUM(cost_usd),0)      AS cost_usd
+            FROM usage_log
+            WHERE ts >= ?
+            GROUP BY relay_mode
+            """,
+            (window_start,),
+        ).fetchall():
+            # mode 认不出来的（老行、写入时线路读取失败）归到 api 那栏：
+            # 宁可把钱算多，不要把真花的钱藏进「不实际扣费」里。
+            mode = row["relay_mode"] if row["relay_mode"] in summary else "api"
+            bucket = summary[mode]
+            bucket["turns"] += row["turns"]
+            bucket["input"] += row["input"]
+            bucket["output"] += row["output"]
+            bucket["cache_create"] += row["cache_create"]
+            bucket["cache_read"] += row["cache_read"]
+            bucket["cost_usd"] += row["cost_usd"] or 0.0
+        rows = db.execute(
+            """
+            SELECT ts, source, relay_name, relay_mode, model,
+                   input_tokens, output_tokens, cache_create, cache_read, cost_usd
+            FROM usage_log
+            WHERE ts >= ?
+            ORDER BY ts DESC, id DESC
+            LIMIT ?
+            """,
+            (window_start, limit),
+        ).fetchall()
+
+    return {
+        "since": window_start,
+        "summary": summary,
+        "rows": [dict(row) for row in rows],
+    }

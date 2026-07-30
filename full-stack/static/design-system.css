@@ -1000,3 +1000,265 @@ body.tab-away #chat {
 #tabReading .starmap-head {
   padding-top: 14px;
 }
+
+/* ============================================================
+   用量面板（Home · 中转站下面）
+   ============================================================ */
+
+/* 面板整体挂在 #memoryPanel 里，那一套配色写在 index.html 的内联 <style>
+   （浅色卡片 #f2f0ed / 深色 #2A2A28，中性灰不跟聊天页的粉主题走），
+   所以这里的底色和字色都跟着它，不挂 --bg-* / --text-*。
+
+   橙和绿是语义色，规矩同 .relay-route：橙 = API 计费（真金白银），
+   绿 = 订阅额度（等价成本）。写死，不挂 var(--accent)——
+   主题色改了不该让「这笔钱是不是真花了」跟着变。 */
+
+.usage-range {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.usage-range-btn {
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(32, 31, 29, .05);
+  color: #77736c;
+  font: 500 13px/1 var(--font-sans);
+}
+.usage-range-btn.is-on {
+  background: #201f1d;
+  color: #fff;
+}
+
+.usage-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.usage-col {
+  padding: 12px 12px 13px;
+  border-radius: 16px;
+  border: 1px solid transparent;
+  min-width: 0;
+}
+.usage-col.is-api {
+  background: rgba(217, 119, 87, .07);
+  border-color: rgba(217, 119, 87, .20);
+}
+.usage-col.is-sub {
+  background: rgba(107, 158, 122, .09);
+  border-color: rgba(107, 158, 122, .24);
+}
+.usage-col-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: .02em;
+}
+.usage-col.is-api .usage-col-title { color: #D97757 }
+.usage-col.is-sub .usage-col-title { color: #5C8A69 }
+.usage-col-cost {
+  margin-top: 6px;
+  font-family: var(--font-serif, inherit);
+  font-size: 24px;
+  line-height: 1.1;
+  color: #201f1d;
+}
+/* 「等价成本，不实际扣费」必须留在 UI 上，不许退回注释里：
+   搞混了她会以为自己在烧钱，其实烧的是 5 小时窗口。 */
+.usage-col-note {
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #8b8680;
+}
+.usage-col.is-sub .usage-col-note { color: #5C8A69 }
+.usage-col-line {
+  margin-top: 5px;
+  font-size: 11.5px;
+  color: #77736c;
+}
+
+/* 明细列表。手机上一行放不下八列，所以横向滚动只发生在这个盒子里，
+   页面本身绝不横向滚——min-width 撑在 table 上，overflow 挡在 wrap 上。 */
+.usage-table-wrap {
+  margin-top: 14px;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.usage-table {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: collapse;
+  font-size: 11.5px;
+  color: #201f1d;
+}
+.usage-table th,
+.usage-table td {
+  padding: 7px 8px;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid rgba(32, 31, 29, .07);
+}
+.usage-table th {
+  font-weight: 500;
+  color: #8b8680;
+}
+.usage-table td.num,
+.usage-table th.num {
+  text-align: right;
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+/* 渠道名和模型名可能很长，只有这两列允许被截断 */
+.usage-table td.usage-relay {
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.usage-table td.is-eq { color: #5C8A69 }
+.usage-table tr:last-child td { border-bottom: 0 }
+.usage-empty {
+  padding: 16px 8px;
+  color: #8b8680;
+  text-align: center;
+  white-space: normal;
+}
+
+@media (prefers-color-scheme: dark) {
+  .usage-range-btn { background: rgba(255, 255, 255, .10); color: rgba(244, 243, 239, .56) }
+  .usage-range-btn.is-on { background: #F4F3EF; color: #1F1F1D }
+  .usage-col.is-api {
+    background: rgba(224, 138, 107, .12);
+    border-color: rgba(224, 138, 107, .26);
+  }
+  .usage-col.is-sub {
+    background: rgba(143, 191, 156, .12);
+    border-color: rgba(143, 191, 156, .26);
+  }
+  /* #D97757 / #5C8A69 压在深色卡片上对比度不够，跟 .relay-route 暗色那组
+     用同一档提亮值 */
+  .usage-col.is-api .usage-col-title { color: #E08A6B }
+  .usage-col.is-sub .usage-col-title,
+  .usage-col.is-sub .usage-col-note,
+  .usage-table td.is-eq { color: #8FBF9C }
+  .usage-col-cost { color: #F4F3EF }
+  .usage-col-note,
+  .usage-table th,
+  .usage-empty { color: rgba(244, 243, 239, .48) }
+  .usage-col-line { color: rgba(244, 243, 239, .56) }
+  .usage-table { color: #F4F3EF }
+  .usage-table th,
+  .usage-table td { border-bottom-color: rgba(255, 255, 255, .08) }
+}
+
+/* ============================================================
+   书房手风琴
+   ============================================================ */
+
+/* 书房从「星图铺满整面墙」改成手风琴：页眉（遇见你 · 第 N 天）永远露着，
+   下面每一块自带标题栏。星图是第一块，以后共读是第二块。
+
+   排版从「.starmap-wrap 绝对定位盖满 #tabReading」改成 flex 列：
+   计数器和标题栏是定高的兄弟，星图那块吃掉剩下的高度。这样收起时
+   上面两行原地不动，页面不跳。 */
+#tabReading {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* 星图不再自己吃 tabbar 的高度了（下面把它的 padding-bottom 归零），
+     改由页面统一让开 */
+  padding-bottom: var(--tabbar-space);
+}
+.reading-counter { flex: none }
+
+.study-acc {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.study-acc-head {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 20px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+.study-acc-title {
+  flex: none;
+  font-family: 'LXGW WenKai', ui-serif, Georgia, serif;
+  font-weight: 400;
+  font-size: 20px;
+  letter-spacing: .06em;
+}
+/* 星数那行原来在星图内部（深色底上的半透明白），现在跟着标题栏上来了，
+   落在主题背景上，所以必须走 var()，不能再写死浅色。 */
+.study-acc-sub {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  font-style: italic;
+  color: var(--text-secondary);
+}
+.study-acc-chevron {
+  flex: none;
+  align-self: center;
+  width: 20px;
+  height: 20px;
+  color: var(--text-secondary);
+  transition: transform 240ms ease;
+}
+.study-acc-chevron svg { width: 100%; height: 100%; display: block }
+.study-acc.is-collapsed .study-acc-chevron { transform: rotate(-90deg) }
+
+/* 收起收的是容器高度，不是 display:none —— 星图是 canvas，display:none
+   会把它的尺寸变成 0，展开回来要重算、还容易糊。
+   max-height 只是动画用的上限，真实高度由 flex 决定。 */
+.study-acc-body {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 100vh;
+  overflow: hidden;
+  transition: max-height 260ms ease;
+}
+/* 收起只改 max-height，不改 flex：max-height 会压过 flex 分到的高度，
+   而且是可过渡的属性。写成 flex:0 0 0 也能收，但那是瞬间生效的，
+   旁边这条 transition 就成了摆设。 */
+.study-acc.is-collapsed .study-acc-body {
+  max-height: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .study-acc-body, .study-acc-chevron { transition: none }
+}
+
+/* 星图那块现在住在手风琴里，包含块从 #tabReading 换成了 .study-acc-body：
+   1. top 不再需要给页眉让路（页眉是真兄弟了，不再被盖住），归零；
+   2. tabbar 的高度上面已经由 #tabReading 让开，这里不能再让第二遍；
+   3. 左右各留 14px + 圆角，让它读起来是「书房里的一块」而不是一整面墙。
+   .starmap-wrap 自己那条规则一个字没动。 */
+#tabReading .study-acc-body .starmap-wrap {
+  top: 0;
+  left: 14px;
+  right: 14px;
+  /* 顶上的呼吸给在容器上，不给 canvas —— canvas 的缓冲区是照
+     getBoundingClientRect() 定的，给它加 padding 会让位图被拉伸糊掉 */
+  padding: 10px 0 0;
+  border-radius: 18px;
+  overflow: hidden;
+}
+/* 星卡原来贴着 tabbar 上沿（bottom 里算了 --tabbar-space），
+   现在它的包含块就是这块面板，改成贴面板底 */
+#tabReading .study-acc-body .starmap-card {
+  bottom: 16px;
+}

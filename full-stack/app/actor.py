@@ -272,9 +272,21 @@ class ConvActor:
                             sdk_message.total_cost_usd,
                             _mem_kv(),
                         )
-                        await request.outbox.put(
-                            {"event": "done", "session_id": sdk_message.session_id}
-                        )
+                        # usage 顺着 done 事件带出去，值就是上面那行日志用的同一批。
+                        # 注意：claude.py 会在 yield 之前把它 pop 掉，绝不能透传到
+                        # 前端（main.py 的 SSE 是 chunk.pop("event") 后原样 dumps）。
+                        await request.outbox.put({
+                            "event": "done",
+                            "session_id": sdk_message.session_id,
+                            "usage": {
+                                "input_tokens": usage.get("input_tokens"),
+                                "output_tokens": usage.get("output_tokens"),
+                                "cache_create": usage.get("cache_creation_input_tokens"),
+                                "cache_read": usage.get("cache_read_input_tokens"),
+                                "cost_usd": sdk_message.total_cost_usd,
+                                "model": ",".join((sdk_message.model_usage or {}).keys()) or None,
+                            },
+                        })
                     else:
                         cache_logger.info("sdk_unhandled: %s", type(sdk_message).__name__)
         except TimeoutError:

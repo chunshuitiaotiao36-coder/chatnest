@@ -66,6 +66,7 @@ from app.store import (
     prepare_retry_turn,
     resolve_conversation,
     restore_branch,
+    usage_report,
 )
 from app.uploads import (
     remove_conversation_uploads,
@@ -81,6 +82,16 @@ STATIC = ROOT / "static"
 chat_lock = asyncio.Lock()
 initialize_store()
 TRACE_CONTENT_CHARS = 20_000
+
+
+def _usd_to_cny() -> float:
+    """人民币换算的汇率走环境变量，跟着 /api/usage 一起回给前端。
+    写死在前端以后改不动。"""
+    try:
+        rate = float(os.environ.get("USD_TO_CNY", "7.2"))
+    except ValueError:
+        rate = 0.0
+    return rate if rate > 0 else 7.2
 
 
 def trace_content(value: Any) -> str:
@@ -882,6 +893,22 @@ async def relays_models_fetch(body: RelayModelsFetchBody) -> dict:
     return await relays.fetch_models_for(
         body.base_url, body.api_key, body.protocol, body.mode, body.relay_id
     )
+
+
+# 必须挂 require_auth：这里面有她用哪几家中转站、花了多少钱。
+# （/api/models 公开裸奔的教训。）
+@app.get("/api/usage", dependencies=[Depends(require_auth)])
+async def usage_data(
+    days: int = Query(default=7, ge=1, le=90),
+    limit: int = Query(default=50, ge=1, le=200),
+    # 「今天」是她那个时区的今天，服务器在 UTC 上算不出来，
+    # 所以本地午夜的时间戳由前端给。不传就退回 days 的滚动窗口。
+    since: int | None = Query(default=None, ge=0),
+) -> dict:
+    # sqlite 是阻塞的，跟 starmap 一样甩到线程里，别堵事件循环
+    data = await asyncio.to_thread(usage_report, days, limit, since)
+    data["usd_to_cny"] = _usd_to_cny()
+    return data
 
 
 @app.get("/api/starmap", dependencies=[Depends(require_auth)])
