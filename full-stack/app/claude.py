@@ -310,6 +310,12 @@ async def stream_chat(
         setting_sources=[],
         cwd=PROJECT_DIR,
         stderr=lambda line: cli_logger.info("cli_stderr: %s", line),
+        # Anthropic 的 prompt cache 默认只活 5 分钟，而她的节奏是断续的——
+        # 聊两句去吃饭、回来接着说，每次回来都是凉的。07-30 用量面板实测：
+        # 间隔近的那轮 cache_read=44858 花 ¥0.19，隔远的两轮 cache_read=0
+        # 各花 ¥1.8，差九倍。这个 beta 把 TTL 延到 1 小时。
+        # 只加在 stream_chat：三个 summarize_* 是一次性短请求，缓存对它们没意义。
+        betas=["extended-cache-ttl-2025-04-11"],
     )
     if selected_effort is not None:
         option_values["effort"] = selected_effort
