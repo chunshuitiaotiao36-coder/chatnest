@@ -153,6 +153,18 @@ def _set_or_clear(key: str, value: str) -> None:
         os.environ.pop(key, None)
 
 
+def _cli_base_url(base_url: str) -> str:
+    """Claude Code CLI 认的 ANTHROPIC_BASE_URL 是根地址，它自己会拼
+    /v1/messages。而中转站首页给的 URL 基本都带 /v1（那是给 OpenAI 格式
+    客户端用的），原样设进去就是 /v1/v1/messages —— 404，而且**不报错**：
+    SDK 会合成一个空壳 ResultMessage（<synthetic> / model=— / input=0）。
+
+    跟 _models_url() 是同一个问题的两面，那边 07-29 修过，这边漏了。
+    两边各自规范化，用户填哪种写法都对；存档里保持原样不动。"""
+    b = (base_url or "").strip().rstrip("/")
+    return b[:-3] if b.endswith("/v1") else b
+
+
 def _apply_env(relay: dict) -> None:
     if _normalize_mode(relay.get("mode")) == "subscription":
         # Claude Code CLI only falls back to the OAuth credentials in
@@ -162,9 +174,15 @@ def _apply_env(relay: dict) -> None:
         switch_logger.info("relays: subscription mode active, ANTHROPIC_* cleared")
         return
     api_key = relay.get("api_key") or ""
-    _set_or_clear("ANTHROPIC_BASE_URL", relay.get("base_url") or "")
+    _set_or_clear("ANTHROPIC_BASE_URL", _cli_base_url(relay.get("base_url") or ""))
     _set_or_clear("ANTHROPIC_AUTH_TOKEN", api_key)
     _set_or_clear("ANTHROPIC_API_KEY", api_key)
+    # 这个洞难查，是因为「环境变量到底被设成了什么」是个黑箱。
+    switch_logger.info(
+        "relays: env applied base_url=%s token=%s",
+        os.environ.get("ANTHROPIC_BASE_URL", "(unset)"),
+        _mask_tail(api_key) or "(unset)",
+    )
 
 
 def _active_relay(state: dict) -> dict:
