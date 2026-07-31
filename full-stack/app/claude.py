@@ -42,7 +42,10 @@ def _summary_model() -> str:
         return ""
     if not ids:
         return ""
-    for want in ("haiku", "sonnet"):
+    # 订阅线路的真实模型列表里没有 haiku，于是第一个命中 "sonnet" 的是
+    # Sonnet 5 —— 拿最贵的档去写 20 字摘要。把便宜的版本排在裸 "sonnet" 前面。
+    # 不要改成"优先挑 primary:false"：那个字段已经被抹平成全 true（队列 27）。
+    for want in ("haiku", "sonnet-4-6", "sonnet-4", "sonnet"):
         for mid in ids:
             if want in mid.lower():
                 return mid
