@@ -4,6 +4,10 @@ fastapi
 python-multipart
 python-dotenv
 uvicorn[standard]
+# python:3.12-slim 里没有 /usr/share/zoneinfo，ZoneInfo("Asia/Shanghai") 会抛
+# ZoneInfoNotFoundError。zoneinfo 找不到系统库时会自动回落到这个包。
+# 没有它，用户消息前面那行时间会静默消失（_now_line 吞掉异常返回空串）。
+tzdata
 
 chromadb>=0.5.0
 jieba

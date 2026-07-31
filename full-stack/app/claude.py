@@ -8,7 +8,9 @@ import os
 import urllib.error
 import urllib.request
 from collections.abc import AsyncGenerator, Callable
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from claude_agent_sdk import (
     AssistantMessage,
@@ -218,18 +220,44 @@ def build_system_prompt(model: str, lean: bool = False) -> str:
     return system_prompt
 
 
+_WEEKDAYS = "一二三四五六日"
+
+
+def _now_line() -> str:
+    """`[现在是 2026-07-31 星期五 15:42]`。
+
+    时间是这个请求里变得最快的东西——每分钟都不一样。它只能待在用户侧，
+    绝不能进 build_system_prompt：前缀里塞一个每分钟都变的串，等于每轮
+    都换一个前缀，刚验过的「56 分钟还命中」当场归零。
+    不变的放前面，会变的放后面。
+
+    tzdata 缺失（slim 镜像）会让 ZoneInfo 直接抛。丢一行时间可以接受，
+    每条消息 500 不行，所以这里吞掉异常返回空串。
+    """
+    try:
+        now = datetime.now(ZoneInfo(os.environ.get("APP_TIMEZONE", "Asia/Shanghai")))
+    except Exception:
+        cli_logger.exception("时区读不到，这轮不拼时间")
+        return ""
+    return f"[现在是 {now:%Y-%m-%d} 星期{_WEEKDAYS[now.weekday()]} {now:%H:%M}]"
+
+
 async def build_user_prompt(message: str) -> str:
     """Memory recall is volatile (re-retrieved per message), so it must never
     enter system_prompt — that would move the cache-breaking bytes to the very
     front of the request. Riding on the user turn puts it after every cache
     breakpoint, and once written into history it never changes again.
+    The wall clock rides along for the same reason (see _now_line).
 
     The recall goes before the user's own words so the last thing the model
     reads is what she actually said."""
+    now_line = _now_line()
+    head = f"{now_line}\n\n" if now_line else ""
     memory_hits = await fetch_memory_hits(message)
     if not memory_hits:
-        return message
+        return f"{head}{message}"
     return (
+        head +
         "<memory_recall>\n"
         "以下是从记忆书架向量检索到的相关条目（可能相关也可能没用，"
         "自己判断是否引用；不要照搬，更不要逐字复读）：\n"
