@@ -281,17 +281,25 @@ def _split_for_tg(text: str) -> list[str]:
 
 
 def _pick_model() -> str:
-    """当前激活线路上的第一个模型。不硬编码模型 ID——那个坑今天刚在
+    """**订阅**那条线路上的第一个模型。不硬编码模型 ID——那个坑今天刚在
     summarize_thinking 上踩过（换条线路就必然失败，而失败之前子进程已经
-    起来了）。"""
+    起来了）。
+
+    以前这里取的是当前激活线路（active_models_rich），于是小朵在小窝切到
+    中转站去试线路时，TG 会跟着一起走中转站然后当场哑掉。共用的是**订阅**，
+    不是"当前选中的那条"，而订阅那条未必是激活的。
+
+    找不到订阅线路时返回空字符串，_run_turn 的「挑不到模型就回一句人话」
+    那条分支接住它。"""
     try:
-        models = relays.active_models_rich()
+        models = relays.subscription_models()
     except Exception:
         cli_logger.exception("telegram: 模型列表读取失败")
         return ""
     for m in models or []:
         if m.get("id"):
             return m["id"]
+    cli_logger.warning("telegram: 订阅线路上挑不到模型")
     return ""
 
 
@@ -407,12 +415,29 @@ async def _handle_update(upd: dict) -> None:
         # 不抄 main.py sse() 里的 locked() fail-fast：那是给正看着屏幕的人的。
         # 她在 TG 上发完就放下手机了，排队等几秒毫无感觉。同一把锁，两种表现。
         from app.main import chat_lock  # 局部 import：main 在启动时 import 我们
+        from app.registry import get_registry
 
         await chat_lock.acquire()
         try:
-            reply, new_session = await _run_turn(text)
+            # TG 焊死在订阅线路上。架构表里写的「TG 走订阅」从来没被实现——
+            # 它一直跟着小窝当前激活的线路走，于是 07-30 深夜小朵在小窝切到
+            # 中转站去试线路，TG 当场哑掉：只显示"正在输入"，最后回一句
+            # "卡了一下"，用量面板里连一行记录都没有。共用的是订阅，不是
+            # "当前选中的那条"。
+            #
+            # 环境变量是进程级的，只能在请求期间临时切、出去原样恢复。安全性
+            # 靠 chat_lock：小窝和 TG 抢的是同一把锁，不会并发。
+            # invalidate 放在这一侧——relays.py 不该反向依赖 registry。
+            async with relays.subscription_env():
+                await get_registry().invalidate()  # 丢掉带着中转站环境的热 actor
+                reply, new_session = await _run_turn(text)
         finally:
-            chat_lock.release()
+            # 到这里 subscription_env 的 finally 已经把环境变量恢复了，再丢一次
+            # actor，让小窝下一轮用恢复后的环境重新起子进程。异常路径也要走到。
+            try:
+                await get_registry().invalidate()
+            finally:
+                chat_lock.release()
     except Exception:
         # CancelledError 是 BaseException，不会被这里吞掉，lifespan 照样关得掉
         cli_logger.exception("telegram: 这一轮炸了")

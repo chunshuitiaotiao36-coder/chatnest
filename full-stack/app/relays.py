@@ -6,6 +6,7 @@ file is missing.
 """
 
 import asyncio
+import contextlib
 import json
 import logging
 import os
@@ -264,6 +265,49 @@ def get_active_summary() -> dict:
 def active_models_rich() -> list[dict]:
     """Model list in the shape the existing frontend + claude.py expect."""
     return get_active_summary()["models"]
+
+
+def subscription_models() -> list[dict]:
+    """订阅那条线路的模型列表。找不到就返回空——调用方要能接受
+    「订阅线路不存在」这件事（小朵可以把它删掉）。
+
+    跟 active_models_rich() 的区别：那个跟着当前激活线路走，这个永远
+    指订阅。TG 焊死在订阅上之后，它要的模型必须从订阅那条线路取，而
+    订阅那条未必是激活的。"""
+    for r in (_cache or {}).get("relays") or []:
+        if _normalize_mode(r.get("mode")) == "subscription":
+            return r.get("models") or []
+    return []
+
+
+@contextlib.asynccontextmanager
+async def subscription_env():
+    """TG 专用：这段期间强制走订阅，出去时原样恢复。
+
+    订阅模式靠 pop 掉三个 ANTHROPIC_* 让 CLI fallback 到 ~/.claude 的凭据，
+    而环境变量是**进程级**的，没法只对 TG 那条协程单独 unset。
+
+    安全性靠 chat_lock 保证——小窝和 TG 抢的是同一把锁，不会并发，所以不
+    存在「TG 把环境变量 pop 了，小窝的请求正好撞上来」。**调用方必须已经
+    持有 chat_lock。**
+
+    代价：进出各要 invalidate 一次 actor，所以 TG 和小窝交替时两边都冷启动。
+    订阅线路本来就每轮新建子进程（复用会静默哑掉，结过案的老账），所以对 TG
+    没有额外代价，代价落在小窝那边。
+    """
+    saved = {k: os.environ.get(k) for k in _ENV_KEYS}
+    for k in _ENV_KEYS:
+        os.environ.pop(k, None)
+    try:
+        yield
+    finally:
+        # 无条件恢复：TG 那边抛异常也不能把小窝的环境变量留在被清空的状态，
+        # 否则小窝下一条消息会莫名其妙走订阅。
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
 
 
 # ---------- write API -------------------------------------------------------
