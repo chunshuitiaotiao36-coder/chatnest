@@ -54,7 +54,6 @@ from app.sessions import (
     set_session_starred,
     set_session_title,
 )
-from app.splash import current_period, random_line
 from app.registry import configure_registry, get_registry
 from app.store import (
     ConversationNotFound,

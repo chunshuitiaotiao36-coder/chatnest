@@ -16,7 +16,6 @@ RUN chmod +x *.sh
 # 代码在 /app，数据统一放 /data（部署时把持久卷挂到 /data，聊天记录才不会丢）
 ENV AGENT_APP_ROOT=/data \
     MODELS_FILE=/app/models.json \
-    SPLASH_LINES_FILE=/app/splash_lines.json \
     HOST=0.0.0.0 \
     PORT=8787
 
