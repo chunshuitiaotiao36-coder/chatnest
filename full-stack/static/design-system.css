@@ -1064,8 +1064,9 @@ body.tab-away #chat {
   line-height: 1.1;
   color: #201f1d;
 }
-/* 「等价成本，不实际扣费」必须留在 UI 上，不许退回注释里：
-   搞混了她会以为自己在烧钱，其实烧的是 5 小时窗口。 */
+/* 两栏的标注都必须留在 UI 上，不许退回注释里：
+   订阅栏搞混了她会以为自己在烧钱，其实烧的是 5 小时窗口；
+   API 栏搞混了她会以为一条消息三四块，其实那是官方价不是中转站价。 */
 .usage-col-note {
   margin-top: 4px;
   font-size: 11px;
@@ -1073,6 +1074,13 @@ body.tab-away #chat {
   color: #8b8680;
 }
 .usage-col.is-sub .usage-col-note { color: #5C8A69 }
+/* 「≈官方价估算，实际以中转站账单为准」。这行是要她真的读进去的，
+   所以比上面那行 #8b8680（2.98:1）压深一档 —— 4.7:1。
+   不挂语义橙：橙是「这栏在花真钱」的意思，而这行说的正好相反。 */
+.usage-col-caveat {
+  margin-top: 2px;
+  color: #6b6660;
+}
 .usage-col-line {
   margin-top: 5px;
   font-size: 11.5px;
@@ -1146,6 +1154,9 @@ body.tab-away #chat {
   .usage-col-note,
   .usage-table th,
   .usage-empty { color: rgba(244, 243, 239, .48) }
+  /* 必须排在 .usage-col-note 后面：两条都是单类选择器，同特异性时顺序说了算。
+     .48 在这块深色卡片上只有 3.76:1，提到 .70 拿到 6.1:1。 */
+  .usage-col-caveat { color: rgba(244, 243, 239, .70) }
   .usage-col-line { color: rgba(244, 243, 239, .56) }
   .usage-table { color: #F4F3EF }
   .usage-table th,

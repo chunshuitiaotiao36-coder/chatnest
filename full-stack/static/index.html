@@ -438,6 +438,7 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
             <div class="usage-col-title">API 计费</div>
             <div class="usage-col-cost" id="usageApiCost">¥0.00</div>
             <div class="usage-col-note">按 token 结账</div>
+            <div class="usage-col-note usage-col-caveat">≈官方价估算，实际以中转站账单为准</div>
             <div class="usage-col-line" id="usageApiTurns">0 轮</div>
             <div class="usage-col-line" id="usageApiHit">缓存命中 —</div>
           </div>
@@ -451,7 +452,7 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
         </div>
         <div class="usage-table-wrap">
           <table class="usage-table">
-            <thead><tr><th>时间</th><th>来源</th><th>渠道</th><th>模型</th><th class="num">input</th><th class="num">缓存读</th><th class="num">缓存写</th><th class="num">花费</th></tr></thead>
+            <thead><tr><th>时间</th><th>来源</th><th>渠道</th><th>模型</th><th class="num">input</th><th class="num">缓存读</th><th class="num">缓存写</th><th class="num">≈花费</th></tr></thead>
             <tbody id="usageRows"><tr><td colspan="8" class="usage-empty">加载中…</td></tr></tbody>
           </table>
         </div>
@@ -2754,8 +2755,10 @@ function renderUsage(data){
   if(!rows.length){tb.innerHTML='<tr><td colspan="8" class="usage-empty">这段时间还没有记录</td></tr>';return}
   tb.innerHTML=rows.map(r=>{
     const isSub=r.relay_mode==='subscription';
-    // 订阅那行的金额前面留个 ≈：明细里也别让她把等价成本当账单看
-    const cost=(isSub?'≈':'')+_cny(r.cost_usd,4);
+    // 每一行的金额都留个 ≈。两栏都是估算：订阅那栏是等价成本，API 那栏是
+    // SDK 按 Anthropic 官方价算的，走中转站的实际分销价完全是另一个数量级。
+    // 明细里不许有任何一个数字看起来像真实账单。
+    const cost='≈'+_cny(r.cost_usd,4);
     return '<tr>'+
       `<td>${_relayEscape(_usageTime(r.ts))}</td>`+
       `<td>${r.source==='telegram'?'TG':'网页'}</td>`+
