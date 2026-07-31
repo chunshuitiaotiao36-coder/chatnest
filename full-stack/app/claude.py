@@ -275,7 +275,8 @@ async def stream_chat(
     lean: bool = False,
     source: str = "web",
 ) -> AsyncGenerator[dict, None]:
-    """lean=True 是 Telegram 那条轻量线：轻量人设 + 不挂 Ombre MCP。
+    """lean=True 是 Telegram 那条轻量线：轻量人设 + 精简工具集，
+    但**挂 Ombre MCP**（07-31 从「不挂」回退过来，见下面 mcp_servers 那段）。
     默认 False，网页端的行为一个字没变。
 
     source 只用来给用量账本分「网页 / TG」，不要拿 lean 当它的代理——
@@ -293,11 +294,22 @@ async def stream_chat(
     system_prompt = build_system_prompt(model, lean=lean)
     prompt = await build_user_prompt(message)
 
-    # 第一批的单子写着「不接 Ombre MCP」，实现时没断，这里补上。语义一致：
-    # TG 那条线就是轻量线。注意 allowed_tools 里的 Read 必须留着——识图
-    # 全靠它去读存下来的图片文件。
-    mcp_servers = {} if lean else ombre_mcp_servers()
-    allowed_tools = ["Read", "Grep", "Glob", "Write", "Edit", "Bash", "WebSearch", "WebFetch", "TodoWrite"]
+    # lean 以前同时管两件事：精简 prompt + 不挂 MCP。07-31 把这两件拆开——
+    # 精简 prompt 保留，MCP 恢复。
+    #
+    # 起因是小朵说「之前说过的事好多他都不记得」。她说得对：TG 那份精简人设
+    # 里只有「你是谁」，一件「我们发生过什么」都没有——他不是忘了，是从来
+    # 没被告诉过。摆了三条路，她选了接 Ombre 而不是往 prompt 里塞锚点事件：
+    # 记忆该是要用的时候去查，不是全背在身上，而且**工具调用不碰
+    # system_prompt 前缀**，她刚建好的那份缓存一点不受影响；往 prompt 里塞
+    # 则是每轮都要付那些 token。
+    mcp_servers = ombre_mcp_servers()
+    if lean:
+        # TG 是聊天，不是干活的地方。Read 必须留着——识图全靠它去读存下来的
+        # 图片文件。Bash / Write / Edit / WebSearch 那些在 TG 上都不需要。
+        allowed_tools = ["Read"]
+    else:
+        allowed_tools = ["Read", "Grep", "Glob", "Write", "Edit", "Bash", "WebSearch", "WebFetch", "TodoWrite"]
     if mcp_servers:
         allowed_tools.append("mcp__ombre")
     option_values = dict(
