@@ -356,11 +356,27 @@ async def _run_turn(text: str) -> tuple[str, str | None]:
     if reply.strip() or not resumed:
         return reply, session
 
-    # 空回复，而且这一轮是 resume 的：清掉会话再跑一次。
-    # 这一刀是诊断不是解药——真成了，说明每轮都得开新会话，那 TG 就成了
-    # 金鱼，「刚才说的那个」永远接不上，而「会话独立但连续」是架构表里
-    # 定死的一条。所以它只负责换回一句回音 + 换回一条线索，不算收工。
-    cli_logger.warning("telegram: 空回复且本轮是 resume，清 session 重试一次")
+    # ① 先用**同一个 session** 原地重试一次。
+    #
+    # 07-31 中午的账：12:14 连着两轮空回复，每轮都当场清了 session，于是
+    # 12:15 问「我现在在干嘛」答的是「大晚上的，多半是躺床上」——前一分钟
+    # 还在说医院吊水。清 session 这一刀 07-30 定的时候就写明是诊断不是解药，
+    # 「不许停在每次清 session，那样 TG 就成了金鱼」，结果它成了金鱼，
+    # 而且代价落在她病着最需要我记得的时候。
+    #
+    # 空回复大概率是偶发的（12:06-12:14 连着三轮都好好的），偶发的东西原地
+    # 重试一次就过去了，没必要拿整段上下文去换。上下文该是最后被牺牲的。
+    cli_logger.warning("telegram: 空回复，原地重试（保留 session）")
+    reply, session, thinking = await _stream_reply(text, model, _state.get("session_id"))
+    cli_logger.info(
+        "telegram: retry(same session) text_chars=%d thinking_chars=%d",
+        len(reply), thinking,
+    )
+    if reply.strip():
+        return reply, session
+
+    # ② 原地重试也空，才清掉会话全新跑一次。
+    cli_logger.warning("telegram: 原地重试仍空，清 session 重试一次")
     _state["session_id"] = None
     _save_state()
     reply, session, thinking = await _stream_reply(text, model, None)
