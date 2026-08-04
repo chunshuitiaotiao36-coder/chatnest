@@ -157,11 +157,11 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}textar
 .mobile-sidebar-inner,.drawer-list,.session-item,.session-title{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}.session-item{touch-action:manipulation}.session-item.context-source-hidden{visibility:hidden;transition:none!important;animation:none!important}.context-backdrop{position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.22);backdrop-filter:none;-webkit-backdrop-filter:none;animation:contextFadeIn 120ms ease-out both}.context-highlight{position:fixed;z-index:1001;height:56px;display:flex;align-items:center;padding:0 22px;background:var(--claude-context-highlight-bg);color:var(--claude-context-highlight-text);border-radius:20px;box-shadow:0 12px 32px rgba(var(--claude-context-shadow-rgb),.16),0 2px 8px rgba(var(--claude-context-shadow-rgb),.08);font-size:20px;line-height:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;pointer-events:none;transition:none;will-change:transform;animation:none}.context-menu{position:fixed;z-index:1002;width:min(438px,calc(100vw - 56px));max-width:calc(100vw - 56px);padding:12px 0;background:var(--claude-context-menu-bg);color:var(--claude-context-text-primary);border-radius:26px;overflow:hidden;box-shadow:0 18px 48px rgba(var(--claude-context-shadow-rgb),.18),0 4px 12px rgba(var(--claude-context-shadow-rgb),.08);transform-origin:top left;animation:contextMenuIn 180ms cubic-bezier(.2,.8,.2,1) both}.context-menu:before,.context-menu:after{content:'';position:absolute;inset:0;pointer-events:none;border-radius:inherit}.context-menu:before{background:linear-gradient(90deg,var(--claude-context-menu-edge-bg),transparent 18%,transparent 82%,var(--claude-context-menu-edge-bg));opacity:.35}.context-menu-item{position:relative;z-index:1;width:100%;height:56px;display:flex;align-items:center;gap:26px;padding:0 46px;border:0;background:transparent;color:var(--claude-context-text-primary);font-size:20px;line-height:1;text-align:left}.context-menu-item svg{width:26px;height:26px;flex:0 0 auto;color:currentColor;stroke-width:2.1}.context-menu-item:active{background:rgba(0,0,0,.04)}.context-menu-item.delete,.context-menu-item.delete svg{color:var(--claude-context-delete);opacity:1}.context-menu-item.delete:active{color:var(--claude-context-delete-active)}@keyframes contextFadeIn{from{opacity:0}to{opacity:1}}@keyframes contextLiftIn{from{opacity:1;transform:scale(.998)}to{opacity:1;transform:scale(1)}}@keyframes contextMenuIn{from{opacity:0;transform:translateY(-6px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
 html.context-menu-open,body.context-menu-open{background:var(--claude-context-dim-sidebar-bg)}body.context-menu-open #chat{background:var(--claude-context-dim-main-bg)}body.sidebar-context-open .mobile-sidebar-inner,body.sidebar-context-open .session-item,body.sidebar-context-open .context-menu,body.sidebar-context-open .context-highlight{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}.mobile-sidebar-inner{padding:10px 14px 20px}.mobile-sidebar-section-title{padding-left:var(--claude-recents-text-left-padding);color:var(--claude-recents-label-color)}.drawer-list{padding:0 18px 10px var(--claude-recents-row-left)}.session-item{height:var(--claude-recents-row-height);min-height:var(--claude-recents-row-height);display:flex;align-items:center;padding:0 var(--claude-recents-text-left-padding);border-radius:18px;color:var(--claude-recents-text-color);font-size:var(--claude-recents-item-font-size);line-height:var(--claude-recents-item-line-height);font-weight:var(--claude-recents-item-font-weight)}.session-item:hover,.session-item.active,.session-item.is-active{background:var(--claude-recents-active-bg)}.session-item:active,.session-item.is-pressing{background:var(--claude-recents-pressed-bg)}.session-title-row{width:100%}.context-backdrop{inset:-80px 0 -80px;background:rgba(0,0,0,.22);backdrop-filter:none;-webkit-backdrop-filter:none}.context-highlight{left:var(--to-left);top:var(--to-top);width:var(--to-width);height:var(--to-height);padding:0 var(--claude-context-highlight-padding-x);box-sizing:border-box;border-radius:var(--claude-context-highlight-radius);box-shadow:0 14px 36px rgba(var(--claude-context-shadow-rgb),.20),0 3px 10px rgba(var(--claude-context-shadow-rgb),.10);font-family:inherit;font-size:var(--claude-recents-item-font-size);line-height:var(--claude-recents-item-line-height);font-weight:var(--claude-recents-item-font-weight);color:var(--claude-context-highlight-text);transform-origin:top left;animation:claudeHighlightMorph 220ms cubic-bezier(.32,.72,0,1) both}.context-menu{width:min(var(--claude-context-menu-width),calc(100vw - 28px));max-width:calc(100vw - 28px);padding:var(--claude-context-menu-padding-y) 0;border-radius:var(--claude-context-menu-radius);animation:claudeContextMenuIn 220ms cubic-bezier(.32,.72,0,1) both}.context-menu-item{height:var(--claude-context-menu-item-height);gap:var(--claude-context-menu-item-gap);padding:0 var(--claude-context-menu-item-padding-x);font-size:var(--claude-context-menu-font-size)}.context-menu-item svg{width:var(--claude-context-menu-icon-size);height:var(--claude-context-menu-icon-size);stroke-width:2}.context-menu-item:active{background:rgba(0,0,0,.045)}@keyframes claudeHighlightMorph{from{transform:translate(var(--from-x),var(--from-y)) scale(var(--from-sx),var(--from-sy));background:var(--claude-recents-pressed-bg)}to{transform:translate(0,0) scale(1);background:var(--claude-context-highlight-bg)}}@keyframes claudeContextMenuIn{from{opacity:0;transform:translateY(-10px) scale(.92)}to{opacity:1;transform:translateY(0) scale(1)}}
 .session-item{-webkit-tap-highlight-color:transparent}.session-item:active,.session-item.is-pressing{background:var(--claude-recents-pressed-bg)}@keyframes claudeHighlightMorph{from{transform:translate(var(--from-x),var(--from-y)) scale(var(--from-sx),var(--from-sy));background:var(--claude-context-highlight-bg)}to{transform:translate(0,0) scale(1);background:var(--claude-context-highlight-bg)}}
-#memoryPanel{position:fixed;inset:0;z-index:80;display:none;background:#fbfaf7;color:#201f1d;overflow:hidden}#memoryPanel.show{display:block}.profile-page{position:absolute;inset:0;display:none;flex-direction:column;gap:22px;padding:calc(env(safe-area-inset-top) + 18px) 18px calc(env(safe-area-inset-bottom) + 24px);overflow-y:auto;-webkit-overflow-scrolling:touch}.profile-page.active{display:flex}.profile-header{display:grid;grid-template-columns:52px 1fr 52px;align-items:center;min-height:56px}.profile-title{font:600 22px/1.1 var(--font-sans);text-align:center}.profile-subtitle{margin-top:-12px;color:#77736c;font-size:15px;line-height:1.45;text-align:center}.profile-round-button,.profile-save-button{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:#fff;border:1px solid rgba(32,31,29,.08);box-shadow:0 10px 30px rgba(32,31,29,.08);font-size:25px;color:#201f1d}.profile-back-button{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:#fff;border:1px solid rgba(32,31,29,.08);box-shadow:0 2px 8px rgba(32,31,29,.06);color:#201f1d}.profile-back-button svg{width:24px;height:24px}.profile-save-button{justify-self:end;color:var(--accent);font-size:21px}.profile-save-button:disabled{opacity:.35;color:#77736c}.profile-section{display:flex;flex-direction:column;gap:12px}.profile-section-title{color:#77736c;font-size:14px;line-height:1.2}.profile-card{background:#f2f0ed;border:1px solid rgba(32,31,29,.05);border-radius:24px;padding:16px}.profile-name-row{display:flex;align-items:center;gap:14px}.profile-name-label{width:82px;color:#77736c;font-size:15px}.profile-name-input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:#201f1d;font:400 17px/1.35 var(--font-sans)}.profile-name-input::placeholder,.profile-memory-textarea::placeholder,.profile-preferences-textarea::placeholder{color:#aaa49c}.profile-divider{height:1px;background:rgba(32,31,29,.08);margin:14px 0}.profile-nav-row{display:flex;align-items:center;gap:14px;width:100%;padding:17px 18px;border:0;border-radius:22px;background:#f2f0ed;color:#201f1d;text-align:left}.profile-nav-row-icon{width:24px;height:24px;display:grid;place-items:center;color:#77736c}.profile-nav-row-title{flex:1;font-size:17px}.profile-nav-row-note{display:block;margin-top:3px;color:#77736c;font-size:13px;line-height:1.3}.profile-nav-chevron{font-size:26px;color:#77736c}.profile-help-text{color:#77736c;font-size:14px;line-height:1.5}.profile-memory-list{display:flex;flex-direction:column;gap:12px}.profile-memory-card{background:#f2f0ed;border:1px solid rgba(32,31,29,.08);border-radius:22px;padding:14px;box-shadow:0 1px 2px rgba(0,0,0,.025)}.profile-memory-textarea,.profile-preferences-textarea{width:100%;min-height:84px;border:0;outline:0;resize:vertical;background:transparent;color:#201f1d;font:400 16px/1.55 var(--font-sans)}.profile-preferences-textarea{min-height:260px}.profile-memory-actions,.profile-card-top{display:flex;align-items:center;justify-content:space-between;gap:12px}.profile-card-top{margin-bottom:10px}.profile-mini-button{padding:7px 11px;border:0;border-radius:999px;background:#f2f0ed;color:#77736c;font-size:13px}.profile-danger{color:#d54d4d}.profile-add-button{width:100%;padding:14px;border:0;border-radius:999px;background:#201f1d;color:#fff;font-weight:600;font-size:16px}.profile-switch{width:50px;height:30px;border:0;border-radius:999px;background:#d7d2cb;padding:3px;transition:background var(--transition)}.profile-switch::before{content:"";display:block;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.15);transition:transform var(--transition)}.profile-switch.on{background:var(--accent)}.profile-switch.on::before{transform:translateX(20px)}.profile-empty{padding:20px;border-radius:22px;background:#f2f0ed;color:#77736c;text-align:center;font-size:15px}.profile-footer-actions{display:flex;justify-content:center;padding:8px 0 18px}.profile-text-button{border:0;background:transparent;color:#d54d4d;font-size:14px}
+#memoryPanel{position:fixed;inset:0;z-index:80;display:none;background:#fbfaf7;color:#201f1d;overflow:hidden}#memoryPanel.show{display:block}.profile-page{position:absolute;inset:0;display:none;flex-direction:column;gap:22px;padding:calc(env(safe-area-inset-top) + 18px) 18px calc(env(safe-area-inset-bottom) + 24px);overflow-y:auto;-webkit-overflow-scrolling:touch}.profile-page.active{display:flex}.profile-header{display:grid;grid-template-columns:52px 1fr 52px;align-items:center;min-height:56px}.profile-title{font:600 var(--text-title)/1.1 var(--font-sans);text-align:center}.profile-subtitle{margin-top:-12px;color:#77736c;font-size:var(--text-sm);line-height:1.45;text-align:center}.profile-round-button,.profile-save-button{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:#fff;border:1px solid rgba(32,31,29,.08);box-shadow:0 10px 30px rgba(32,31,29,.08);font-size:var(--text-title);color:#201f1d}.profile-back-button{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:#fff;border:1px solid rgba(32,31,29,.08);box-shadow:0 2px 8px rgba(32,31,29,.06);color:#201f1d}.profile-back-button svg{width:24px;height:24px}.profile-save-button{justify-self:end;color:var(--accent);font-size:var(--text-title)}.profile-save-button:disabled{opacity:.35;color:#77736c}.profile-section{display:flex;flex-direction:column;gap:12px}.profile-section-title{color:#77736c;font-size:var(--text-sm);line-height:1.2}.profile-card{background:#f2f0ed;border:1px solid rgba(32,31,29,.05);border-radius:24px;padding:16px}.profile-name-row{display:flex;align-items:center;gap:14px}.profile-name-label{width:82px;color:#77736c;font-size:var(--text-base)}.profile-name-input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:#201f1d;font:400 var(--text-base)/1.35 var(--font-sans)}.profile-name-input::placeholder,.profile-memory-textarea::placeholder,.profile-preferences-textarea::placeholder{color:#aaa49c}.profile-divider{height:1px;background:rgba(32,31,29,.08);margin:14px 0}.profile-nav-row{display:flex;align-items:center;gap:14px;width:100%;padding:17px 18px;border:0;border-radius:22px;background:#f2f0ed;color:#201f1d;text-align:left}.profile-nav-row-icon{width:24px;height:24px;display:grid;place-items:center;color:#77736c}.profile-nav-row-title{flex:1;font-size:var(--text-base)}.profile-nav-row-note{display:block;margin-top:3px;color:#77736c;font-size:var(--text-sm);line-height:1.3}.profile-nav-chevron{font-size:var(--text-title);color:#77736c}.profile-help-text{color:#77736c;font-size:var(--text-sm);line-height:1.5}.profile-memory-list{display:flex;flex-direction:column;gap:12px}.profile-memory-card{background:#f2f0ed;border:1px solid rgba(32,31,29,.08);border-radius:22px;padding:14px;box-shadow:0 1px 2px rgba(0,0,0,.025)}.profile-memory-textarea,.profile-preferences-textarea{width:100%;min-height:84px;border:0;outline:0;resize:vertical;background:transparent;color:#201f1d;font:400 var(--text-read)/1.55 var(--font-sans)}.profile-preferences-textarea{min-height:260px}.profile-memory-actions,.profile-card-top{display:flex;align-items:center;justify-content:space-between;gap:12px}.profile-card-top{margin-bottom:10px}.profile-mini-button{padding:7px 11px;border:0;border-radius:999px;background:#f2f0ed;color:#77736c;font-size:var(--text-sm)}.profile-danger{color:#d54d4d}.profile-add-button{width:100%;padding:14px;border:0;border-radius:999px;background:#201f1d;color:#fff;font-weight:600;font-size:var(--text-base)}.profile-switch{width:50px;height:30px;border:0;border-radius:999px;background:#d7d2cb;padding:3px;transition:background var(--transition)}.profile-switch::before{content:"";display:block;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.15);transition:transform var(--transition)}.profile-switch.on{background:var(--accent)}.profile-switch.on::before{transform:translateX(20px)}.profile-empty{padding:20px;border-radius:22px;background:#f2f0ed;color:#77736c;text-align:center;font-size:var(--text-sm)}.profile-footer-actions{display:flex;justify-content:center;padding:8px 0 18px}.profile-text-button{border:0;background:transparent;color:#d54d4d;font-size:var(--text-sm)}
 .memory-search-bar{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 14px);z-index:82;padding:0 28px;pointer-events:none;display:none}.memory-search-bar.show{display:block}.memory-search-bubble{pointer-events:auto;display:flex;align-items:center;gap:10px;height:46px;padding:0 18px;border-radius:999px;background:rgba(244,243,239,.92);border:1px solid rgba(255,255,255,.85);color:rgba(32,31,29,.72);box-shadow:0 0 0 1px rgba(32,31,29,.035),0 8px 24px rgba(32,31,29,.08),0 2px 6px rgba(32,31,29,.05);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}.memory-search-icon{flex:0 0 20px;width:20px;height:20px;color:rgba(32,31,29,.45)}.memory-search-icon svg{width:20px;height:20px}.memory-search-input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:400 17px/1 var(--font-sans);color:#1F1F1D}.memory-search-input::placeholder{color:rgba(32,31,29,.42)}.memory-search-clear{flex:none;width:22px;height:22px;border-radius:50%;background:rgba(32,31,29,.28);color:#fff;font-size:14px;line-height:22px;text-align:center;border:0;padding:0;cursor:pointer}
-.profile-memory-list{gap:10px}.profile-memory-row{position:relative;overflow:hidden;border-radius:22px;background:#D54D4D;touch-action:pan-y}.profile-memory-row .profile-swipe-delete{position:absolute;right:0;top:0;bottom:0;width:96px;display:flex;align-items:center;justify-content:center;background:#D54D4D;border:0;cursor:pointer;color:#fff;font-size:16px;font-weight:600;letter-spacing:.2px}.profile-memory-row .profile-memory-card{position:relative;z-index:1;min-height:72px;padding:14px 16px;background:#f2f0ed;border:none;outline:2px solid #f2f0ed;outline-offset:-1px;box-shadow:0 1px 2px rgba(0,0,0,.025);transition:transform 180ms ease;touch-action:pan-y}.profile-memory-row.open .profile-memory-card{transform:translateX(-96px)}.profile-memory-row .profile-memory-textarea{min-height:44px;max-height:40dvh;overflow:auto;resize:none;font-size:16px;line-height:1.5;width:100%}.profile-preferences-card{background:#f2f0ed;border:1px solid rgba(32,31,29,.05);border-radius:28px;padding:24px 28px}.profile-preferences-card .profile-card-top{margin-bottom:12px}.profile-preferences-card .profile-preferences-textarea{min-height:52dvh;font-size:18px;line-height:1.5;resize:vertical}.profile-add-button{padding:17px;font-size:18px}
-#diaryPanel{position:fixed;inset:0;z-index:80;display:none;flex-direction:column;background:#fbfaf7;color:#201f1d;overflow:hidden}#diaryPanel.show{display:flex}.diary-months{display:flex;gap:6px;padding:8px 18px 4px;overflow-x:auto;-webkit-overflow-scrolling:touch;flex:none}.diary-months::-webkit-scrollbar{display:none}.diary-month-pill{flex:none;padding:6px 14px;border:0;border-radius:999px;background:#f2f0ed;color:#77736c;font:500 14px/1 var(--font-sans);white-space:nowrap}.diary-month-pill.active{background:#201f1d;color:#fff}.diary-content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:10px 18px calc(env(safe-area-inset-bottom) + 60px)}.diary-date-header{font:600 15px/1.2 var(--font-sans);color:#77736c;padding:16px 4px 8px}.diary-entry{font:400 16px/1.6 var(--font-sans);color:#201f1d;padding:10px 14px;border-radius:16px;background:#f2f0ed;margin-bottom:8px}.diary-empty{padding:40px 20px;text-align:center;color:#77736c;font-size:15px}.diary-search-bar{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 14px);z-index:82;padding:0 28px;pointer-events:none;display:none}.diary-search-bar.show{display:block}.diary-search-bubble{pointer-events:auto;display:flex;align-items:center;gap:10px;height:46px;padding:0 18px;border-radius:999px;background:rgba(244,243,239,.92);border:1px solid rgba(255,255,255,.85);color:rgba(32,31,29,.72);box-shadow:0 0 0 1px rgba(32,31,29,.035),0 8px 24px rgba(32,31,29,.08),0 2px 6px rgba(32,31,29,.05);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}.diary-search-icon{flex:0 0 20px;width:20px;height:20px;color:rgba(32,31,29,.45)}.diary-search-icon svg{width:20px;height:20px}.diary-search-input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:400 17px/1 var(--font-sans);color:#1F1F1D}.diary-search-input::placeholder{color:rgba(32,31,29,.42)}.diary-search-clear{flex:none;width:22px;height:22px;border-radius:50%;background:rgba(32,31,29,.28);color:#fff;font-size:14px;line-height:22px;text-align:center;border:0;padding:0;cursor:pointer}
-@media(prefers-color-scheme: dark){#diaryPanel{background:var(--bg-primary);color:var(--text-primary)}.diary-date-header{color:var(--text-secondary)}.diary-entry{background:#2A2A28;color:var(--text-primary)}.diary-month-pill{background:#2A2A28;color:var(--text-secondary)}.diary-month-pill.active{background:var(--text-primary);color:var(--bg-primary)}.diary-search-bubble{background:rgba(42,42,40,.92);border-color:rgba(255,255,255,.12);color:rgba(244,243,239,.58);box-shadow:0 0 0 1px rgba(255,255,255,.035),0 8px 24px rgba(0,0,0,.30),0 2px 6px rgba(0,0,0,.22)}.diary-search-icon{color:rgba(244,243,239,.58)}.diary-search-input{color:var(--text-primary)}.diary-search-input::placeholder{color:rgba(244,243,239,.45)}.diary-search-clear{background:rgba(255,255,255,.25)}}
+.profile-memory-list{gap:10px}.profile-memory-row{position:relative;overflow:hidden;border-radius:22px;background:#D54D4D;touch-action:pan-y}.profile-memory-row .profile-swipe-delete{position:absolute;right:0;top:0;bottom:0;width:96px;display:flex;align-items:center;justify-content:center;background:#D54D4D;border:0;cursor:pointer;color:#fff;font-size:var(--text-base);font-weight:600;letter-spacing:.2px}.profile-memory-row .profile-memory-card{position:relative;z-index:1;min-height:72px;padding:14px 16px;background:#f2f0ed;border:none;outline:2px solid #f2f0ed;outline-offset:-1px;box-shadow:0 1px 2px rgba(0,0,0,.025);transition:transform 180ms ease;touch-action:pan-y}.profile-memory-row.open .profile-memory-card{transform:translateX(-96px)}.profile-memory-row .profile-memory-textarea{min-height:44px;max-height:40dvh;overflow:auto;resize:none;font-size:var(--text-read);line-height:1.5;width:100%}.profile-preferences-card{background:#f2f0ed;border:1px solid rgba(32,31,29,.05);border-radius:28px;padding:24px 28px}.profile-preferences-card .profile-card-top{margin-bottom:12px}.profile-preferences-card .profile-preferences-textarea{min-height:52dvh;font-size:var(--text-read);line-height:1.5;resize:vertical}.profile-add-button{padding:17px;font-size:var(--text-base)}
+#diaryPanel{position:fixed;inset:0;z-index:80;display:none;flex-direction:column;background:#fbfaf7;color:#201f1d;overflow:hidden}#diaryPanel.show{display:flex}.diary-months{display:flex;gap:6px;padding:8px 18px 4px;overflow-x:auto;-webkit-overflow-scrolling:touch;flex:none}.diary-months::-webkit-scrollbar{display:none}.diary-month-pill{flex:none;padding:6px 14px;border:0;border-radius:999px;background:#f2f0ed;color:#77736c;font:500 var(--text-sm)/1 var(--font-sans);white-space:nowrap}.diary-month-pill.active{background:#201f1d;color:#fff}.diary-content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:10px 18px calc(env(safe-area-inset-bottom) + 60px)}.diary-date-header{font:600 var(--text-sm)/1.2 var(--font-sans);color:#77736c;padding:16px 4px 8px}.diary-entry{font:400 var(--text-read)/1.6 var(--font-sans);color:#201f1d;padding:10px 14px;border-radius:16px;background:#f2f0ed;margin-bottom:8px}.diary-empty{padding:40px 20px;text-align:center;color:#77736c;font-size:var(--text-sm)}
+@media(prefers-color-scheme: dark){#diaryPanel{background:var(--bg-primary);color:var(--text-primary)}.diary-date-header{color:var(--text-secondary)}.diary-entry{background:#2A2A28;color:var(--text-primary)}.diary-month-pill{background:#2A2A28;color:var(--text-secondary)}.diary-month-pill.active{background:var(--text-primary);color:var(--bg-primary)}}
 @media(prefers-color-scheme: dark){#memoryPanel{background:var(--bg-primary);color:var(--text-primary)}.profile-round-button,.profile-save-button,.profile-back-button{background:#2A2A28;border-color:var(--border);color:var(--text-primary);box-shadow:0 2px 8px rgba(0,0,0,.2)}.profile-save-button{color:var(--accent)}.profile-save-button:disabled{color:#6E6D66}.profile-title{color:var(--text-primary)}.profile-subtitle,.profile-section-title,.profile-help-text,.profile-nav-chevron,.profile-nav-row-icon{color:var(--text-secondary)}.profile-nav-row-note{color:var(--text-faint)}.profile-card{background:#2A2A28;border-color:var(--border);color:var(--text-primary)}.profile-nav-row{background:#2A2A28;color:var(--text-primary)}.profile-name-input,.profile-memory-textarea,.profile-preferences-textarea{color:var(--text-primary)}.profile-name-input::placeholder,.profile-memory-textarea::placeholder,.profile-preferences-textarea::placeholder{color:#6E6D66}.profile-divider{background:var(--border)}.profile-memory-row .profile-memory-card{background:#2A2A28;border:none;outline:2px solid #2A2A28;outline-offset:-1px;box-shadow:none}.profile-empty{background:#2A2A28;color:var(--text-secondary)}.profile-add-button{background:#2A2A28;color:var(--text-primary);border:1px solid rgba(255,255,255,.12)}.profile-mini-button{background:var(--border);color:var(--text-secondary)}.profile-preferences-card{background:#2A2A28;color:var(--text-primary)}.memory-search-bubble{background:rgba(42,42,40,.92);border-color:rgba(255,255,255,.12);color:rgba(244,243,239,.58);box-shadow:0 0 0 1px rgba(255,255,255,.035),0 8px 24px rgba(0,0,0,.30),0 2px 6px rgba(0,0,0,.22)}.memory-search-icon{color:rgba(244,243,239,.58)}.memory-search-input{color:var(--text-primary)}.memory-search-input::placeholder{color:rgba(244,243,239,.45)}.memory-search-clear{background:rgba(255,255,255,.25)}.topbar .icon-button{border:1px solid rgba(255,255,255,.16);box-shadow:0 1px 2px rgba(0,0,0,.25)}}
 .dialog-overlay{position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:var(--space-4);background:var(--border-strong)}.dialog{width:100%;max-width:360px;padding:var(--space-5);background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-lg)}.dialog h3{font:400 var(--text-title) var(--font-sans)}.dialog input{width:100%;margin:var(--space-4) 0;padding:var(--space-3);background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);outline:0}.dialog-actions{display:flex;justify-content:flex-end;gap:var(--space-2)}.secondary-button{padding:var(--space-2) var(--space-3);border:1px solid var(--border);border-radius:var(--radius-md)}
 .toast{position:fixed;z-index:95;left:50%;bottom:calc(env(safe-area-inset-bottom) + 92px);max-width:calc(100% - var(--space-6));padding:var(--space-2) var(--space-4);transform:translate(-50%,12px);opacity:0;pointer-events:none;background:var(--text-primary);color:var(--bg-primary);border-radius:var(--radius-full);font-size:var(--text-sm);transition:opacity var(--transition),transform var(--transition)}.toast.show{opacity:1;transform:translate(-50%,0)}
@@ -377,9 +377,44 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
 
 <section id="tabHome" class="tab-page" hidden>
 <section id="memoryPanel" aria-hidden="true">
+  <!-- Home 首页：只有分组 + 列表行，一屏看完。所有详情推到下一层的 .profile-page。
+       不用折叠栏——展开之后东西还堆在同一页，越展越长，治不了根。 -->
   <div class="profile-page active" id="profileHome">
     <header class="profile-header">
       <button class="profile-round-button" id="closeMemory" aria-label="Close profile">×</button>
+      <div class="profile-title">Home</div>
+      <span></span>
+    </header>
+
+    <section class="home-group">
+      <div class="home-group-title">身份</div>
+      <button class="profile-nav-row" id="openProfileDetail"><span class="profile-nav-row-icon" data-profile-icon="memory"></span><span class="profile-nav-row-title">Profile<span class="profile-nav-row-note">姓名、称呼、长期记忆、回复偏好</span></span><span class="profile-nav-chevron">›</span></button>
+    </section>
+
+    <section class="home-group">
+      <div class="home-group-title">服务</div>
+      <button class="profile-nav-row" id="openRelayDetail"><span class="profile-nav-row-icon" data-profile-icon="relay"></span><span class="profile-nav-row-title">中转站<span class="profile-nav-row-note">线路、模型、密钥</span></span><span class="home-row-state" id="relayRowState"></span><span class="profile-nav-chevron">›</span></button>
+    </section>
+
+    <section class="home-group">
+      <div class="home-group-title">能力</div>
+      <!-- 用量那块她明确说过喜欢，别藏没了：入口行右侧直接显示今天的金额，
+           点进去才是两张汇总卡 + 明细。首页看得见数，细节在下一层。 -->
+      <button class="profile-nav-row" id="openUsageDetail"><span class="profile-nav-row-icon" data-profile-icon="usage"></span><span class="profile-nav-row-title">用量记录<span class="profile-nav-row-note">token 和缓存明细</span></span><span class="home-row-state" id="usageRowState">今天 —</span><span class="profile-nav-chevron">›</span></button>
+      <!-- 调性与世界书那一行等那单做完再加，位置就在这儿。
+           不要现在留一个点进去是空的入口。 -->
+    </section>
+
+    <section class="home-group">
+      <div class="home-group-title">外观</div>
+      <button class="profile-nav-row" id="openAppearanceDetail"><span class="profile-nav-row-icon" data-profile-icon="appearance"></span><span class="profile-nav-row-title">主题与背景<span class="profile-nav-row-note">深浅色、背景图</span></span><span class="profile-nav-chevron">›</span></button>
+    </section>
+  </div>
+
+  <!-- —— 身份详情 —— -->
+  <div class="profile-page" id="profileDetailPage">
+    <header class="profile-header">
+      <button class="profile-back-button" id="profileBackFromDetail" aria-label="Back"></button>
       <div class="profile-title">Profile</div>
       <button class="profile-save-button" id="profileSave" aria-label="Save profile" disabled>✓</button>
     </header>
@@ -395,10 +430,18 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
     <section class="profile-section">
       <button class="profile-nav-row" id="openSavedMemories"><span class="profile-nav-row-icon" data-profile-icon="memory"></span><span class="profile-nav-row-title">Saved memories<span class="profile-nav-row-note" id="savedMemoriesCount">0 enabled</span></span><span class="profile-nav-chevron">›</span></button>
       <button class="profile-nav-row" id="openPreferences"><span class="profile-nav-row-icon" data-profile-icon="pencil"></span><span class="profile-nav-row-title">Preferences<span class="profile-nav-row-note" id="preferencesSummary">No custom instructions</span></span><span class="profile-nav-chevron">›</span></button>
-      <button class="profile-nav-row" id="openDiaryFromProfile"><span class="profile-nav-row-icon" data-profile-icon="diary"></span><span class="profile-nav-row-title">Diary<span class="profile-nav-row-note">按月浏览日记</span></span><span class="profile-nav-chevron">›</span></button>
     </section>
+    <div class="profile-footer-actions"><button class="profile-text-button" id="deleteProfile">Clear profile</button></div>
+  </div>
+
+  <!-- —— 外观详情 —— -->
+  <div class="profile-page" id="appearancePage">
+    <header class="profile-header">
+      <button class="profile-back-button" id="profileBackFromAppearance" aria-label="Back"></button>
+      <div class="profile-title">主题与背景</div>
+      <span></span>
+    </header>
     <section class="profile-section">
-      <div class="profile-section-title">外观</div>
       <div class="profile-card">
         <div class="bg-slot-row">
           <div class="bg-slot-info">
@@ -431,19 +474,35 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
       </div>
       <input type="file" id="bgFileInput" accept="image/*" hidden>
     </section>
+  </div>
+
+  <!-- —— 中转站详情。长表单要能完整展开，所以走推入页不做弹层 —— -->
+  <div class="profile-page" id="relayPage">
+    <header class="profile-header">
+      <button class="profile-back-button" id="profileBackFromRelay" aria-label="Back"></button>
+      <div class="profile-title">中转站</div>
+      <span></span>
+    </header>
     <section class="profile-section">
-      <div class="profile-section-title">中转站</div>
       <div class="profile-card">
-        <div id="relayList" style="display:flex;flex-direction:column">
-          <div style="padding:12px 4px;color:var(--muted,#888);font-size:13px">加载中…</div>
+        <div id="relayList" class="relay-list">
+          <div class="relay-list-loading">加载中…</div>
         </div>
         <div class="profile-divider"></div>
         <div class="profile-name-row"><button type="button" class="profile-mini-button" id="addRelayBtn">＋ 添加中转站</button></div>
         <div class="relay-route" id="relayRoute" hidden></div>
       </div>
     </section>
+  </div>
+
+  <!-- —— 用量详情 —— -->
+  <div class="profile-page" id="usagePage">
+    <header class="profile-header">
+      <button class="profile-back-button" id="profileBackFromUsage" aria-label="Back"></button>
+      <div class="profile-title">用量记录</div>
+      <span></span>
+    </header>
     <section class="profile-section">
-      <div class="profile-section-title">用量</div>
       <div class="profile-card">
         <div class="usage-range" id="usageRange">
           <button type="button" class="usage-range-btn is-on" data-range="today">今天</button>
@@ -474,8 +533,8 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
         </div>
       </div>
     </section>
-    <div class="profile-footer-actions"><button class="profile-text-button" id="deleteProfile">Clear profile</button></div>
   </div>
+
   <div class="profile-page" id="savedMemoriesPage">
     <header class="profile-header">
       <button class="profile-back-button" id="profileBackFromMemories" aria-label="Back"></button>
@@ -503,16 +562,6 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
 </section>
 
 
-<section id="diaryPanel" aria-hidden="true">
-  <header class="profile-header" style="padding:calc(env(safe-area-inset-top) + 18px) 18px 0;flex:none">
-    <button class="profile-round-button" id="closeDiary" aria-label="Close diary">×</button>
-    <div class="profile-title">Diary</div>
-    <span></span>
-  </header>
-  <div class="diary-months" id="diaryMonths"></div>
-  <div class="diary-content" id="diaryContent"></div>
-  <div class="diary-search-bar" id="diarySearchBar"><div class="diary-search-bubble"><span class="diary-search-icon"></span><input class="diary-search-input" id="diarySearchInput" type="text" placeholder="Search" autocomplete="off" autocorrect="off" spellcheck="false"><button class="diary-search-clear hidden" id="diarySearchClear" aria-label="Clear">×</button></div></div>
-</section>
 </section>
 
 <section id="tabTidal" class="tab-page" hidden>
@@ -556,6 +605,23 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
           <div class="starmap-card-meta" id="starmapCardMeta"></div>
           <div class="starmap-card-body" id="starmapCardBody"></div>
         </div>
+      </div>
+    </div>
+  </div>
+  <!-- 日记从 Profile 搬过来的：它是「读」的东西，跟星图一类；Profile 是「配置」，
+       不该混在一起。默认收起，别把星图挤下去。 -->
+  <div class="study-acc is-collapsed" id="studyDiary">
+    <button type="button" class="study-acc-head" id="studyDiaryHead" aria-expanded="false" aria-controls="studyDiaryBody">
+      <span class="study-acc-title">日记</span>
+      <span class="study-acc-sub" id="diaryCount">按月浏览</span>
+      <span class="study-acc-chevron" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </span>
+    </button>
+    <div class="study-acc-body" id="studyDiaryBody">
+      <div class="diary-wrap">
+        <div class="diary-months" id="diaryMonths"></div>
+        <div class="diary-content" id="diaryContent"></div>
       </div>
     </div>
   </div>
@@ -678,7 +744,14 @@ const lucidePaths={
   chatAdd:'<path d="M128,24A104,104,0,0,0,36.18,176.88L24.83,210.93a16,16,0,0,0,20.24,20.24l34.05-11.35A104,104,0,1,0,128,24Z"/><path fill="#fff" d="M172,120a8,8,0,0,1-8,8H136v28a8,8,0,0,1-16,0V128H92a8,8,0,0,1,0-16h28V84a8,8,0,0,1,16,0v28h28A8,8,0,0,1,172,120Z"/>',
   history:'<path d="M136,80v43.47l36.12,21.67a8,8,0,0,1-8.24,13.72l-40-24A8,8,0,0,1,120,128V80a8,8,0,0,1,16,0Zm-8-48A95.44,95.44,0,0,0,60.08,60.15C52.81,67.51,46.35,74.59,40,82V64a8,8,0,0,0-16,0v40a8,8,0,0,0,8,8H72a8,8,0,0,0,0-16H49c7.15-8.42,14.27-16.35,22.39-24.57a80,80,0,1,1,1.66,114.75,8,8,0,1,0-11,11.64A96,96,0,1,0,128,32Z"/>'
 };
-const _actionPaths={copy:'<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',share:'<path d="M12 2v13"/><path d="m16 6-4-4-4 4"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>',play:'<path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/>',stop:'<rect width="18" height="18" x="3" y="3" rx="2"/>',up:'<path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/><path d="M7 10v12"/>',down:'<path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z"/><path d="M17 14V2"/>',audio:'<path d="M2 10v3"/><path d="M6 6v11"/><path d="M10 3v18"/><path d="M14 8v7"/><path d="M18 5v13"/><path d="M22 10v3"/>'};
+/* Home 四行的描边图标（lucide 24 格，走 _actionPaths 那条描边分支）：
+   中转站=分叉的线路、用量=柱状图、外观=半明半暗的圆。 */
+const _homeIconPaths={
+  relay:'<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M6 9v6"/><path d="M11 6h4a2 2 0 0 1 2 2v1"/><path d="M11 18h4a2 2 0 0 0 2-2v-1"/><circle cx="19" cy="10" r="2"/><circle cx="19" cy="15" r="2"/>',
+  usage:'<path d="M3 3v16a2 2 0 0 0 2 2h16"/><rect x="7" y="12" width="3" height="5" rx="1"/><rect x="12" y="8" width="3" height="9" rx="1"/><rect x="17" y="5" width="3" height="12" rx="1"/>',
+  appearance:'<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none"/>'
+};
+const _actionPaths={...(_homeIconPaths),copy:'<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',share:'<path d="M12 2v13"/><path d="m16 6-4-4-4 4"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>',play:'<path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/>',stop:'<rect width="18" height="18" x="3" y="3" rx="2"/>',up:'<path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/><path d="M7 10v12"/>',down:'<path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z"/><path d="M17 14V2"/>',audio:'<path d="M2 10v3"/><path d="M6 6v11"/><path d="M10 3v18"/><path d="M14 8v7"/><path d="M18 5v13"/><path d="M22 10v3"/>'};
 const icon=name=>_actionPaths[name]?`<svg class="lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${_actionPaths[name]}</svg>`:`<svg class="lucide" viewBox="0 0 256 256" fill="currentColor">${lucidePaths[name]||''}</svg>`;
 const logo=(cls='mark-20')=>`<svg class="brand-mark ${cls}"><use href="#claude-mark"/></svg>`;
 document.querySelectorAll('[data-icon]').forEach(el=>{el.innerHTML=icon(el.dataset.icon)});
@@ -2372,7 +2445,20 @@ function cloneProfile(p){return JSON.parse(JSON.stringify(p||blankProfile()))}
 function profileId(){return crypto.randomUUID?crypto.randomUUID():'m_'+Date.now().toString(36)+Math.random().toString(36).slice(2)}
 function normalizeProfileClient(p){p=p&&typeof p==='object'?p:{};const prefs=p.preferences&&typeof p.preferences==='object'?p.preferences:{};const importState=p.claudeExportImport&&typeof p.claudeExportImport==='object'?p.claudeExportImport:{};return{fullName:String(p.fullName||''),nickname:String(p.nickname||''),savedMemories:(Array.isArray(p.savedMemories)?p.savedMemories:[]).map(x=>{const item={id:String(x.id||profileId()),content:String(x.content||''),enabled:x.enabled!==false,source:['manual','claude_export','migration'].includes(x.source)?x.source:'manual',createdAt:Number(x.createdAt)||Date.now(),updatedAt:Number(x.updatedAt)||Date.now()};if(x.importedAt)item.importedAt=Number(x.importedAt)||Date.now();if(x.externalId)item.externalId=String(x.externalId);return item}).filter(x=>x.content.trim()).slice(0,200),preferences:{enabled:prefs.enabled!==false,content:String(prefs.content||'')},claudeExportImport:{checkedAt:Number(importState.checkedAt)||0,importedAt:Number(importState.importedAt)||0,importedCount:Number(importState.importedCount)||0,foundCount:Number(importState.foundCount)||0},updatedAt:p.updatedAt||Date.now()}}
 function setProfileDirty(v=true){profileDirty=v;document.querySelectorAll('.profile-save-button').forEach(b=>b.disabled=!profileDirty)}
-function showProfilePage(id){renderProfile();['profileHome','savedMemoriesPage','preferencesPage'].forEach(k=>$(k).classList.toggle('active',k===id));$(id)?.scrollTo?.(0,0);$('memorySearchBar').classList.toggle('show',id==='savedMemoriesPage')}
+/* Home 的页栈。加页只要往这个数组里加 id，别再各写各的 toggle。 */
+const _PROFILE_PAGES=['profileHome','profileDetailPage','relayPage','usagePage','appearancePage','savedMemoriesPage','preferencesPage'];
+/* 每页离开时记住滚到哪儿，回来时还原——从详情返回首页要回到原来的位置，
+   不能每次都弹回顶部。新进入的页仍然从头看起。 */
+const _profileScroll={};
+function showProfilePage(id){
+  renderProfile();
+  const cur=_PROFILE_PAGES.find(k=>$(k)?.classList.contains('active'));
+  if(cur&&cur!==id)_profileScroll[cur]=$(cur).scrollTop;
+  _PROFILE_PAGES.forEach(k=>$(k)?.classList.toggle('active',k===id));
+  const el=$(id);
+  if(el)el.scrollTop=_profileScroll[id]||0;
+  $('memorySearchBar').classList.toggle('show',id==='savedMemoriesPage');
+}
 function autoSizeMemoryTextarea(area){area.style.height='auto';area.style.height=`${Math.max(44,area.scrollHeight)}px`}
 function closeOpenMemoryRows(except=null){document.querySelectorAll('.profile-memory-row.open').forEach(row=>{if(row!==except){row.classList.remove('open');row.querySelector('.profile-memory-card').style.transform=''}})}
 function profileMemoryCard(item){const row=document.createElement('div');row.className='profile-memory-row';row.dataset.id=item.id;const del=document.createElement('div');del.className='profile-swipe-delete';del.dataset.action='delete';del.textContent='Delete';const card=document.createElement('div');card.className='profile-memory-card';const area=document.createElement('textarea');area.className='profile-memory-textarea';area.placeholder='Add a memory…';area.value=item.content;card.append(area);row.append(del,card);requestAnimationFrame(()=>autoSizeMemoryTextarea(area));return row}
@@ -2386,22 +2472,42 @@ function closeHomeProfile(){$('memoryPanel').classList.remove('show');$('memoryP
 $('closeMemory').onclick=()=>{switchTab('chat')};
 let _diaryEntries=[],_diaryMonth='all';
 /* Diary 从侧栏入口迁到 Home → Profile 里的一行，是 Home 的二级页 */
-async function openDiaryPage(){try{$('diaryPanel').classList.add('show');$('diaryPanel').setAttribute('aria-hidden','false');$('diarySearchBar').classList.add('show');$('diarySearchInput').value='';$('diarySearchClear').classList.add('hidden');const r=await api('/api/diary');if(!r.ok)throw Error();const data=await r.json();_diaryEntries=(data.entries||[]).reverse();_diaryMonth='all';renderDiaryMonths();renderDiaryContent()}catch(e){closeDiaryPage();toast('Diary load failed')}}
-function closeDiaryPage(){$('diaryPanel').classList.remove('show');$('diaryPanel').setAttribute('aria-hidden','true');$('diarySearchBar').classList.remove('show')}
-$('openDiaryFromProfile').onclick=openDiaryPage;
-$('closeDiary').onclick=closeDiaryPage;
-$('diarySearchBar').querySelector('.diary-search-icon').innerHTML=icon('search');
-$('diarySearchInput').addEventListener('input',()=>{const v=$('diarySearchInput').value;$('diarySearchClear').classList.toggle('hidden',!v);renderDiaryContent()});
-$('diarySearchClear').onclick=()=>{$('diarySearchInput').value='';$('diarySearchClear').classList.add('hidden');renderDiaryContent()};
+/* 日记 08-01 从 Profile 搬到书房，成了手风琴的第二块。
+   不再是全屏 overlay，所以没有 open/close，只有「加载一次」。
+   搜索框跟着 overlay 一起去掉了——按月份 pill 筛选够用，
+   真要搜再单开一单，别在这儿塞一个浮在页面上的气泡。 */
+let _diaryLoaded=false;
+async function loadDiary(){
+  if(_diaryLoaded)return;
+  try{
+    const r=await api('/api/diary');if(!r.ok)throw Error();
+    const data=await r.json();
+    _diaryEntries=(data.entries||[]).reverse();_diaryMonth='all';_diaryLoaded=true;
+    const n=_diaryEntries.length;
+    $('diaryCount').textContent=n?`${n} 篇 · 按月浏览`:'还没有日记';
+    renderDiaryMonths();renderDiaryContent();
+  }catch(e){$('diaryCount').textContent='读取失败';}
+}
 function renderDiaryMonths(){const el=$('diaryMonths');el.innerHTML='';const months=new Set();_diaryEntries.forEach(e=>{if(e.date)months.add(e.date.slice(0,7))});const sorted=[...months].sort().reverse();const all=document.createElement('button');all.className='diary-month-pill'+(_diaryMonth==='all'?' active':'');all.textContent='All';all.onclick=()=>{_diaryMonth='all';renderDiaryMonths();renderDiaryContent()};el.append(all);sorted.forEach(m=>{const btn=document.createElement('button');btn.className='diary-month-pill'+(_diaryMonth===m?' active':'');const[y,mo]=m.split('-');const names=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];btn.textContent=`${names[parseInt(mo)-1]} ${y}`;btn.onclick=()=>{_diaryMonth=m;renderDiaryMonths();renderDiaryContent()};el.append(btn)})}
-function renderDiaryContent(){const el=$('diaryContent');el.innerHTML='';const q=($('diarySearchInput')?.value||'').trim().toLowerCase();let items=_diaryEntries;if(_diaryMonth!=='all')items=items.filter(e=>e.date&&e.date.startsWith(_diaryMonth));if(q)items=items.filter(e=>e.text.toLowerCase().includes(q));if(!items.length){el.innerHTML='<div class="diary-empty">'+(q?'No matching entries':'No diary entries')+'</div>';return}let lastDate='';items.forEach(e=>{if(e.date&&e.date!==lastDate){lastDate=e.date;const h=document.createElement('div');h.className='diary-date-header';h.textContent=formatDiaryDate(e.date);el.append(h)}const d=document.createElement('div');d.className='diary-entry';d.textContent=e.text;el.append(d)})}
+function renderDiaryContent(){const el=$('diaryContent');el.innerHTML='';let items=_diaryEntries;if(_diaryMonth!=='all')items=items.filter(e=>e.date&&e.date.startsWith(_diaryMonth));if(!items.length){el.innerHTML='<div class="diary-empty">还没有日记</div>';return}let lastDate='';items.forEach(e=>{if(e.date&&e.date!==lastDate){lastDate=e.date;const h=document.createElement('div');h.className='diary-date-header';h.textContent=formatDiaryDate(e.date);el.append(h)}const d=document.createElement('div');d.className='diary-entry';d.textContent=e.text;el.append(d)})}
 function formatDiaryDate(ds){try{const[y,m,d]=ds.split('-').map(Number);const dt=new Date(y,m-1,d);const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];return `${days[dt.getDay()]}, ${months[dt.getMonth()]} ${d}, ${y}`}catch(e){return ds}}
 ['profileSave','profileSaveMemories','profileSavePreferences'].forEach(id=>$(id).onclick=async()=>{try{await saveProfile()}catch(e){toast('保存失败')}});
 document.querySelectorAll('.profile-back-button').forEach(btn=>btn.innerHTML=icon('chevronLeft'));
 $('memorySearchBar').querySelector('.memory-search-icon').innerHTML=icon('search');
 $('memorySearchInput').addEventListener('input',()=>{const v=$('memorySearchInput').value;$('memorySearchClear').classList.toggle('hidden',!v);renderSavedMemories()});
 $('memorySearchClear').onclick=()=>{$('memorySearchInput').value='';$('memorySearchClear').classList.add('hidden');renderSavedMemories()};
-$('openSavedMemories').onclick=()=>{$('memorySearchInput').value='';$('memorySearchClear').classList.add('hidden');showProfilePage('savedMemoriesPage')};$('openPreferences').onclick=()=>showProfilePage('preferencesPage');$('profileBackFromMemories').onclick=()=>showProfilePage('profileHome');$('profileBackFromPreferences').onclick=()=>showProfilePage('profileHome');
+$('openSavedMemories').onclick=()=>{$('memorySearchInput').value='';$('memorySearchClear').classList.add('hidden');showProfilePage('savedMemoriesPage')};$('openPreferences').onclick=()=>showProfilePage('preferencesPage');
+/* Saved memories / Preferences 是 Profile 的下一层，返回回 Profile 而不是首页 */
+$('profileBackFromMemories').onclick=()=>showProfilePage('profileDetailPage');$('profileBackFromPreferences').onclick=()=>showProfilePage('profileDetailPage');
+/* 首页四行 → 各自详情；详情返回首页 */
+$('openProfileDetail').onclick=()=>showProfilePage('profileDetailPage');
+$('openRelayDetail').onclick=()=>showProfilePage('relayPage');
+$('openUsageDetail').onclick=()=>showProfilePage('usagePage');
+$('openAppearanceDetail').onclick=()=>showProfilePage('appearancePage');
+$('profileBackFromDetail').onclick=()=>showProfilePage('profileHome');
+$('profileBackFromRelay').onclick=()=>showProfilePage('profileHome');
+$('profileBackFromUsage').onclick=()=>showProfilePage('profileHome');
+$('profileBackFromAppearance').onclick=()=>showProfilePage('profileHome');
 (()=>{
   const fileInput=$('bgFileInput');
   let pendingSlot='light';
@@ -2502,6 +2608,9 @@ function renderRelayRoute(relays){
   const el=document.getElementById('relayRoute');
   if(!el)return;
   const cur=_relaysCache.find(r=>r.active);
+  /* Home 首页那一行右边显示当前线路名，不点进去也知道在走哪条 */
+  const row=document.getElementById('relayRowState');
+  if(row)row.textContent=cur?cur.name:'';
   if(!cur){el.hidden=true;return}
   const isSub=cur.mode==='subscription';
   el.hidden=false;
@@ -2789,6 +2898,13 @@ function renderUsage(data){
   $('usageSubCost').textContent=_cny(sub.cost_usd,2);
   $('usageSubTurns').textContent=`${sub.turns||0} 轮`;
   $('usageSubHit').textContent=_hitRate(sub);
+  /* Home 首页那一行右边直接显示今天的金额——她说过喜欢这块，别藏没了。
+     两条线路加一起，只在「今天」这档显示，切到近 7 天就换个说法。 */
+  const row=$('usageRowState');
+  if(row){
+    const total=(api.cost_usd||0)+(sub.cost_usd||0);
+    row.textContent=(_usageRange==='today'?'今天 ':'近 7 天 ')+_cny(total,2);
+  }
   const tb=$('usageRows');
   const rows=data.rows||[];
   if(!rows.length){tb.innerHTML='<tr><td colspan="8" class="usage-empty">这段时间还没有记录</td></tr>';return}
@@ -2992,6 +3108,21 @@ function applyStarmapCollapsed(collapsed,persist){
     resizeStarmap(); drawStarmap();
   });
 })();
+/* 日记这一块：普通内容，不带 canvas，收展只管 class + aria + 记忆状态。
+   默认收起，别把星图挤下去；展开时才真去拉数据。 */
+const DIARY_ACC_KEY='reading_panel_diary';
+(()=>{
+  const acc=$('studyDiary'), head=$('studyDiaryHead');
+  if(!acc||!head) return;
+  const set=(collapsed,persist)=>{
+    acc.classList.toggle('is-collapsed',collapsed);
+    head.setAttribute('aria-expanded',String(!collapsed));
+    if(persist) localStorage.setItem(DIARY_ACC_KEY,collapsed?'collapsed':'open');
+    if(!collapsed) loadDiary();
+  };
+  if(localStorage.getItem(DIARY_ACC_KEY)==='open') set(false,false);
+  head.addEventListener('click',()=>set(!acc.classList.contains('is-collapsed'),true));
+})();
 
 /* 起算日 2026.5.29。
 
@@ -3026,7 +3157,7 @@ function switchTab(name){
   const pages=tabPages();
   if(name!=='chat'&&!pages[name])return;
   if(name===currentTab)return;
-  if(currentTab==='home'){closeDiaryPage();closeHomeProfile()}
+  if(currentTab==='home'){closeHomeProfile()}   /* 日记已搬去书房，不再是 Home 的 overlay */
   if(currentTab==='reading')closeStarmap();
   Object.values(pages).forEach(p=>{if(p)p.hidden=true});
   if(name!=='chat')pages[name].hidden=false;
@@ -3037,7 +3168,9 @@ function switchTab(name){
   currentTab=name;
   if(name!=='chat')closeDrawer();
   if(name==='home')openHomeProfile().catch(()=>toast('Profile 加载失败'));
-  if(name==='reading'){renderReadingCounter();if(!starmapCollapsed())openStarmap()}
+  if(name==='reading'){renderReadingCounter();if(!starmapCollapsed())openStarmap();
+    /* 日记那块要是记着上次是展开的，进书房就把数据补上 */
+    if(!$('studyDiary')?.classList.contains('is-collapsed'))loadDiary();}
 }
 document.querySelectorAll('#tabBar .tab-item').forEach(t=>{t.addEventListener('click',()=>switchTab(t.dataset.tab))});
 </script>

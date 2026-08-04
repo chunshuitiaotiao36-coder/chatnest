@@ -1286,3 +1286,66 @@ body.tab-away #chat {
 #tabReading .study-acc-body .starmap-card {
   bottom: 16px;
 }
+
+/* ============================================================
+   Home 瘦身（08-01）：分组 + 列表行 + 推入详情
+   首页永远只有一屏，内容推到下一层。不用折叠栏——展开之后东西还堆在
+   同一页，越展越长，治不了根。
+   字号只走三档：分组标题 --text-sm / 行标题 --text-base / 说明 --text-sm。
+   这一片不许再出现写死的 font-size。
+   ============================================================ */
+
+.home-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+/* 分组标题：最小的一档，只是给下面几行贴个标签，不该抢视线 */
+.home-group-title {
+  padding-left: 6px;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.2;
+  letter-spacing: .04em;
+}
+/* 行右侧的状态文字（今天 ¥5.38 / 当前线路名）：说明档，
+   挨着箭头，不跟行标题抢。首页看得见数，细节在下一层。 */
+.home-row-state {
+  flex: none;
+  max-width: 42%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+/* 首页那几行之间留白比详情页里的松一档，四组才分得开 */
+#profileHome {
+  gap: var(--space-5);
+}
+
+/* —— 日记：从 Profile 搬到书房，成了手风琴第二块 ——
+   .study-acc-body 收起时是 max-height:0 + overflow:hidden，
+   所以这里给内容一个自然高度就行，别再套绝对定位。 */
+.diary-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: 0 20px 20px;
+}
+.diary-wrap .diary-content {
+  max-height: 46vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* —— 中转站列表：原来靠内联 style 撑着，挪进来 —— */
+.relay-list {
+  display: flex;
+  flex-direction: column;
+}
+.relay-list-loading {
+  padding: var(--space-3) var(--space-1);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
