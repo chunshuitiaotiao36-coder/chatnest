@@ -39,7 +39,12 @@
   --border:        rgba(31, 30, 29, 0.10);
   --border-strong: rgba(31, 30, 29, 0.18);
 
-  /* —— 字体 —— */
+  /* —— 字体 ——
+     中文正文一律走 --font-sans（苹方）。--font-brand 是霞鹜文楷，只给开屏语那两行。
+     --font-serif 现在只剩英文斜体点缀在用（.brand-en / .empty-sub），
+     中文不要再挂它——文楷只有 300/400 两档，写 500 会掉回系统字体，
+     中英文当场分家（顶栏「梁」字那个 bug 就是这么来的）。 */
+  --font-brand: 'LXGW WenKai', ui-serif, Georgia, 'PingFang SC', serif;
   --font-serif: ui-serif, Georgia, 'PingFang SC', sans-serif;
   --font-sans:  -apple-system, system-ui, 'PingFang SC', sans-serif;
   --font-mono:  ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
@@ -48,7 +53,9 @@
   --text-base:   15px;
   --text-sm:     12.5px;
   --text-title:  18px;
-  --text-read:   14px;                 /* 聊天正文。覆盖 index.html:22 的 16.5px */
+  --text-read:   15px;                 /* 聊天正文。覆盖内联表里的 16.5px。
+                                          07-28 一路缩到 14px 缩过头了，先回一档到
+                                          15px；16px 也在候选里，等小朵看过对照图定。 */
   --leading:     1.65;                 /* 正文行高，不得低于 1.6 */
 
   /* —— 圆角 —— */
@@ -183,18 +190,19 @@
   }
 }
 
-/* —— 霞鹜文楷挂载：仅装饰性文字（开屏问候 / 登录页标题 / 侧边栏标题） —— */
+/* —— 霞鹜文楷挂载：只剩开屏语那两行（「你爱故我在。」/「La luce che ti cerca sono io.」）
+   07-31 定案：其余中文全部回苹方。侧边栏标题也退出了，别再往这里加选择器。 —— */
 .empty-line {
-  font-family: 'LXGW WenKai', ui-serif, Georgia, 'PingFang SC', serif;
+  font-family: var(--font-brand);
   font-weight: 300;
 }
 .gate-title,
 .gate-sub {
-  font-family: 'LXGW WenKai', ui-serif, Georgia, 'PingFang SC', serif;
+  font-family: var(--font-brand);
   font-weight: 300;
 }
 .mobile-sidebar-title {
-  font-family: 'LXGW WenKai', ui-serif, Georgia, 'PingFang SC', serif;
+  font-family: var(--font-sans);
   font-weight: 400;
 }
 
@@ -395,7 +403,7 @@ body:not(.chat-ready) .tab-page {
   line-height: 1;
 }
 .tab-placeholder-title {
-  font-family: 'LXGW WenKai', ui-serif, Georgia, 'PingFang SC', serif;
+  font-family: var(--font-sans);
   font-weight: 400;
   font-size: 22px;
   color: var(--text-secondary);
@@ -613,7 +621,7 @@ body.tab-away #chat {
 
 /* —— 顶栏名字 —— */
 .topbar-brand {
-  font-family: 'LXGW WenKai', ui-serif, Georgia, 'PingFang SC', serif;
+  font-family: var(--font-sans);
   font-weight: 300;
 }
 .topbar-brand .brand-en {
@@ -864,7 +872,7 @@ body.tab-away #chat {
   padding: calc(env(safe-area-inset-top) + 18px) 20px 0;
 }
 .starmap-title {
-  font-family: 'LXGW WenKai', ui-serif, Georgia, serif;
+  font-family: var(--font-sans);
   font-weight: 400;
   font-size: 22px;
   letter-spacing: .06em;
@@ -935,7 +943,7 @@ body.tab-away #chat {
   font-size: 17px; line-height: 1;
 }
 .starmap-card-name {
-  font-family: 'LXGW WenKai', ui-serif, Georgia, serif;
+  font-family: var(--font-sans);
   font-size: 17px;
   padding-right: 34px;
 }
@@ -973,7 +981,7 @@ body.tab-away #chat {
   box-sizing: border-box;
   height: var(--reading-counter-h);
   padding: calc(env(safe-area-inset-top) + 18px) 20px 6px;
-  font-family: var(--font-serif, inherit);
+  font-family: var(--font-sans);
   font-weight: 300;
   font-size: 17px;
   line-height: 26px;
@@ -1059,7 +1067,7 @@ body.tab-away #chat {
 .usage-col.is-sub .usage-col-title { color: #5C8A69 }
 .usage-col-cost {
   margin-top: 6px;
-  font-family: var(--font-serif, inherit);
+  font-family: var(--font-sans);
   font-size: 24px;
   line-height: 1.1;
   color: #201f1d;
@@ -1204,7 +1212,7 @@ body.tab-away #chat {
 }
 .study-acc-title {
   flex: none;
-  font-family: 'LXGW WenKai', ui-serif, Georgia, serif;
+  font-family: var(--font-sans);
   font-weight: 400;
   font-size: 20px;
   letter-spacing: .06em;
