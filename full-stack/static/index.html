@@ -557,6 +557,34 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
     <p class="profile-help-text" id="loreTabHint"></p>
     <div class="profile-memory-list" id="loreList"></div>
     <button class="profile-add-button" id="loreAdd">＋ 添加</button>
+    <button class="profile-add-button lore-import-btn" id="loreImportOpen">⇪ 一键导入</button>
+    <div style="height:calc(46px + env(safe-area-inset-bottom, 34px) + 32px)"></div>
+  </div>
+
+  <!-- 一键导入：解析全在前端做，逐条走已有的 POST /api/lorebook，
+       后端一行没改。所以红线仍然是后端那道在把关，导入不是绕过它的后门——
+       解析器只负责把「显然该落在对话侧」的条目自动摆对位置。 -->
+  <div class="profile-page" id="loreImportPage">
+    <header class="profile-header">
+      <button class="profile-back-button" id="profileBackFromLoreImport" aria-label="Back"></button>
+      <div class="profile-title">一键导入</div>
+      <span></span>
+    </header>
+    <p class="profile-help-text">
+      粘贴进来就行，三种都认：<br>
+      · <b>纯文本</b> —— 空行分段，每段变一条<br>
+      · <b>JSON 数组</b> —— [{name, content, keywords…}]<br>
+      · <b>SillyTavern 世界书</b> —— 带 entries 的那种导出文件<br>
+      带关键词的条目会自动摆到「对话底部」，不会去动系统提示（那样会把一小时缓存打废）。
+    </p>
+    <section class="profile-section">
+      <div class="profile-card">
+        <textarea class="profile-memory-textarea" id="loreImportText" placeholder="把你在 Kelivo / Polaris 里写过的那批红线整段贴进来"></textarea>
+      </div>
+    </section>
+    <div class="profile-help-text" id="loreImportPreview"></div>
+    <button class="profile-add-button" id="loreImportRun">解析并导入</button>
+    <div class="profile-help-text" id="loreImportResult"></div>
     <div style="height:calc(46px + env(safe-area-inset-bottom, 34px) + 32px)"></div>
   </div>
 
@@ -2515,7 +2543,7 @@ function profileId(){return crypto.randomUUID?crypto.randomUUID():'m_'+Date.now(
 function normalizeProfileClient(p){p=p&&typeof p==='object'?p:{};const prefs=p.preferences&&typeof p.preferences==='object'?p.preferences:{};const importState=p.claudeExportImport&&typeof p.claudeExportImport==='object'?p.claudeExportImport:{};return{fullName:String(p.fullName||''),nickname:String(p.nickname||''),savedMemories:(Array.isArray(p.savedMemories)?p.savedMemories:[]).map(x=>{const item={id:String(x.id||profileId()),content:String(x.content||''),enabled:x.enabled!==false,source:['manual','claude_export','migration'].includes(x.source)?x.source:'manual',createdAt:Number(x.createdAt)||Date.now(),updatedAt:Number(x.updatedAt)||Date.now()};if(x.importedAt)item.importedAt=Number(x.importedAt)||Date.now();if(x.externalId)item.externalId=String(x.externalId);return item}).filter(x=>x.content.trim()).slice(0,200),preferences:{enabled:prefs.enabled!==false,content:String(prefs.content||'')},claudeExportImport:{checkedAt:Number(importState.checkedAt)||0,importedAt:Number(importState.importedAt)||0,importedCount:Number(importState.importedCount)||0,foundCount:Number(importState.foundCount)||0},updatedAt:p.updatedAt||Date.now()}}
 function setProfileDirty(v=true){profileDirty=v;document.querySelectorAll('.profile-save-button').forEach(b=>b.disabled=!profileDirty)}
 /* Home 的页栈。加页只要往这个数组里加 id，别再各写各的 toggle。 */
-const _PROFILE_PAGES=['profileHome','profileDetailPage','relayPage','usagePage','appearancePage','savedMemoriesPage','preferencesPage','lorebookPage','loreEditPage'];
+const _PROFILE_PAGES=['profileHome','profileDetailPage','relayPage','usagePage','appearancePage','savedMemoriesPage','preferencesPage','lorebookPage','loreEditPage','loreImportPage'];
 /* 每页离开时记住滚到哪儿，回来时还原——从详情返回首页要回到原来的位置，
    不能每次都弹回顶部。新进入的页仍然从头看起。 */
 const _profileScroll={};
@@ -2708,6 +2736,79 @@ $('loreSave').onclick=async()=>{
     await loadLorebook();showProfilePage('lorebookPage');toast('已保存');
   }catch{toast('保存失败')}
 };
+/* ---- 一键导入 ----
+   目的是让她不用把那批红线重写第四遍。解析全在前端，逐条走已有的 POST。 */
+function _loreTitleFrom(text){
+  const first=(text||'').trim().split('\n')[0].replace(/^[#\-*\s>]+/,'');
+  return first.slice(0,18)||'未命名';
+}
+function parseLoreImport(raw,kind){
+  const text=(raw||'').trim();
+  if(!text)return [];
+  // 1) 先当 JSON 试
+  try{
+    const data=JSON.parse(text);
+    let items=null;
+    if(Array.isArray(data))items=data;
+    else if(data&&typeof data==='object'&&data.entries)
+      items=Array.isArray(data.entries)?data.entries:Object.values(data.entries);
+    if(items)return items.map(it=>{
+      const kw=[].concat(it.keywords||it.keys||it.key||[]).map(String).map(s=>s.trim()).filter(Boolean);
+      // constant / always_on 都认；没关键词的一律当常驻，否则它永远不会触发
+      const always=(it.always_on!==undefined?!!it.always_on
+                   :it.constant!==undefined?!!it.constant:kw.length===0)||kw.length===0;
+      return {
+        name:String(it.name||it.comment||kw[0]||_loreTitleFrom(it.content)||'未命名').slice(0,60),
+        content:String(it.content||it.value||''),
+        keywords:always?[]:kw,
+        always_on:always,
+        /* 🔴 带关键词的绝不放系统提示——后端也会拒，这里先摆对，
+           省得她导进来一堆红字。 */
+        position:always?'system_before':'chat_bottom',
+        kind,enabled:it.enabled!==false,
+        use_regex:!!it.use_regex,case_sensitive:!!it.case_sensitive,
+        scan_depth:Math.max(1,parseInt(it.scan_depth)||5),
+        role:'user',priority:parseInt(it.priority)||100
+      };
+    }).filter(e=>e.content.trim());
+  }catch{}
+  // 2) 纯文本：空行分段
+  return text.split(/\n\s*\n+/).map(b=>b.trim()).filter(Boolean).map(b=>({
+    name:_loreTitleFrom(b),content:b,keywords:[],always_on:true,
+    position:'system_before',kind,enabled:true,
+    use_regex:false,case_sensitive:false,scan_depth:5,role:'user',priority:100
+  }));
+}
+function _loreImportPreview(){
+  const items=parseLoreImport($('loreImportText').value,_loreTab);
+  $('loreImportPreview').textContent=items.length
+    ? `解析出 ${items.length} 条：常驻 ${items.filter(i=>i.always_on).length}、关键词触发 ${items.filter(i=>!i.always_on).length}`
+    : '';
+}
+$('loreImportOpen').onclick=()=>{
+  $('loreImportText').value='';$('loreImportPreview').textContent='';$('loreImportResult').textContent='';
+  showProfilePage('loreImportPage');
+};
+$('profileBackFromLoreImport').onclick=()=>showProfilePage('lorebookPage');
+$('loreImportText').addEventListener('input',_loreImportPreview);
+$('loreImportRun').onclick=async()=>{
+  const items=parseLoreImport($('loreImportText').value,_loreTab);
+  if(!items.length){toast('没解析出条目');return}
+  $('loreImportRun').disabled=true;
+  let ok=0;const fails=[];
+  for(const it of items){
+    try{
+      const r=await api('/api/lorebook',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(it)});
+      if(r.ok)ok++; else {const d=await r.json().catch(()=>({}));fails.push(`${it.name}：${d.detail||'保存失败'}`)}
+    }catch{fails.push(`${it.name}：网络错误`)}
+  }
+  $('loreImportRun').disabled=false;
+  /* 逐条报，不要只说「部分失败」——她得知道是哪几条、为什么 */
+  $('loreImportResult').textContent=`成功 ${ok} 条`+(fails.length?`，失败 ${fails.length} 条：\n${fails.join('\n')}`:'');
+  await loadLorebook();
+  if(!fails.length){showProfilePage('lorebookPage');toast(`导入 ${ok} 条`)}
+};
+
 $('loreDelete').onclick=async()=>{
   if(!_loreEditing?.id)return;
   try{

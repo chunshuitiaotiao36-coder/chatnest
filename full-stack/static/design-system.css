@@ -1443,3 +1443,13 @@ body.tab-away #chat {
   margin-top: var(--space-3);
   color: var(--accent-hover);
 }
+
+/* 导入按钮：跟「添加」同形但降一级，别抢主操作 */
+.lore-import-btn {
+  margin-top: var(--space-2);
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+#loreImportText { min-height: 34dvh }
+#loreImportResult { white-space: pre-wrap }
