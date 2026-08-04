@@ -2231,22 +2231,13 @@ function setContextChrome(open){
     else if(meta.dataset.prevContent){meta.content=meta.dataset.prevContent;delete meta.dataset.prevContent}
   });
 }
-/* 状态栏兜底：不指望浏览器自己在两条 theme-color 里挑对那条（iOS 上挑错过，
-   浅色模式拿到了暗色的值，状态栏一片黑）。这里按真正生效的主题把**两条都**
-   写成同一个值，于是它挑哪条都对。
-   长按菜单期间 setContextChrome 借用了这两条 meta，那时只更新它存的还原值，
-   别把菜单的灰色盖掉。 */
-(function(){
-  const mq=matchMedia('(prefers-color-scheme: dark)');
-  const apply=()=>{
-    const c=mq.matches?'#1F1F1D':'#FFFDFC';
-    document.querySelectorAll('meta[name="theme-color"]').forEach(m=>{
-      if(m.dataset.prevContent)m.dataset.prevContent=c; else m.content=c;
-    });
-  };
-  apply();
-  mq.addEventListener?.('change',apply);
-})();
+/* 🔴 这里**不要**加「按当前主题把两条 theme-color 都写成同一个值」的 JS 兜底。
+   08-04 加过一次，当场制造了新 bug：把两条都覆写掉就等于废掉浏览器原生按
+   media 属性判断的能力，系统切主题时页面若正好被冻结 / 走 bfcache，
+   change 事件不触发，两条就一起停在上一个模式的颜色——夜间拿到浅色的
+   #FFFDFC，状态栏变成暖白发粉。
+   状态栏那个「浅色变黑」的老问题，根因只是两条 meta 的 media 写法不一致
+   （一条带空格一条不带），写法对齐就够了，原生行为本来是对的。 */
 function openSessionContextMenu(session,button){
   closeSessionMenu();
   if(sessionContext.source===button&&!$('sessionContextMenu').classList.contains('hidden'))return;
