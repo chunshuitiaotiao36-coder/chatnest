@@ -3,8 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
+<!-- 这两条的 media 写法必须**逐字一致**（都不带空格）。08-04 统一 CSS 的 @media
+     写法时顺手给暗色这条加了个空格，结果浅色模式下状态栏变黑——iOS Safari 对
+     meta 的 media 属性解析比 CSS 严，两条不一致时会挑到最后那条。
+     CSS 里的 `@media (prefers-color-scheme: dark)` 带空格没问题，**只有这里不行**。
+     另外下面还有一段 JS 会把两条的值都写成当前真正生效的那个，双保险。 -->
 <meta name="theme-color" content="#FFFDFC" media="(prefers-color-scheme:light)">
-<meta name="theme-color" content="#1F1F1D" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#1F1F1D" media="(prefers-color-scheme:dark)">
 <title>Nepeta</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8C%BF%3C/text%3E%3C/svg%3E">
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' fill='%23F8F8F6'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dominant-baseline='central' font-size='140'%3E%F0%9F%8C%BF%3C/text%3E%3C/svg%3E">
@@ -2226,6 +2231,22 @@ function setContextChrome(open){
     else if(meta.dataset.prevContent){meta.content=meta.dataset.prevContent;delete meta.dataset.prevContent}
   });
 }
+/* 状态栏兜底：不指望浏览器自己在两条 theme-color 里挑对那条（iOS 上挑错过，
+   浅色模式拿到了暗色的值，状态栏一片黑）。这里按真正生效的主题把**两条都**
+   写成同一个值，于是它挑哪条都对。
+   长按菜单期间 setContextChrome 借用了这两条 meta，那时只更新它存的还原值，
+   别把菜单的灰色盖掉。 */
+(function(){
+  const mq=matchMedia('(prefers-color-scheme: dark)');
+  const apply=()=>{
+    const c=mq.matches?'#1F1F1D':'#FFFDFC';
+    document.querySelectorAll('meta[name="theme-color"]').forEach(m=>{
+      if(m.dataset.prevContent)m.dataset.prevContent=c; else m.content=c;
+    });
+  };
+  apply();
+  mq.addEventListener?.('change',apply);
+})();
 function openSessionContextMenu(session,button){
   closeSessionMenu();
   if(sessionContext.source===button&&!$('sessionContextMenu').classList.contains('hidden'))return;
