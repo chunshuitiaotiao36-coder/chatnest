@@ -25,7 +25,7 @@ from starlette.formparsers import MultiPartParser
 
 MultiPartParser.max_part_size = 60 * 1024 * 1024  # 与 uploads.py 的 MAX_FILE_BYTES 对齐
 
-from app import auth, backgrounds, relays, starmap, telegram
+from app import auth, backgrounds, lorebook, relays, starmap, telegram
 from app.actor import ActorBusyError, _mem_kv
 from app.claude import (
     SessionResumeError,
@@ -279,6 +279,24 @@ class RelayUpdateBody(BaseModel):
     protocol: str | None = Field(default=None, max_length=50)
     capabilities: RelayCapabilitiesBody | None = None
     models: list[RelayModelBody] | None = Field(default=None, max_length=200)
+
+
+class LorebookBody(BaseModel):
+    """世界书 / 调性条目。字段校验（尤其那条缓存红线）在 lorebook.validate()，
+    不在这儿——create 和 update 必须走同一份规则，写两遍迟早对不上。"""
+    name: str = Field(default="", max_length=100)
+    enabled: bool | None = None
+    content: str = Field(default="", max_length=20000)
+    always_on: bool | None = None
+    keywords: list[str] | None = Field(default=None, max_length=100)
+    use_regex: bool | None = None
+    case_sensitive: bool | None = None
+    scan_depth: int | None = Field(default=None, ge=1, le=100)
+    position: str | None = Field(default=None, max_length=20)
+    depth: int | None = Field(default=None, ge=0, le=200)
+    role: str | None = Field(default=None, max_length=20)
+    priority: int | None = Field(default=None, ge=0, le=10000)
+    kind: str | None = Field(default=None, max_length=10)
 
 
 class RelayTestBody(BaseModel):
@@ -828,6 +846,48 @@ async def splash() -> dict:
 @app.get("/api/models")
 async def models() -> dict:
     return {"models": available_models()}
+
+
+# —— 世界书 / 调性 ——
+# 全部挂 require_auth：这里面是她写给我的红线，不是公开内容。
+# （/api/models 当初公开裸奔过，那个教训别再犯第二次。）
+@app.get("/api/lorebook", dependencies=[Depends(require_auth)])
+async def lorebook_list() -> dict:
+    entries = await asyncio.to_thread(lorebook.list_entries)
+    return {
+        "tone": [e for e in entries if e["kind"] == "tone"],
+        "lore": [e for e in entries if e["kind"] != "tone"],
+    }
+
+
+@app.post("/api/lorebook", dependencies=[Depends(require_auth)])
+async def lorebook_create(body: LorebookBody) -> dict:
+    payload = {k: v for k, v in body.model_dump().items() if v is not None}
+    try:
+        return await asyncio.to_thread(lorebook.create_entry, payload)
+    except lorebook.LorebookError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.put("/api/lorebook/{entry_id}", dependencies=[Depends(require_auth)])
+async def lorebook_update(entry_id: int, body: LorebookBody) -> dict:
+    payload = {k: v for k, v in body.model_dump().items() if v is not None}
+    # name/content 有默认空串，没传就不该覆盖掉已有的
+    for k in ("name", "content"):
+        if not payload.get(k):
+            payload.pop(k, None)
+    try:
+        return await asyncio.to_thread(lorebook.update_entry, entry_id, payload)
+    except lorebook.LorebookError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail="条目不存在") from exc
+
+
+@app.delete("/api/lorebook/{entry_id}", dependencies=[Depends(require_auth)])
+async def lorebook_delete(entry_id: int) -> dict:
+    await asyncio.to_thread(lorebook.delete_entry, entry_id)
+    return {"ok": True}
 
 
 @app.get("/api/relays", dependencies=[Depends(require_auth)])

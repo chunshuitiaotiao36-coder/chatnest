@@ -217,6 +217,20 @@ def build_system_prompt(model: str, lean: bool = False) -> str:
         )
     if memory:
         system_prompt += f"\n\n以下是用户明确保存的长期记忆：\n{memory}"
+
+    # 世界书 / 调性里**只有常驻条目**能贴到这儿——lorebook.validate() 把关，
+    # 关键词触发的一律拒在对话侧。所以这两段的内容跟「这一轮说了什么」无关，
+    # 前缀仍然是稳定的，一小时缓存不受影响。
+    # 这里传空的 user_message / recent：常驻条目本来就不看它们，
+    # 而只要有一条不常驻的漏进来，它在这里就不会命中——多一层保险。
+    from app import lorebook  # 局部导入，跟 available_models 一样避开启动期循环
+    fenced = lorebook.collect("", [])
+    before = "\n\n".join(c for c in fenced["system_before"] if c.strip())
+    after = "\n\n".join(c for c in fenced["system_after"] if c.strip())
+    if before:
+        system_prompt = f"{before}\n\n{system_prompt}"
+    if after:
+        system_prompt = f"{system_prompt}\n\n{after}"
     return system_prompt
 
 
@@ -242,7 +256,7 @@ def _now_line() -> str:
     return f"[现在是 {now:%Y-%m-%d} 星期{_WEEKDAYS[now.weekday()]} {now:%H:%M}]"
 
 
-async def build_user_prompt(message: str) -> str:
+async def build_user_prompt(message: str, conv_id: str | None = None) -> str:
     """Memory recall is volatile (re-retrieved per message), so it must never
     enter system_prompt — that would move the cache-breaking bytes to the very
     front of the request. Riding on the user turn puts it after every cache
@@ -254,17 +268,57 @@ async def build_user_prompt(message: str) -> str:
     now_line = _now_line()
     head = f"{now_line}\n\n" if now_line else ""
     memory_hits = await fetch_memory_hits(message)
-    if not memory_hits:
-        return f"{head}{message}"
-    return (
-        head +
-        "<memory_recall>\n"
-        "以下是从记忆书架向量检索到的相关条目（可能相关也可能没用，"
-        "自己判断是否引用；不要照搬，更不要逐字复读）：\n"
-        f"{memory_hits}\n"
-        "</memory_recall>\n\n"
-        f"{message}"
-    )
+    body = message
+    if memory_hits:
+        body = (
+            "<memory_recall>\n"
+            "以下是从记忆书架向量检索到的相关条目（可能相关也可能没用，"
+            "自己判断是否引用；不要照搬，更不要逐字复读）：\n"
+            f"{memory_hits}\n"
+            "</memory_recall>\n\n"
+            f"{message}"
+        )
+
+    # 世界书的对话侧三个位置。关键词触发的条目**只能**落在这儿——它们命中与否
+    # 每轮不同，骑在用户轮上就伤不到前缀（跟 memory_recall / 时间同一个道理）。
+    # 扫描窗口要含当前这条消息，不然她刚说了「人称」那条得等下一轮才生效。
+    from app import lorebook
+    try:
+        collected = lorebook.collect(message, _recent_messages(conv_id))
+    except Exception:
+        cli_logger.exception("世界书注入失败，这一轮跳过")
+        collected = {}
+    top = lorebook.render_chat_block(collected, "chat_top")
+    depth_block = lorebook.render_chat_block(collected, "depth")
+    # chat_bottom 排在用户原话**之前**：最后读到的仍然是她说的话，这条别改。
+    bottom = lorebook.render_chat_block(collected, "chat_bottom")
+
+    parts = [p for p in (head.rstrip("\n"), top, depth_block, bottom, body) if p]
+    return "\n\n".join(parts)
+
+
+# 关键词扫描最多往回看这么多条。取所有条目里最大的 scan_depth 就够，
+# 每条自己再按 scan_depth 截一次窗口（截断在 lorebook.collect 里做）。
+_MAX_SCAN_BACK = 100
+
+
+def _recent_messages(conv_id: str | None) -> list[str]:
+    """按时间正序返回最近的历史消息文本，给关键词扫描当窗口。
+
+    user 和 assistant 都收：她说「宿舍」要触发，我上一轮说到「宿舍」
+    同样该触发——世界书是给这一段对话铺设定的，不是只认她一个人的话。
+
+    读库失败不能让聊天挂掉：退回空窗口，等于只扫当前这条消息，
+    行为跟接上历史之前一样。
+    """
+    if not conv_id:
+        return []
+    try:
+        rows, _, _ = store.conversation_messages(conv_id, limit=_MAX_SCAN_BACK)
+    except Exception:
+        cli_logger.exception("世界书取历史失败，这一轮只扫当前消息")
+        return []
+    return [str(r.get("text") or "") for r in rows if (r.get("text") or "").strip()]
 
 
 def _record_usage(
@@ -323,7 +377,7 @@ async def stream_chat(
     thinking, selected_effort = thinking_options(model_config, effort, extended)
 
     system_prompt = build_system_prompt(model, lean=lean)
-    prompt = await build_user_prompt(message)
+    prompt = await build_user_prompt(message, conv_id)
 
     # lean 以前同时管两件事：精简 prompt + 不挂 MCP。07-31 把这两件拆开——
     # 精简 prompt 保留，MCP 恢复。

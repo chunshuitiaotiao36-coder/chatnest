@@ -408,8 +408,7 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
       <!-- 用量那块她明确说过喜欢，别藏没了：入口行右侧直接显示今天的金额，
            点进去才是两张汇总卡 + 明细。首页看得见数，细节在下一层。 -->
       <button class="profile-nav-row" id="openUsageDetail"><span class="profile-nav-row-icon" data-profile-icon="usage"></span><span class="profile-nav-row-title">用量记录<span class="profile-nav-row-note">token 和缓存明细</span></span><span class="home-row-state" id="usageRowState">今天 —</span><span class="profile-nav-chevron">›</span></button>
-      <!-- 调性与世界书那一行等那单做完再加，位置就在这儿。
-           不要现在留一个点进去是空的入口。 -->
+      <button class="profile-nav-row" id="openLorebookDetail"><span class="profile-nav-row-icon" data-profile-icon="pencil"></span><span class="profile-nav-row-title">调性与世界书<span class="profile-nav-row-note">常驻红线、关键词触发的设定</span></span><span class="home-row-state" id="loreRowState"></span><span class="profile-nav-chevron">›</span></button>
     </section>
 
     <section class="home-group">
@@ -540,6 +539,78 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
         </div>
       </div>
     </section>
+  </div>
+
+  <!-- —— 调性与世界书 ——
+       同一张表、同一套注入引擎；两个 tab 只是「藏不藏复杂字段」的区别。
+       调性 = 常驻 + 系统提示前 + 无关键词 的那一类，新建时后端字段写死。 -->
+  <div class="profile-page" id="lorebookPage">
+    <header class="profile-header">
+      <button class="profile-back-button" id="profileBackFromLorebook" aria-label="Back"></button>
+      <div class="profile-title">调性与世界书</div>
+      <span></span>
+    </header>
+    <div class="lore-tabs" id="loreTabs">
+      <button type="button" class="lore-tab is-on" data-lore-tab="tone">调性</button>
+      <button type="button" class="lore-tab" data-lore-tab="lore">世界书</button>
+    </div>
+    <p class="profile-help-text" id="loreTabHint"></p>
+    <div class="profile-memory-list" id="loreList"></div>
+    <button class="profile-add-button" id="loreAdd">＋ 添加</button>
+    <div style="height:calc(46px + env(safe-area-inset-bottom, 34px) + 32px)"></div>
+  </div>
+
+  <!-- 世界书条目的编辑页。字段顺序照她给的截图，不改。 -->
+  <div class="profile-page" id="loreEditPage">
+    <header class="profile-header">
+      <button class="profile-back-button" id="profileBackFromLoreEdit" aria-label="Back"></button>
+      <div class="profile-title" id="loreEditTitle">条目</div>
+      <button class="profile-save-button" id="loreSave" aria-label="保存">✓</button>
+    </header>
+    <section class="profile-section">
+      <div class="profile-card">
+        <label class="profile-name-row"><span class="profile-name-label">名称</span><input class="profile-name-input" id="loreName" autocomplete="off" placeholder="这条叫什么"></label>
+        <div class="profile-divider"></div>
+        <div class="profile-card-top"><div><div class="profile-section-title">启用</div><div class="profile-help-text">关掉之后立刻不再注入，不用重启</div></div><button class="profile-switch" id="loreEnabled" aria-label="启用"></button></div>
+      </div>
+    </section>
+    <section class="profile-section">
+      <div class="profile-section-title">内容</div>
+      <div class="profile-card"><textarea class="profile-memory-textarea" id="loreContent" placeholder="要常驻注入的规矩或设定"></textarea></div>
+    </section>
+    <section class="profile-section" id="loreTriggerSection">
+      <div class="profile-section-title">触发</div>
+      <div class="profile-card">
+        <div class="profile-card-top"><div><div class="profile-section-title">常驻</div><div class="profile-help-text">每一轮都注入，不看关键词</div></div><button class="profile-switch" id="loreAlwaysOn" aria-label="常驻"></button></div>
+        <div class="profile-divider"></div>
+        <label class="profile-name-row"><span class="profile-name-label">关键词</span><input class="profile-name-input" id="loreKeywords" autocomplete="off" placeholder="逗号分隔"></label>
+        <div class="profile-divider"></div>
+        <div class="profile-card-top"><div><div class="profile-section-title">按正则匹配</div></div><button class="profile-switch" id="loreUseRegex" aria-label="正则"></button></div>
+        <div class="profile-card-top"><div><div class="profile-section-title">区分大小写</div></div><button class="profile-switch" id="loreCaseSensitive" aria-label="大小写"></button></div>
+        <div class="profile-divider"></div>
+        <label class="profile-name-row"><span class="profile-name-label">扫描深度</span><input class="profile-name-input" id="loreScanDepth" type="number" min="1" max="100" value="5"></label>
+      </div>
+    </section>
+    <section class="profile-section">
+      <div class="profile-section-title">位置</div>
+      <div class="profile-card">
+        <div class="lore-pos-list" id="lorePositions"></div>
+        <!-- 🔴 前端这道闸：关键词触发时把系统提示那两项置灰，并把原因写出来。
+             后端 lorebook.validate() 还有一道，两道都要在。 -->
+        <div class="profile-help-text lore-pos-warn" id="lorePosWarn" hidden></div>
+        <div class="profile-divider" id="loreDepthDivider" hidden></div>
+        <label class="profile-name-row" id="loreDepthRow" hidden><span class="profile-name-label">深度</span><input class="profile-name-input" id="loreDepth" type="number" min="0" max="200" value="0"></label>
+      </div>
+    </section>
+    <section class="profile-section">
+      <div class="profile-card">
+        <label class="profile-name-row"><span class="profile-name-label">角色</span><input class="profile-name-input" id="loreRole" value="user" disabled></label>
+        <div class="profile-help-text">assistant 暂未支持</div>
+        <div class="profile-divider"></div>
+        <label class="profile-name-row"><span class="profile-name-label">优先级</span><input class="profile-name-input" id="lorePriority" type="number" min="0" max="10000" value="100"></label>
+      </div>
+    </section>
+    <div class="profile-footer-actions"><button class="profile-text-button" id="loreDelete">删除这一条</button></div>
   </div>
 
   <div class="profile-page" id="savedMemoriesPage">
@@ -2444,7 +2515,7 @@ function profileId(){return crypto.randomUUID?crypto.randomUUID():'m_'+Date.now(
 function normalizeProfileClient(p){p=p&&typeof p==='object'?p:{};const prefs=p.preferences&&typeof p.preferences==='object'?p.preferences:{};const importState=p.claudeExportImport&&typeof p.claudeExportImport==='object'?p.claudeExportImport:{};return{fullName:String(p.fullName||''),nickname:String(p.nickname||''),savedMemories:(Array.isArray(p.savedMemories)?p.savedMemories:[]).map(x=>{const item={id:String(x.id||profileId()),content:String(x.content||''),enabled:x.enabled!==false,source:['manual','claude_export','migration'].includes(x.source)?x.source:'manual',createdAt:Number(x.createdAt)||Date.now(),updatedAt:Number(x.updatedAt)||Date.now()};if(x.importedAt)item.importedAt=Number(x.importedAt)||Date.now();if(x.externalId)item.externalId=String(x.externalId);return item}).filter(x=>x.content.trim()).slice(0,200),preferences:{enabled:prefs.enabled!==false,content:String(prefs.content||'')},claudeExportImport:{checkedAt:Number(importState.checkedAt)||0,importedAt:Number(importState.importedAt)||0,importedCount:Number(importState.importedCount)||0,foundCount:Number(importState.foundCount)||0},updatedAt:p.updatedAt||Date.now()}}
 function setProfileDirty(v=true){profileDirty=v;document.querySelectorAll('.profile-save-button').forEach(b=>b.disabled=!profileDirty)}
 /* Home 的页栈。加页只要往这个数组里加 id，别再各写各的 toggle。 */
-const _PROFILE_PAGES=['profileHome','profileDetailPage','relayPage','usagePage','appearancePage','savedMemoriesPage','preferencesPage'];
+const _PROFILE_PAGES=['profileHome','profileDetailPage','relayPage','usagePage','appearancePage','savedMemoriesPage','preferencesPage','lorebookPage','loreEditPage'];
 /* 每页离开时记住滚到哪儿，回来时还原——从详情返回首页要回到原来的位置，
    不能每次都弹回顶部。新进入的页仍然从头看起。 */
 const _profileScroll={};
@@ -2506,6 +2577,144 @@ $('profileBackFromDetail').onclick=()=>showProfilePage('profileHome');
 $('profileBackFromRelay').onclick=()=>showProfilePage('profileHome');
 $('profileBackFromUsage').onclick=()=>showProfilePage('profileHome');
 $('profileBackFromAppearance').onclick=()=>showProfilePage('profileHome');
+
+/* ===== 调性与世界书 =====
+   同一张表、同一套注入引擎；调性 tab 只是把复杂字段藏起来的简化视图。 */
+const LORE_POSITIONS=[
+  {key:'system_before',label:'系统提示前',system:true},
+  {key:'system_after', label:'系统提示后',system:true},
+  {key:'chat_top',     label:'对话顶部'},
+  {key:'chat_bottom',  label:'对话底部'},
+  {key:'depth',        label:'指定深度'}
+];
+const LORE_POS_WARN='关键词触发的条目只能注入到对话侧——放进系统提示会让每一轮的前缀都不一样，一小时的缓存会全部重建。';
+let _loreTab='tone',_loreData={tone:[],lore:[]},_loreEditing=null;
+
+async function loadLorebook(){
+  try{
+    const r=await api('/api/lorebook');if(!r.ok)throw Error();
+    _loreData=await r.json();
+    const n=(_loreData.tone||[]).length+(_loreData.lore||[]).length;
+    const st=$('loreRowState');if(st)st.textContent=n?`${n} 条`:'';
+    renderLoreList();
+  }catch{toast('调性与世界书读取失败')}
+}
+function renderLoreList(){
+  const list=$('loreList');list.innerHTML='';
+  $('loreTabHint').textContent = _loreTab==='tone'
+    ? '常驻注入的行为规矩，每一轮都带上。新建的调性固定是「常驻 + 系统提示前」，所以不动缓存。'
+    : '设定与规矩。常驻的可以贴系统提示；靠关键词触发的只能落在对话侧。';
+  document.querySelectorAll('#loreTabs .lore-tab').forEach(b=>
+    b.classList.toggle('is-on',b.dataset.loreTab===_loreTab));
+  const items=_loreData[_loreTab]||[];
+  if(!items.length){list.innerHTML='<div class="profile-empty">还没有条目</div>';return}
+  items.forEach(e=>{
+    const row=document.createElement('div');row.className='profile-memory-card lore-card';
+    if(!e.enabled)row.classList.add('is-off');
+    const title=document.createElement('div');title.className='lore-card-name';
+    title.textContent=e.name+(e.enabled?'':'（已关闭）');
+    const body=document.createElement('div');body.className='lore-card-body';
+    body.textContent=e.content;
+    const meta=document.createElement('div');meta.className='lore-card-meta';
+    const pos=(LORE_POSITIONS.find(p=>p.key===e.position)||{}).label||e.position;
+    meta.textContent=(e.always_on?'常驻':'关键词：'+(e.keywords||[]).join('、'))+' · '+pos;
+    row.append(title,body,meta);
+    row.onclick=()=>openLoreEdit(e);
+    list.append(row);
+  });
+}
+document.querySelectorAll('#loreTabs .lore-tab').forEach(b=>
+  b.onclick=()=>{_loreTab=b.dataset.loreTab;renderLoreList()});
+
+function renderLorePositions(){
+  const box=$('lorePositions');box.innerHTML='';
+  const alwaysOn=$('loreAlwaysOn').classList.contains('on');
+  let cur=_loreEditing?.position||'system_before';
+  // 关键词触发时系统那两项不可选；当前若正停在上面，自动挪到对话底部
+  if(!alwaysOn&&LORE_POSITIONS.find(p=>p.key===cur)?.system)cur='chat_bottom';
+  _loreEditing.position=cur;
+  LORE_POSITIONS.forEach(p=>{
+    const b=document.createElement('button');
+    b.type='button';b.className='lore-pos'+(p.key===cur?' is-on':'');
+    b.textContent=p.label;
+    const blocked=p.system&&!alwaysOn;
+    if(blocked){b.disabled=true;b.classList.add('is-blocked');b.title=LORE_POS_WARN}
+    else b.onclick=()=>{_loreEditing.position=p.key;renderLorePositions()};
+    box.append(b);
+  });
+  $('lorePosWarn').hidden=alwaysOn;
+  $('lorePosWarn').textContent=LORE_POS_WARN;
+  const isDepth=cur==='depth';
+  $('loreDepthRow').hidden=!isDepth;$('loreDepthDivider').hidden=!isDepth;
+}
+function _loreSwitch(id,on){$(id).classList.toggle('on',!!on)}
+function openLoreEdit(entry){
+  _loreEditing=entry?{...entry}:{
+    name:'',content:'',enabled:true,kind:_loreTab,
+    always_on:_loreTab==='tone',keywords:[],use_regex:false,case_sensitive:false,
+    scan_depth:5,position:'system_before',depth:0,role:'user',priority:100
+  };
+  $('loreEditTitle').textContent=entry?'编辑条目':(_loreTab==='tone'?'新的调性':'新的世界书条目');
+  $('loreName').value=_loreEditing.name||'';
+  $('loreContent').value=_loreEditing.content||'';
+  $('loreKeywords').value=(_loreEditing.keywords||[]).join('，');
+  $('loreScanDepth').value=_loreEditing.scan_depth||5;
+  $('loreDepth').value=_loreEditing.depth||0;
+  $('lorePriority').value=_loreEditing.priority??100;
+  _loreSwitch('loreEnabled',_loreEditing.enabled!==false);
+  _loreSwitch('loreAlwaysOn',_loreEditing.always_on);
+  _loreSwitch('loreUseRegex',_loreEditing.use_regex);
+  _loreSwitch('loreCaseSensitive',_loreEditing.case_sensitive);
+  /* 调性 tab 把触发那一整块藏起来——它固定是常驻 + 系统提示前，
+     没有关键词、没有位置可选，露出来只会让人以为能改。 */
+  const simple=_loreEditing.kind==='tone';
+  $('loreTriggerSection').hidden=simple;
+  $('lorePositions').closest('.profile-section').hidden=simple;
+  $('loreDelete').hidden=!entry;
+  if(!simple)renderLorePositions();
+  showProfilePage('loreEditPage');
+}
+['loreEnabled','loreAlwaysOn','loreUseRegex','loreCaseSensitive'].forEach(id=>{
+  $(id).onclick=()=>{$(id).classList.toggle('on');if(id==='loreAlwaysOn')renderLorePositions()};
+});
+$('loreAdd').onclick=()=>openLoreEdit(null);
+$('openLorebookDetail').onclick=()=>{showProfilePage('lorebookPage');loadLorebook()};
+$('profileBackFromLorebook').onclick=()=>showProfilePage('profileHome');
+$('profileBackFromLoreEdit').onclick=()=>showProfilePage('lorebookPage');
+$('loreSave').onclick=async()=>{
+  const kind=_loreEditing.kind||'lore';
+  const simple=kind==='tone';
+  const payload={
+    name:$('loreName').value.trim(),
+    content:$('loreContent').value,
+    enabled:$('loreEnabled').classList.contains('on'),
+    kind,
+    /* 调性新建时这几个字段后端固定写死，界面上根本不出现 */
+    always_on:simple?true:$('loreAlwaysOn').classList.contains('on'),
+    keywords:simple?[]:$('loreKeywords').value.split(/[，,]/).map(s=>s.trim()).filter(Boolean),
+    use_regex:simple?false:$('loreUseRegex').classList.contains('on'),
+    case_sensitive:simple?false:$('loreCaseSensitive').classList.contains('on'),
+    scan_depth:simple?5:Math.max(1,parseInt($('loreScanDepth').value)||5),
+    position:simple?'system_before':_loreEditing.position,
+    role:'user',
+    priority:parseInt($('lorePriority').value)||100
+  };
+  if(payload.position==='depth')payload.depth=Math.max(0,parseInt($('loreDepth').value)||0);
+  const id=_loreEditing.id;
+  try{
+    const r=await api(id?`/api/lorebook/${id}`:'/api/lorebook',
+      {method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    if(!r.ok){const d=await r.json().catch(()=>({}));toast(d.detail||'保存失败');return}
+    await loadLorebook();showProfilePage('lorebookPage');toast('已保存');
+  }catch{toast('保存失败')}
+};
+$('loreDelete').onclick=async()=>{
+  if(!_loreEditing?.id)return;
+  try{
+    await api(`/api/lorebook/${_loreEditing.id}`,{method:'DELETE'});
+    await loadLorebook();showProfilePage('lorebookPage');toast('已删除');
+  }catch{toast('删除失败')}
+};
 (()=>{
   const fileInput=$('bgFileInput');
   let pendingSlot='light';

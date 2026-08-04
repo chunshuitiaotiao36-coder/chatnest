@@ -56,7 +56,7 @@ async def stream_chat_api(
 
     thinking_cfg, _ = thinking_options(model_config, effort, extended)
     system_prompt = build_system_prompt(model)
-    prompt = await build_user_prompt(message)
+    prompt = await build_user_prompt(message, conv_id)
 
     history = _build_history(conv_id)
     if history and history[-1].get("role") == "user" and history[-1].get("content") == message:

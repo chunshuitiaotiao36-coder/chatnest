@@ -107,6 +107,27 @@ def initialize_store() -> None:
                 cost_usd REAL
             );
             CREATE INDEX IF NOT EXISTS idx_usage_ts ON usage_log(ts DESC);
+            CREATE TABLE IF NOT EXISTS lorebook_entries (
+                id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                name           TEXT NOT NULL,
+                enabled        INTEGER NOT NULL DEFAULT 1,
+                content        TEXT NOT NULL,
+                always_on      INTEGER NOT NULL DEFAULT 0,   -- 常驻激活
+                keywords       TEXT NOT NULL DEFAULT '[]',   -- JSON 数组
+                use_regex      INTEGER NOT NULL DEFAULT 0,
+                case_sensitive INTEGER NOT NULL DEFAULT 0,
+                scan_depth     INTEGER NOT NULL DEFAULT 5,   -- 往回扫几条消息
+                position       TEXT NOT NULL DEFAULT 'system_before',
+                               -- system_before | system_after | chat_top | chat_bottom | depth
+                depth          INTEGER,                      -- position='depth' 时用
+                role           TEXT NOT NULL DEFAULT 'user', -- user | assistant
+                priority       INTEGER NOT NULL DEFAULT 100,
+                kind           TEXT NOT NULL DEFAULT 'lore', -- lore | tone（只影响 UI 归类）
+                created_at     INTEGER NOT NULL,
+                updated_at     INTEGER NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_lore_enabled
+                ON lorebook_entries(enabled, priority DESC);
             """
         )
         message_columns = {
