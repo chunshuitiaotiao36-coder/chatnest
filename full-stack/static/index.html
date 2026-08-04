@@ -16,7 +16,8 @@
 <!-- 沉浸式状态栏的另外两个必要条件。black-translucent = 状态栏透明、内容顶到
      屏幕最上面，时间电量浮在内容上。配合 viewport-fit=cover 和「页面上不能有
      theme-color」一起才成立，缺一个都退回实心状态栏。
-     还有一条隐性条件：**head 里不能引 <link rel="manifest">**。
+     还有一条隐性条件：**head 里不能引 web app manifest**（link rel=manifest，
+     这里故意不写成标签形态，免得 grep 到自己这行以为被引上了）。
      main.py 有那个路由但 head 里没引，天然满足——别手贱加上。 -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
