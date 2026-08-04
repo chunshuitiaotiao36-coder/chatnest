@@ -99,7 +99,7 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}textar
 .gate-error{min-height:1.4em;color:var(--accent);font-size:var(--text-sm);text-align:center;opacity:0}.gate-error.show{opacity:1}
 #chat{height:100dvh;display:flex;flex-direction:column;background:var(--bg-primary)}
 .topbar{position:relative;flex:none;height:calc(env(safe-area-inset-top) + 56px);display:grid;grid-template-columns:40px minmax(0,1fr) 40px;align-items:center;padding:env(safe-area-inset-top) max(env(safe-area-inset-right),var(--topbar-side-inset)) 0 max(env(safe-area-inset-left),var(--topbar-side-inset))}
-.topbar-model{justify-self:center;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.2}.topbar-brand{font:500 20px/1 var(--font-sans);letter-spacing:.02em;color:var(--text-primary);margin-bottom:2px}.topbar-actions{justify-self:end;display:flex;align-items:center}.topbar .icon-button{width:40px;height:40px;background:var(--bg-primary);box-shadow:0 1px 3px rgba(0,0,0,.1);border-color:rgba(0,0,0,.06)}.topbar .icon-button svg{width:22px;height:22px}.new-chat-button{color:var(--accent)}
+.topbar-actions{justify-self:end;display:flex;align-items:center}.topbar .icon-button{width:40px;height:40px;background:var(--bg-primary);box-shadow:0 1px 3px rgba(0,0,0,.1);border-color:rgba(0,0,0,.06)}.topbar .icon-button svg{width:22px;height:22px}.new-chat-button{color:var(--accent)}
 .session-menu{position:fixed;z-index:35;width:min(230px, 65vw);padding:var(--space-2);background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:0 8px 28px rgba(31,30,29,.14)}
 .session-menu-title{padding:var(--space-2) var(--space-3);color:var(--text-secondary);font-size:var(--text-sm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .menu-item{width:100%;display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3);text-align:left;border-radius:var(--radius-md)}.menu-item:active{background:var(--bg-surface)}.menu-item.delete{color:var(--accent)}
@@ -132,7 +132,7 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}textar
 .composer-wrap{position:relative;flex:none;padding:var(--space-2) var(--page-pad) calc(env(safe-area-inset-bottom) + var(--space-2));background:var(--bg-primary)}
 #scrollToBottom{position:absolute;left:50%;top:0;transform:translate(-50%,calc(-100% - 8px));width:36px;height:36px;display:grid;place-items:center;background:var(--bg-surface);color:var(--text-primary);border:1px solid var(--border);border-radius:var(--radius-full);box-shadow:var(--shadow-soft);opacity:1;transition:opacity .2s,transform .2s;z-index:5}
 #scrollToBottom.hidden{display:grid !important;opacity:0;transform:translate(-50%,calc(-100% + 4px));pointer-events:none}
-#scrollToBottom:active{background:var(--bg-sunken)}.composer-box{max-width:720px;margin:auto;padding:var(--space-2);background:var(--bg-surface);border:1px solid #fff;border-radius:var(--radius-lg);box-shadow:var(--shadow-composer)}.composer-box.drag-over{border-color:#F4B6B6;background:rgba(244,182,182,.14)}.edit-banner{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) 0;margin-bottom:var(--space-2)}.edit-banner-text{flex:1;font-size:var(--text-sm);color:var(--text-secondary);line-height:1.4}.edit-banner-close{flex:none;width:24px;height:24px;display:grid;place-items:center;border-radius:var(--radius-full);color:var(--text-secondary);font-size:18px;line-height:1}.edit-banner-close:active{background:var(--bg-primary)}.composer{display:flex;flex-direction:column;gap:var(--space-2)}.composer-input-row{width:100%;display:flex}.composer-actions{width:100%;display:flex;align-items:center;gap:var(--space-2)}.composer-spacer{flex:1}#input{width:100%;min-width:0;max-height:144px;padding:var(--space-1) 0 var(--space-1) 1px;border:0;outline:0;background:none;resize:none;font-size:16px;line-height:1.5;white-space:pre-wrap}.composer-icon{width:var(--input-btn-size);height:var(--input-btn-size);flex:none;display:grid;place-items:center;border-radius:var(--radius-full);color:var(--text-primary)}.composer-icon:active{background:var(--bg-sunken)}.model-capsule{max-width:210px;display:flex;align-items:center;gap:var(--space-2);padding:6px 12px;background:var(--bg-sunken);border-radius:16px;color:var(--text-primary);font-size:14px;line-height:1.2;white-space:nowrap}.model-capsule:active{background:var(--bg-primary)}#modelCapsuleText{overflow:hidden;text-overflow:ellipsis}.model-capsule-arrow{display:flex;color:var(--text-secondary)}.model-capsule-arrow svg{width:12px;height:12px}#micButton,#send{width:var(--input-btn-size);height:var(--input-btn-size)}#micButton svg,#send svg{width:20px;height:20px}#send{flex:none;display:grid;place-items:center;border-radius:var(--radius-full);background:var(--text-primary);color:var(--bg-primary);transition:background var(--transition)}#send.ready{background:var(--accent);color:var(--accent-fg)}#send:disabled{opacity:.35}#send.stop-mode{background:var(--text-primary);color:var(--bg-primary);opacity:1}.attachment-preview{display:flex;gap:var(--space-2);overflow-x:auto;padding:0 0 var(--space-2)}.attachment-chip{position:relative;flex:none;max-width:180px;display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2);background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-md)}.attachment-chip img{width:48px;height:48px;object-fit:cover;border-radius:var(--space-1)}.attachment-chip svg{width:22px;height:22px;color:var(--text-secondary)}.attachment-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--text-sm)}.attachment-remove{position:absolute;top:var(--space-1);right:var(--space-1);width:20px;height:20px;display:grid;place-items:center;background:var(--bg-sunken);border-radius:var(--radius-full)}.attachment-remove svg{width:12px;height:12px}.user-images{width:100%;display:flex;align-items:flex-end;justify-content:flex-end;gap:6px;margin-bottom:6px}.user-image{display:block;max-height:140px;min-width:0;border-radius:14px;object-fit:cover;flex:0 1 auto}.message-attachments{display:flex;flex-wrap:wrap;gap:var(--space-2);margin-bottom:var(--space-2)}.message-attachment{max-width:220px;display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2);background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-md)}.message-attachment img{display:block;max-width:180px;max-height:180px;object-fit:cover;border-radius:var(--space-1)}.message-attachment img:not([src]){min-width:120px;min-height:80px;background:var(--bg-sunken)}.message-attachment svg{width:20px;height:20px;flex:none;color:var(--text-secondary)}
+#scrollToBottom:active{background:var(--bg-sunken)}.composer-box{max-width:720px;margin:auto;padding:var(--space-2);background:var(--bg-surface);border:1px solid #fff;border-radius:var(--radius-lg);box-shadow:var(--shadow-composer)}.composer-box.drag-over{border-color:#F4B6B6;background:rgba(244,182,182,.14)}.edit-banner{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) 0;margin-bottom:var(--space-2)}.edit-banner-text{flex:1;font-size:var(--text-sm);color:var(--text-secondary);line-height:1.4}.edit-banner-close{flex:none;width:24px;height:24px;display:grid;place-items:center;border-radius:var(--radius-full);color:var(--text-secondary);font-size:18px;line-height:1}.edit-banner-close:active{background:var(--bg-primary)}.composer{display:flex;flex-direction:column;gap:var(--space-2)}.composer-input-row{width:100%;display:flex}.composer-actions{width:100%;display:flex;align-items:center;gap:var(--space-2)}.composer-spacer{flex:1}#input{width:100%;min-width:0;max-height:144px;padding:var(--space-1) 0 var(--space-1) 1px;border:0;outline:0;background:none;resize:none;font-size:16px;line-height:1.5;white-space:pre-wrap}.composer-icon{width:var(--input-btn-size);height:var(--input-btn-size);flex:none;display:grid;place-items:center;border-radius:var(--radius-full);color:var(--text-primary)}.composer-icon:active{background:var(--bg-sunken)}.model-capsule{max-width:210px;display:flex;align-items:center;gap:var(--space-2);padding:6px 12px;background:var(--bg-sunken);border-radius:16px;color:var(--text-primary);font-size:14px;line-height:1.2;white-space:nowrap}.model-capsule:active{background:var(--bg-primary)}#modelCapsuleText{min-width:0;overflow:hidden;text-overflow:ellipsis}.model-capsule-effort{flex:none;color:var(--text-secondary)}.model-capsule-arrow{display:flex;color:var(--text-secondary)}.model-capsule-arrow svg{width:12px;height:12px}#micButton,#send{width:var(--input-btn-size);height:var(--input-btn-size)}#micButton svg,#send svg{width:20px;height:20px}#send{flex:none;display:grid;place-items:center;border-radius:var(--radius-full);background:var(--text-primary);color:var(--bg-primary);transition:background var(--transition)}#send.ready{background:var(--accent);color:var(--accent-fg)}#send:disabled{opacity:.35}#send.stop-mode{background:var(--text-primary);color:var(--bg-primary);opacity:1}.attachment-preview{display:flex;gap:var(--space-2);overflow-x:auto;padding:0 0 var(--space-2)}.attachment-chip{position:relative;flex:none;max-width:180px;display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2);background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-md)}.attachment-chip img{width:48px;height:48px;object-fit:cover;border-radius:var(--space-1)}.attachment-chip svg{width:22px;height:22px;color:var(--text-secondary)}.attachment-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--text-sm)}.attachment-remove{position:absolute;top:var(--space-1);right:var(--space-1);width:20px;height:20px;display:grid;place-items:center;background:var(--bg-sunken);border-radius:var(--radius-full)}.attachment-remove svg{width:12px;height:12px}.user-images{width:100%;display:flex;align-items:flex-end;justify-content:flex-end;gap:6px;margin-bottom:6px}.user-image{display:block;max-height:140px;min-width:0;border-radius:14px;object-fit:cover;flex:0 1 auto}.message-attachments{display:flex;flex-wrap:wrap;gap:var(--space-2);margin-bottom:var(--space-2)}.message-attachment{max-width:220px;display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2);background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-md)}.message-attachment img{display:block;max-width:180px;max-height:180px;object-fit:cover;border-radius:var(--space-1)}.message-attachment img:not([src]){min-width:120px;min-height:80px;background:var(--bg-sunken)}.message-attachment svg{width:20px;height:20px;flex:none;color:var(--text-secondary)}
 .stream-disclaimer{width:100%;align-self:center;display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:24px;color:var(--text-faint);font-size:13px;line-height:1.5}.stream-disclaimer span{text-align:right}.stream-disclaimer .brand-mark{width:26px;height:26px;flex:none}
 .overlay{position:fixed;inset:0;z-index:40;visibility:hidden;opacity:0;pointer-events:none;background:rgba(0,0,0,.5);transition:opacity 0s,visibility 0s}.overlay.show{visibility:visible;opacity:1;pointer-events:auto;transition:opacity 150ms ease-out,visibility 0s}
 #drawerOverlay{z-index:30}
@@ -267,11 +267,11 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
 <main id="chat" class="hidden">
   <header class="topbar">
     <button class="icon-button" id="openDrawer" aria-label="打开历史"></button>
-    <!-- 顶栏只放身份。选模型挪到输入框那一行的胶囊上了，所以这里退回成普通容器
-         （留着 button + aria-label="选择模型" 会误导读屏）。 -->
-    <div class="topbar-model">
-      <span class="topbar-brand">梁忱<i class="brand-en">Elian</i></span>
-    </div>
+    <!-- 中间这一格现在是空的：署名删了（官端也没有），模型信息全在输入框的胶囊上。
+         这个空 div 不能删——.topbar 是 40px / 1fr / 40px 三列 grid，
+         少了它 .topbar-actions 会掉进中间那列，新建按钮就跑到正中央去了。
+         以后要在顶栏放会话标题，位置就是这儿。 -->
+    <div class="topbar-mid"></div>
     <div class="topbar-actions">
       <button class="icon-button new-chat-button" id="newChat" aria-label="新对话"></button>
     </div>
@@ -314,7 +314,7 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
         <input class="hidden" id="fileInput" type="file" multiple accept="image/*,.pdf,.txt,.text,.md,.py,.js,.jsx,.ts,.tsx,.json,.yaml,.yml,.html,.css,.scss,.sh,.ps1,.java,.c,.cc,.cpp,.h,.hpp,.go,.rs,.rb,.php,.sql,.xml,.toml,.ini,.log,.csv">
         <div class="composer-input-row"><textarea id="input" rows="1" placeholder="想和小忱说……" enterkeyhint="send"></textarea></div>
         <div class="composer-actions">
-          <button class="model-capsule" id="modelCapsule" aria-label="选择模型"><span id="modelCapsuleText">Sonnet 4.6</span><span class="model-capsule-arrow" id="modelCapsuleArrow"></span></button>
+          <button class="model-capsule" id="modelCapsule" aria-label="选择模型"><span id="modelCapsuleText">Sonnet 4.6</span><span class="model-capsule-effort" id="modelCapsuleEffort">Medium</span><span class="model-capsule-arrow" id="modelCapsuleArrow"></span></button>
           <button class="composer-icon" id="attachButton" aria-label="添加文件"></button>
           <span class="composer-spacer"></span>
           <button class="composer-icon" id="micButton" aria-label="麦克风"></button>
@@ -866,9 +866,14 @@ function modelSettingText(model=currentModel(),s=modelSetting(model)){if(!model|
    注意：这只影响显示层，模型 id 一个字都不改。
    认不出来的（gpt-4o / gemini-2.5-pro）原样返回——猜不出就别猜，原样显示比编一个漂亮名字诚实。 */
 function _shortModelName(id){
-  let s=String(id||'').replace(/^\[[^\]]*\]/,'')   // 去掉 [AG3] 这类中转站前缀
-                     .replace(/-\d{8}$/,'')        // 去掉 -20250929 日期后缀
-                     .replace(/-latest$/,'');
+  const raw=String(id||'');
+  let s=raw.replace(/^\[[^\]]*\]/,'')              // 去掉 [k-特惠] 这类中转站前缀
+           .replace(/^[^/]*\//,'')                 // 去掉 鹿/ anthropic/ 这类渠道前缀
+           .replace(/-\d{8}$/,'')                  // 去掉 -20250929 日期后缀
+           .replace(/-latest$/,'');
+  // 剥完只剩空（比如整个 id 就是个 "[k-特惠]"）就把原串还回去。
+  // 宁可显示一串丑 ID，也不能让她不知道自己在用什么。
+  if(!s)return raw;
   let suffix='';
   if(/-thinking$/.test(s)){suffix=' Thinking';s=s.replace(/-thinking$/,'')}
   const cap=w=>w.charAt(0).toUpperCase()+w.slice(1);
@@ -880,8 +885,16 @@ function _shortModelName(id){
   return s+suffix;
 }
 /* 优先显示实际跑的那个，没收到过就退回配置里的 label。
-   顶栏那两个 span 已经删了，这里只剩输入框上的胶囊。 */
-function updateModelHeader(){const m=currentModel(),setting=modelSettingText(m);const shown=state.actualModel?_shortModelName(state.actualModel):(m?.label||state.model);if($('modelCapsuleText'))$('modelCapsuleText').textContent=`${shown}${setting?' '+setting:''}`}
+   顶栏那两个 span 已经删了，这里只剩输入框上的胶囊。
+
+   label 那一路**也必须过短名函数**：relays.py:44 在线路没给 label 时直接拿 id 顶上，
+   所以 label 完全可能就是 `claude-opus-4-6` 甚至 `鹿/claude-opus-4-5` 原文。
+   之前只在 actualModel 那一路过短名，label 这一路裸奔，胶囊上就出现了完整 ID。 */
+function updateModelHeader(){const m=currentModel(),setting=modelSettingText(m);
+  const shown=_shortModelName(state.actualModel||m?.label||state.model);
+  if($('modelCapsuleText'))$('modelCapsuleText').textContent=shown;
+  const eff=$('modelCapsuleEffort');
+  if(eff){eff.textContent=setting;eff.hidden=!setting}}
 /* 收到 model 事件：胶囊 + Home 状态条一起更新 */
 function setActualModel(id){const next=String(id||'')||null;if(state.actualModel===next)return;state.actualModel=next;updateModelHeader();renderRelayRoute()}
 /* 刚切完模型/换了线路，上一轮的实际值已经过期，继续显示它是在撒谎 */
