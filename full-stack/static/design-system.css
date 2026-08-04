@@ -86,24 +86,38 @@
     0 8px 22px rgba(0, 0, 0, 0.045);
 }
 
-/* —— 暗色模式：深黑粉 + 发光亮粉 —— */
+/* —— 暗色模式：中性深灰 + 粉只做强调 ——
+   07-31 之前这里是酒红（#1A0F14 底 / #B89AAA 次级 / #7A5A6A 最淡），而
+   index.html 里日记、Profile、记忆面板那几块早就在用中性灰。两套色系拼在一屏上，
+   主界面酒红、点进 Profile 变灰——「夜间模式好丑」说的就是这个。
+   这一版把**已经在跑的那套中性灰**推广成唯一真理，酒红整个废掉。
+
+   底色三档拉开：#1F1F1D 页面 < #262624 凹陷 < #2A2A28 浮起。
+   surface / bubble 保持半透明（只换色相，不换透明度）——它们下面要透出小朵的
+   自定义背景图，改成实色会把背景挡死一块。alpha 跟浅色那边一一对齐。 */
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg-primary:    #1A0F14;                          /* 深黑粉底 */
-    --bg-surface:    rgba(30, 18, 24, 0.9);            /* 输入框/浮层：半透明 */
-    --bubble-user:   rgba(36, 24, 32, 0.9);            /* 用户气泡：半透明 */
-    --bg-sunken:     #2A1C24;                          /* 按压态/代码块 */
-    --text-primary:  #F4E8EC;                          /* 主文字：暖白带粉调 */
-    --text-secondary:#B89AAA;
-    --text-faint:    #7A5A6A;
-    --border:        rgba(244, 232, 236, 0.08);
-    --border-strong: rgba(244, 232, 236, 0.16);
+    --bg-primary:    #1F1F1D;                          /* 页面底色：中性深灰 */
+    --bg-surface:    rgba(42, 42, 40, 0.85);           /* 输入框/浮层：#2A2A28 半透明 */
+    --bubble-user:   rgba(42, 42, 40, 0.9);            /* 用户气泡：#2A2A28 半透明 */
+    --bg-sunken:     #262624;                          /* 按压态/代码块：介于两者之间 */
+    --text-primary:  #F4F3EF;
+    --text-secondary:rgba(244, 243, 239, 0.56);
+    /* 最淡那一档：老值 #7A5A6A 压在 #1A0F14 上对比度只有 2.6，是笔老账。
+       施工单给的 .42 算出来是 3.74，仍然过不了它自己定的「≥4.5 实测」那条验收，
+       所以取 .52——在 #2A2A28（最亮的那档底色，最坏情况）上实测 4.7+。
+       改这个值前先跑对比度断言，别凭感觉调。 */
+    --text-faint:    rgba(244, 243, 239, 0.52);
+    --border:        rgba(255, 255, 255, 0.10);
+    --border-strong: rgba(255, 255, 255, 0.16);
     --shadow-soft:   none;
     --shadow-composer: none;
-    /* 暗色主色：亮粉在暗底发光 */
+    /* 粉留下来，但只做强调：按钮 / 高亮 / 选中态 / 链接。
+       凡是「这是 Claude/Clawd 的标志」性质的图形一律用官方橙棕 #CB7E5E，
+       图标是身份不是强调——一样的图标不同颜色会有赝品感。 */
     --accent:        #F4B6C4;
     --accent-hover:  #E8A0B2;            /* 亮粉：hover / focus */
-    --accent-fg:     #1A0F14;
+    --accent-fg:     #1F1F1D;
   }
 }
 
@@ -174,20 +188,21 @@
 
 @media (prefers-color-scheme: dark) {
   .glass {
-    /* 暗色玻璃：深黑粉带微光 */
-    background: rgba(40, 22, 30, 0.60);
-    border-color: rgba(244, 182, 196, 0.28);
+    /* 暗色玻璃：中性深灰带微光。亮环/halo 一律无色相——
+       带粉的玻璃是「两套色系」里最显眼的那一半。 */
+    background: rgba(38, 38, 36, 0.60);
+    border-color: rgba(255, 255, 255, 0.14);
     box-shadow:
-      inset 0 1px 0 rgba(244, 182, 196, 0.16),
+      inset 0 1px 0 rgba(255, 255, 255, 0.10),
       inset 0 -1px 6px rgba(0, 0, 0, 0.35),
-      0 0 0 1px rgba(244, 182, 196, 0.08),
-      0 8px 32px rgba(139, 74, 92, 0.35);
+      0 0 0 1px rgba(255, 255, 255, 0.05),
+      0 8px 32px rgba(0, 0, 0, 0.45);
   }
   .glass::before {
-    background: linear-gradient(to bottom, rgba(244, 182, 196, 0.14), rgba(255, 255, 255, 0));
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0));
   }
   .glass::after {
-    background: radial-gradient(circle 180px at var(--glass-x) var(--glass-y), rgba(244, 182, 196, 0.22), transparent 70%);
+    background: radial-gradient(circle 180px at var(--glass-x) var(--glass-y), rgba(255, 255, 255, 0.10), transparent 70%);
   }
 }
 
@@ -226,16 +241,16 @@
 }
 @media (prefers-color-scheme: dark) {
   .topbar .icon-button {
-    background: rgba(30, 18, 24, 0.55);
-    border-color: rgba(244, 182, 196, 0.16);
+    background: rgba(42, 42, 40, 0.55);
+    border-color: rgba(255, 255, 255, 0.12);
     box-shadow:
-      inset 0 1px 0 rgba(244, 182, 196, 0.15),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08),
       0 4px 14px rgba(0, 0, 0, 0.35);
   }
   .model-group {
-    background: rgba(42, 28, 36, 0.55) !important;
-    border-color: rgba(244, 182, 196, 0.12);
-    box-shadow: inset 0 1px 0 rgba(244, 182, 196, 0.10);
+    background: rgba(42, 42, 40, 0.55) !important;
+    border-color: rgba(255, 255, 255, 0.10);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
   }
 }
 
@@ -265,9 +280,9 @@
   #gate,
   #chat {
     background:
-      radial-gradient(circle at 20% 15%, rgba(244, 182, 196, 0.20), transparent 55%),
-      radial-gradient(circle at 82% 82%, rgba(139, 74, 92, 0.30), transparent 60%),
-      linear-gradient(160deg, #1A0F14 0%, #22141B 60%, #2A1620 100%);
+      radial-gradient(circle at 20% 15%, rgba(244, 243, 239, 0.05), transparent 55%),
+      radial-gradient(circle at 82% 82%, rgba(0, 0, 0, 0.22), transparent 60%),
+      linear-gradient(160deg, #1F1F1D 0%, #232321 60%, #262624 100%);
   }
 }
 
@@ -383,9 +398,9 @@ body:not(.chat-ready) .tab-page {
 @media (prefers-color-scheme: dark) {
   .tab-page {
     background:
-      radial-gradient(circle at 20% 15%, rgba(244, 182, 196, 0.20), transparent 55%),
-      radial-gradient(circle at 82% 82%, rgba(139, 74, 92, 0.30), transparent 60%),
-      linear-gradient(160deg, #1A0F14 0%, #22141B 60%, #2A1620 100%);
+      radial-gradient(circle at 20% 15%, rgba(244, 243, 239, 0.05), transparent 55%),
+      radial-gradient(circle at 82% 82%, rgba(0, 0, 0, 0.22), transparent 60%),
+      linear-gradient(160deg, #1F1F1D 0%, #232321 60%, #262624 100%);
   }
 }
 
@@ -534,7 +549,7 @@ body.tab-away #chat {
     background-image: var(--bg-img-dark, none);
   }
   #bgMask {
-    background: #1A0F14;
+    background: #1F1F1D;
   }
   /* 暗色下只认 has-bg-dark。这样"只设了日间图"时，
      夜里仍然走暗色渐变，不会漏出空白。这段重复的渐变是兜底，别删。 */
@@ -542,9 +557,9 @@ body.tab-away #chat {
   body.has-bg-light #chat,
   body.has-bg-light .tab-page:not(#tabHome) {
     background:
-      radial-gradient(circle at 20% 15%, rgba(244, 182, 196, 0.20), transparent 55%),
-      radial-gradient(circle at 82% 82%, rgba(139, 74, 92, 0.30), transparent 60%),
-      linear-gradient(160deg, #1A0F14 0%, #22141B 60%, #2A1620 100%);
+      radial-gradient(circle at 20% 15%, rgba(244, 243, 239, 0.05), transparent 55%),
+      radial-gradient(circle at 82% 82%, rgba(0, 0, 0, 0.22), transparent 60%),
+      linear-gradient(160deg, #1F1F1D 0%, #232321 60%, #262624 100%);
   }
   body.has-bg-dark #gate,
   body.has-bg-dark #chat,
@@ -830,9 +845,10 @@ body.tab-away #chat {
   .relay-route-name { color: rgba(244, 243, 239, .58) }
   .relay-route-note { color: rgba(244, 243, 239, .40) }
   .relay-route.is-sub .relay-route-label { color: #8FBF9C }
-  /* --text-faint 的暗色值是 #7A5A6A，压在状态条底上对比度只有 1.92，读不清。
-     跟同组件的 .relay-route-name / -note 一样改用暖白半透明；这一段载的是
-     真实模型 ID，比 note 更需要读得清，所以比 .40 亮一档。 */
+  /* 当初 --text-faint 的暗色值还是酒红 #7A5A6A，压在状态条底上对比度只有 1.92，
+     读不清，所以这里单独绕开它写了暖白半透明。07-31 变量表统一到中性灰之后
+     --text-faint 本身已经是 rgba(244,243,239,.52) 了，这条不再是绕路、
+     而是「模型 ID 比 note 更该读得清所以亮一档」，留着。 */
   .relay-route-actual { color: rgba(244, 243, 239, .62) }
 }
 
