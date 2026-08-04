@@ -292,7 +292,7 @@
 
 :root {
   --tabbar-h: 56px;                       /* 导航栏内容高度，不含 safe-area */
-  --tabbar-space: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+  --tabbar-space: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 34px));
 }
 
 /* —— 底部导航栏 ——
@@ -309,7 +309,7 @@
   display: flex;
   align-items: stretch;
   height: var(--tabbar-space);
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: env(safe-area-inset-bottom, 34px);
   background: var(--bg-primary);
   border-top: 1px solid var(--border);
   transform: translateX(var(--drawer-x, 0px));
@@ -457,26 +457,26 @@ body:not(.chat-ready) .tab-page {
 
 /* 内页各自的滚动容器给导航栏让位 */
 #tabHome .profile-page {
-  padding-bottom: calc(env(safe-area-inset-bottom) + var(--space-5) + var(--tabbar-h));
+  padding-bottom: calc(env(safe-area-inset-bottom, 34px) + var(--space-5) + var(--tabbar-h));
 }
 #tabHome .diary-content {
-  padding-bottom: calc(env(safe-area-inset-bottom) + 60px + var(--tabbar-h));
+  padding-bottom: calc(env(safe-area-inset-bottom, 34px) + 60px + var(--tabbar-h));
 }
 #tabHome .memory-search-bar,
 #tabHome .diary-search-bar {
-  bottom: calc(env(safe-area-inset-bottom) + 14px + var(--tabbar-h));
+  bottom: calc(env(safe-area-inset-bottom, 34px) + 14px + var(--tabbar-h));
 }
 
 /* —— composer 与 toast 给导航栏让位 —— */
 .composer-wrap {
-  padding-bottom: calc(env(safe-area-inset-bottom) + var(--space-2) + var(--tabbar-h));
+  padding-bottom: calc(env(safe-area-inset-bottom, 34px) + var(--space-2) + var(--tabbar-h));
 }
 /* 导航栏收起来了，这份让位就是凭空多出来的一截，输入框会浮在键盘上方。 */
 body.keyboard-open .composer-wrap {
-  padding-bottom: calc(env(safe-area-inset-bottom) + var(--space-2));
+  padding-bottom: calc(env(safe-area-inset-bottom, 34px) + var(--space-2));
 }
 .toast {
-  bottom: calc(env(safe-area-inset-bottom) + 92px + var(--tabbar-h));
+  bottom: calc(env(safe-area-inset-bottom, 34px) + 92px + var(--tabbar-h));
 }
 
 /* —— 输入框字号 ——
@@ -874,7 +874,7 @@ body.tab-away #chat {
 }
 .starmap-head {
   flex: none;
-  padding: calc(env(safe-area-inset-top) + 18px) 20px 0;
+  padding: calc(env(safe-area-inset-top, 50px) + 18px) 20px 0;
 }
 .starmap-title {
   font-family: var(--font-sans);
@@ -980,12 +980,12 @@ body.tab-away #chat {
    两个值必须同源，所以抽成 --reading-counter-h。
    18(上) + 26(行高) + 6(下) = 50。 */
 :root {
-  --reading-counter-h: calc(env(safe-area-inset-top) + 50px);
+  --reading-counter-h: calc(env(safe-area-inset-top, 50px) + 50px);
 }
 .reading-counter {
   box-sizing: border-box;
   height: var(--reading-counter-h);
-  padding: calc(env(safe-area-inset-top) + 18px) 20px 6px;
+  padding: calc(env(safe-area-inset-top, 50px) + 18px) 20px 6px;
   font-family: var(--font-sans);
   font-weight: 300;
   font-size: 17px;
