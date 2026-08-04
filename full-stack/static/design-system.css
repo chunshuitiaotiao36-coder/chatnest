@@ -1349,3 +1349,18 @@ body.tab-away #chat {
   color: var(--text-secondary);
   font-size: var(--text-sm);
 }
+
+/* —— 开屏语的视觉居中（08-01）——
+   顶栏「梁忱 Elian」删掉之后那条 56px 变成了纯空白，眼睛不再把它当一个区块，
+   于是空白画布是「屏幕最顶 → 输入框顶」，而 .empty 还在按 stream（顶栏以下）
+   居中，看起来就偏下。实测：块上方留白 297、下方 178。
+
+   要把块心往上提半个顶栏，负 margin 得给**整条顶栏的高度**：
+   .empty 是 flex:1 的居中项，负 margin 让它的盒子长高 |m|，而内容在盒内居中，
+   所以块心只移动 |m|/2。给 -115px 才换来 57.5px 的位移。踩过一次，写在这儿。
+
+   用 env() 而不是写死，横屏和别的机型自己跟着走；fallback 跟其它地方一致。
+   只影响空态那一屏：一旦有消息 .empty 就被换掉了，不碰聊天布局。 */
+.empty {
+  margin-top: calc(-1 * (env(safe-area-inset-top, 50px) + 56px));
+}
