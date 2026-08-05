@@ -1453,3 +1453,40 @@ body.tab-away #chat {
 }
 #loreImportText { min-height: 34dvh }
 #loreImportResult { white-space: pre-wrap }
+
+/* —— 调性卡片（照 Polaris）：一列纯文本 + 一个 ×。
+   刻意没有标题、没有元信息行——那些正是让调性看着像第二个世界书的东西。 —— */
+.tone-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: 20px;
+  background: var(--bg-sunken);
+  cursor: pointer;
+}
+.tone-card.is-off { opacity: .5 }
+.tone-card-text {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-primary);
+  font-size: var(--text-base);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.tone-card-del {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  margin-top: 2px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: var(--text-base);
+  line-height: 1;
+}
+.lore-section-title { margin-top: var(--space-2) }

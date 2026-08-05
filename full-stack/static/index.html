@@ -554,6 +554,7 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
       <button type="button" class="lore-tab is-on" data-lore-tab="tone">调性</button>
       <button type="button" class="lore-tab" data-lore-tab="lore">世界书</button>
     </div>
+    <div class="profile-section-title lore-section-title" id="loreSectionTitle">语气偏好</div>
     <p class="profile-help-text" id="loreTabHint"></p>
     <div class="profile-memory-list" id="loreList"></div>
     <button class="profile-add-button" id="loreAdd">＋ 添加</button>
@@ -597,9 +598,9 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
     </header>
     <section class="profile-section">
       <div class="profile-card">
-        <label class="profile-name-row"><span class="profile-name-label">名称</span><input class="profile-name-input" id="loreName" autocomplete="off" placeholder="这条叫什么"></label>
-        <div class="profile-divider"></div>
-        <div class="profile-card-top"><div><div class="profile-section-title">启用</div><div class="profile-help-text">关掉之后立刻不再注入，不用重启</div></div><button class="profile-switch" id="loreEnabled" aria-label="启用"></button></div>
+        <div id="loreNameRow"><label class="profile-name-row"><span class="profile-name-label">名称</span><input class="profile-name-input" id="loreName" autocomplete="off" placeholder="这条叫什么"></label>
+        <div class="profile-divider"></div></div>
+        <div id="loreEnabledRow" class="profile-card-top"><div><div class="profile-section-title">启用</div><div class="profile-help-text">关掉之后立刻不再注入，不用重启</div></div><button class="profile-switch" id="loreEnabled" aria-label="启用"></button></div>
       </div>
     </section>
     <section class="profile-section">
@@ -628,7 +629,7 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
         <div class="profile-help-text lore-pos-warn" id="lorePosWarn" hidden></div>
       </div>
     </section>
-    <section class="profile-section">
+    <section class="profile-section" id="loreMetaSection">
       <div class="profile-card">
         <label class="profile-name-row"><span class="profile-name-label">角色</span><input class="profile-name-input" id="loreRole" value="user" disabled></label>
         <div class="profile-help-text">assistant 暂未支持</div>
@@ -2628,27 +2629,50 @@ async function loadLorebook(){
 }
 function renderLoreList(){
   const list=$('loreList');list.innerHTML='';
-  $('loreTabHint').textContent = _loreTab==='tone'
-    ? '常驻注入的行为规矩，每一轮都带上。新建的调性固定是「常驻 + 系统提示前」，所以不动缓存。'
-    : '设定与规矩。常驻的可以贴系统提示；靠关键词触发的只能落在对话侧。';
   document.querySelectorAll('#loreTabs .lore-tab').forEach(b=>
     b.classList.toggle('is-on',b.dataset.loreTab===_loreTab));
   const items=_loreData[_loreTab]||[];
-  if(!items.length){list.innerHTML='<div class="profile-empty">还没有条目</div>';return}
+  const tone=_loreTab==='tone';
+  /* 调性照 Polaris：一个小标题 + 「N 条 · 自动编入提示词」，
+     下面是一列纯文本卡片，每张只有正文和一个 ×。
+     **不要**再给它加名字、位置、常驻这些元信息——那正是让它看着
+     像第二个世界书的东西。 */
+  $('loreSectionTitle').textContent = tone?'语气偏好':'世界书条目';
+  $('loreTabHint').textContent = tone
+    ? `${items.length} 条 · 自动编入提示词`
+    : `${items.length} 条 · 强制注入`;
+  if(!items.length){list.innerHTML='<div class="profile-empty">'+(tone?'还没有语气偏好':'还没有条目')+'</div>';return}
   items.forEach(e=>{
-    const row=document.createElement('div');row.className='profile-memory-card lore-card';
-    if(!e.enabled)row.classList.add('is-off');
-    const title=document.createElement('div');title.className='lore-card-name';
-    title.textContent=e.name+(e.enabled?'':'（已关闭）');
-    const body=document.createElement('div');body.className='lore-card-body';
+    const row=document.createElement('div');
+    row.className=(tone?'tone-card':'profile-memory-card lore-card')+(e.enabled?'':' is-off');
+    const body=document.createElement('div');
+    body.className=tone?'tone-card-text':'lore-card-body';
     body.textContent=e.content;
-    const meta=document.createElement('div');meta.className='lore-card-meta';
-    const pos=(LORE_POSITIONS.find(p=>p.key===e.position)||{}).label||e.position;
-    meta.textContent=(e.always_on?'常驻':'关键词：'+(e.keywords||[]).join('、'))+' · '+pos;
-    row.append(title,body,meta);
-    row.onclick=()=>openLoreEdit(e);
+    if(tone){
+      // 正文 + 一个 ×，就这两样
+      const del=document.createElement('button');
+      del.type='button';del.className='tone-card-del';del.setAttribute('aria-label','删除');
+      del.textContent='×';
+      del.onclick=ev=>{ev.stopPropagation();deleteLoreEntry(e.id)};
+      row.append(body,del);
+      row.onclick=()=>openLoreEdit(e);
+    }else{
+      const title=document.createElement('div');title.className='lore-card-name';
+      title.textContent=e.name+(e.enabled?'':'（已关闭）');
+      const meta=document.createElement('div');meta.className='lore-card-meta';
+      const pos=(LORE_POSITIONS.find(p=>p.key===e.position)||{}).label||e.position;
+      meta.textContent=(e.always_on?'常驻':'关键词：'+(e.keywords||[]).join('、'))+' · '+pos;
+      row.append(title,body,meta);
+      row.onclick=()=>openLoreEdit(e);
+    }
     list.append(row);
   });
+}
+async function deleteLoreEntry(id){
+  try{
+    await api(`/api/lorebook/${id}`,{method:'DELETE'});
+    await loadLorebook();toast('已删除');
+  }catch{toast('删除失败')}
 }
 document.querySelectorAll('#loreTabs .lore-tab').forEach(b=>
   b.onclick=()=>{_loreTab=b.dataset.loreTab;renderLoreList()});
@@ -2694,6 +2718,11 @@ function openLoreEdit(entry){
   const simple=_loreEditing.kind==='tone';
   $('loreTriggerSection').hidden=simple;
   $('lorePositions').closest('.profile-section').hidden=simple;
+  /* 调性只是一句话，名字/启用/角色/优先级一个都不该露 —— 露了就又变成
+     「填表」，而它本来只是一条你随手写下的语气偏好。 */
+  $('loreNameRow').hidden=simple;
+  $('loreEnabledRow').hidden=simple;
+  $('loreMetaSection').hidden=simple;
   $('loreDelete').hidden=!entry;
   if(!simple)renderLorePositions();
   showProfilePage('loreEditPage');
@@ -2709,7 +2738,8 @@ $('loreSave').onclick=async()=>{
   const kind=_loreEditing.kind||'lore';
   const simple=kind==='tone';
   const payload={
-    name:$('loreName').value.trim(),
+    // 调性没有名字这个概念，但后端要求非空——用正文前 18 字顶上，界面上不出现
+    name:simple?_loreTitleFrom($('loreContent').value):$('loreName').value.trim(),
     content:$('loreContent').value,
     enabled:$('loreEnabled').classList.contains('on'),
     kind,
