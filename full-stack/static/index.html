@@ -2004,6 +2004,11 @@ $('closeThought').onclick=function(){this.blur();const s=$('thoughtSheet');s.cla
 function initSheetDrag(el,closeSelector,onClose){
   const handle=el.querySelector('.sheet-handle');const head=el.querySelector('.sheet-head');
   const COLLAPSED=35;
+  /* 手指按下去必然带一两像素的抖动。低于这个位移不下拖拽的结论，
+     否则「点一下」会被当成「拖了一下」，面板每点一次就往上蹿一截。
+     8 是折中：iOS 自己的滚动/点击判定在 5-10px 之间，3px 挡不住抖动，
+     15px+ 会拖出一段手指动了面板不动的死区。真机还漏跳就往 10 调，别一次调过头。 */
+  const DRAG_THRESHOLD=8;
   let startY=0,startOff=0,dragging=false;
   function curOffset(){return el.classList.contains('expanded')?0:COLLAPSED}
   function onStart(e){
@@ -2041,15 +2046,22 @@ function initSheetDrag(el,closeSelector,onClose){
     if(dragging){onMove(e);return}
     if(!pendingStart)return;
     const t=e.touches[0];const dy=t.clientY-pendingStart.y;
+    /* return 不是 pendingStart=null：这里只是「还没到判定的时候」，
+       手指继续滑还能激活；清掉 pendingStart 等于这一次滑动彻底放弃拖拽。 */
+    if(Math.abs(dy)<DRAG_THRESHOLD)return;
     const isExpanded=el.classList.contains('expanded');
     const atTop=pendingStart.scrollTop<=0;
+    /* 起点挪到阈值那一点。照旧写 startY=pendingStart.y 的话，激活那一帧
+       onMove 算出来的位移正好是 DRAG_THRESHOLD，毛病会从「点一下跳一下」
+       变成「拖起来先弹 8px」。补完激活帧的有效位移是 0，面板从手指所在的
+       位置连续跟手。 */
     if(dy>0&&atTop){
-      startY=pendingStart.y;startOff=curOffset();dragging=true;
+      startY=pendingStart.y+DRAG_THRESHOLD;startOff=curOffset();dragging=true;
       el.classList.add('dragging');pendingStart=null;onMove(e);
     }else if(dy<0&&!isExpanded){
-      startY=pendingStart.y;startOff=curOffset();dragging=true;
+      startY=pendingStart.y-DRAG_THRESHOLD;startOff=curOffset();dragging=true;
       el.classList.add('dragging');pendingStart=null;onMove(e);
-    }else if(Math.abs(dy)>10){pendingStart=null}
+    }else{pendingStart=null}
   }
   function onTouchEnd(e){pendingStart=null;onEnd()}
   el.addEventListener('touchstart',onTouchStart,{passive:false});
