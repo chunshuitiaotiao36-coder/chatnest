@@ -303,11 +303,10 @@ async def build_user_prompt(message: str, conv_id: str | None = None) -> str:
         cli_logger.exception("世界书注入失败，这一轮跳过")
         collected = {}
     top = lorebook.render_chat_block(collected, "chat_top")
-    depth_block = lorebook.render_chat_block(collected, "depth")
     # chat_bottom 排在用户原话**之前**：最后读到的仍然是她说的话，这条别改。
     bottom = lorebook.render_chat_block(collected, "chat_bottom")
 
-    parts = [p for p in (head.rstrip("\n"), top, depth_block, bottom, body) if p]
+    parts = [p for p in (head.rstrip("\n"), top, bottom, body) if p]
     return "\n\n".join(parts)
 
 

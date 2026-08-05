@@ -293,6 +293,7 @@ class LorebookBody(BaseModel):
     case_sensitive: bool | None = None
     scan_depth: int | None = Field(default=None, ge=1, le=100)
     position: str | None = Field(default=None, max_length=20)
+    # depth 08-05 起不再使用（position 里没有 depth 了），保留字段只为兼容旧客户端
     depth: int | None = Field(default=None, ge=0, le=200)
     role: str | None = Field(default=None, max_length=20)
     priority: int | None = Field(default=None, ge=0, le=10000)

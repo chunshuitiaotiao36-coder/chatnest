@@ -5,7 +5,7 @@
   走 tone_block()，不进 collect()。
 - 世界书（kind='lore'）：强制注入的长指令（思维链红线、人称红线那种几百字的）。
   逐条保留、带 <lorebook> 围栏，要的是「一眼看出这是硬规矩」。
-  走 collect()，支持关键词触发和五个位置。
+  走 collect()，支持关键词触发和四个位置。
 
 08-01 最初按施工单做成了「调性是世界书的一个特例」，小朵指出那等于做了两个
 世界书——她要的是两种性质不同的东西。别再合并回去。
@@ -34,7 +34,10 @@ logger = logging.getLogger("chatnest.lorebook")
 
 # 注入位置。前两个贴着系统提示，后三个骑在对话侧。
 POSITION_SYSTEM = ("system_before", "system_after")
-POSITION_CHAT = ("chat_top", "chat_bottom", "depth")
+# 08-05 去掉了 depth（「指定深度」）：它只有在能往 messages 数组里插的链路上
+# 才有意义，而订阅线路是把整段会话交给子进程的，插不进去。同一个开关在两条线
+# 上行为不一样，比没有更坑，所以整个拿掉。真需要再单开一单。
+POSITION_CHAT = ("chat_top", "chat_bottom")
 POSITIONS = POSITION_SYSTEM + POSITION_CHAT
 ROLES = ("user", "assistant")
 KINDS = ("lore", "tone")
@@ -71,16 +74,11 @@ def validate(entry: dict) -> None:
     # 🔴 红线：靠关键词触发的条目不许贴系统提示
     if position in POSITION_SYSTEM and not always_on:
         raise LorebookError(
-            "关键词触发的条目只能注入到对话侧（对话顶部 / 对话底部 / 指定深度）。"
+            "关键词触发的条目只能注入到对话侧（对话顶部 / 对话底部）。"
             "放进系统提示会让每一轮的前缀都不一样，一小时的缓存会全部重建。"
         )
     if not always_on and not keywords:
         raise LorebookError("不常驻的条目至少要有一个关键词，否则永远不会触发")
-
-    if position == "depth":
-        depth = entry.get("depth")
-        if depth is None or int(depth) < 0:
-            raise LorebookError("位置选了「指定深度」就要填一个 ≥0 的深度")
 
     scan_depth = int(entry.get("scan_depth") or 5)
     if scan_depth < 1:

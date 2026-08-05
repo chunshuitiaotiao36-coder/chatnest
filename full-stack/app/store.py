@@ -130,6 +130,12 @@ def initialize_store() -> None:
                 ON lorebook_entries(enabled, priority DESC);
             """
         )
+        # 08-05 取消了 position='depth'（原因见 lorebook.py 顶部）。已有的迁到
+        # chat_top —— 它们本来就是按 chat_top 在跑的，那个深度数字从来没生效过，
+        # 所以这一步不改变任何人的实际行为。depth 列留着不删，省一次表重建。
+        db.execute(
+            "UPDATE lorebook_entries SET position = 'chat_top' WHERE position = 'depth'"
+        )
         message_columns = {
             row["name"]
             for row in db.execute("PRAGMA table_info(messages)").fetchall()

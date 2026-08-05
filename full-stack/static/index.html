@@ -626,8 +626,6 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
         <!-- 🔴 前端这道闸：关键词触发时把系统提示那两项置灰，并把原因写出来。
              后端 lorebook.validate() 还有一道，两道都要在。 -->
         <div class="profile-help-text lore-pos-warn" id="lorePosWarn" hidden></div>
-        <div class="profile-divider" id="loreDepthDivider" hidden></div>
-        <label class="profile-name-row" id="loreDepthRow" hidden><span class="profile-name-label">深度</span><input class="profile-name-input" id="loreDepth" type="number" min="0" max="200" value="0"></label>
       </div>
     </section>
     <section class="profile-section">
@@ -2612,10 +2610,11 @@ const LORE_POSITIONS=[
   {key:'system_before',label:'系统提示前',system:true},
   {key:'system_after', label:'系统提示后',system:true},
   {key:'chat_top',     label:'对话顶部'},
-  {key:'chat_bottom',  label:'对话底部'},
-  {key:'depth',        label:'指定深度'}
+  {key:'chat_bottom',  label:'对话底部'}
+  /* 08-05 去掉了「指定深度」：它只在能往 messages 数组里插的链路上有意义，
+     订阅线路插不进去，同一个开关两条线行为不一样，比没有更坑。 */
 ];
-const LORE_POS_WARN='关键词触发的条目只能注入到对话侧——放进系统提示会让每一轮的前缀都不一样，一小时的缓存会全部重建。';
+const LORE_POS_WARN='关键词触发的条目只能注入到对话侧（对话顶部 / 对话底部）——放进系统提示会让每一轮的前缀都不一样，一小时的缓存会全部重建。';
 let _loreTab='tone',_loreData={tone:[],lore:[]},_loreEditing=null;
 
 async function loadLorebook(){
@@ -2672,22 +2671,19 @@ function renderLorePositions(){
   });
   $('lorePosWarn').hidden=alwaysOn;
   $('lorePosWarn').textContent=LORE_POS_WARN;
-  const isDepth=cur==='depth';
-  $('loreDepthRow').hidden=!isDepth;$('loreDepthDivider').hidden=!isDepth;
 }
 function _loreSwitch(id,on){$(id).classList.toggle('on',!!on)}
 function openLoreEdit(entry){
   _loreEditing=entry?{...entry}:{
     name:'',content:'',enabled:true,kind:_loreTab,
     always_on:_loreTab==='tone',keywords:[],use_regex:false,case_sensitive:false,
-    scan_depth:5,position:'system_before',depth:0,role:'user',priority:100
+    scan_depth:5,position:'system_before',role:'user',priority:100
   };
   $('loreEditTitle').textContent=entry?'编辑条目':(_loreTab==='tone'?'新的调性':'新的世界书条目');
   $('loreName').value=_loreEditing.name||'';
   $('loreContent').value=_loreEditing.content||'';
   $('loreKeywords').value=(_loreEditing.keywords||[]).join('，');
   $('loreScanDepth').value=_loreEditing.scan_depth||5;
-  $('loreDepth').value=_loreEditing.depth||0;
   $('lorePriority').value=_loreEditing.priority??100;
   _loreSwitch('loreEnabled',_loreEditing.enabled!==false);
   _loreSwitch('loreAlwaysOn',_loreEditing.always_on);
@@ -2727,7 +2723,6 @@ $('loreSave').onclick=async()=>{
     role:'user',
     priority:parseInt($('lorePriority').value)||100
   };
-  if(payload.position==='depth')payload.depth=Math.max(0,parseInt($('loreDepth').value)||0);
   const id=_loreEditing.id;
   try{
     const r=await api(id?`/api/lorebook/${id}`:'/api/lorebook',
