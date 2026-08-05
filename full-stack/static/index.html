@@ -572,7 +572,7 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
     </header>
     <p class="profile-help-text">
       粘贴进来就行，三种都认：<br>
-      · <b>纯文本</b> —— 空行分段，每段变一条<br>
+      · <b>纯文本</b> —— 在「调性」里按<b>行</b>切（一句一条），在「世界书」里按<b>空行</b>切（一段一条）<br>
       · <b>JSON 数组</b> —— [{name, content, keywords…}]<br>
       · <b>SillyTavern 世界书</b> —— 带 entries 的那种导出文件<br>
       带关键词的条目会自动摆到「对话底部」，不会去动系统提示（那样会把一小时缓存打废）。
@@ -2772,8 +2772,11 @@ function parseLoreImport(raw,kind){
       };
     }).filter(e=>e.content.trim());
   }catch{}
-  // 2) 纯文本：空行分段
-  return text.split(/\n\s*\n+/).map(b=>b.trim()).filter(Boolean).map(b=>({
+  /* 2) 纯文本。两种切法，因为两种东西的形状不一样：
+     - 调性是一句一条的短偏好 -> 按**行**切
+     - 世界书是几百字一块的长指令 -> 按**空行**切，别把一段红线剁成碎句 */
+  const blocks = kind==='tone' ? text.split(/\n+/) : text.split(/\n\s*\n+/);
+  return blocks.map(b=>b.trim()).filter(Boolean).map(b=>({
     name:_loreTitleFrom(b),content:b,keywords:[],always_on:true,
     position:'system_before',kind,enabled:true,
     use_regex:false,case_sensitive:false,scan_depth:5,role:'user',priority:100

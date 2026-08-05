@@ -1,7 +1,14 @@
-"""世界书 / 调性：同一张表、同一套注入引擎。
+"""世界书 / 调性：同一张表，但**是两种东西**，注入方式不同。
 
-调性 = 世界书里「常驻 + 系统提示前 + 无关键词」的那一类，不是另做一套。
-`kind` 只用来分 UI 的两个 tab，注入引擎不看它。
+- 调性（kind='tone'）：短的语气偏好，一般不超过三句。所有启用的合并成
+  **一段**接在人设后面，不加围栏——要的是「融进语流」，读起来像人设的一部分。
+  走 tone_block()，不进 collect()。
+- 世界书（kind='lore'）：强制注入的长指令（思维链红线、人称红线那种几百字的）。
+  逐条保留、带 <lorebook> 围栏，要的是「一眼看出这是硬规矩」。
+  走 collect()，支持关键词触发和五个位置。
+
+08-01 最初按施工单做成了「调性是世界书的一个特例」，小朵指出那等于做了两个
+世界书——她要的是两种性质不同的东西。别再合并回去。
 
 🔴 这个模块存在的头号理由是**保护一小时的 prompt 缓存**。
 缓存是字节级前缀匹配，前面变一个字后面全废。所以：
@@ -236,6 +243,10 @@ def collect(user_message: str, recent_messages: list[str] | None = None) -> dict
             hit = _matches(entry, haystack)
         if not hit:
             continue
+        # 调性不走这条路：它是「一段语气偏好」，由 tone_block() 合并成整段，
+        # 不该跟世界书那些带围栏的强制指令混在一起逐条拼。
+        if entry["kind"] == "tone":
+            continue
         position = entry["position"] if entry["position"] in out else "system_before"
         out[position].append(entry["content"])
     return out
@@ -248,3 +259,27 @@ def render_chat_block(collected: dict[str, list[str]], position: str) -> str:
         return ""
     body = "\n\n".join(items)
     return f"<lorebook>\n{body}\n</lorebook>"
+
+
+def tone_block() -> str:
+    """调性：把所有启用的短指令合并成**一段**语气偏好。
+
+    跟世界书是两件事，别再合并成一套：
+    - 调性是语气偏好，短（一般不超过三句），要的是「融进语流」，
+      所以合并成连续的一段、不加任何围栏标签——它读起来该像人设的一部分，
+      不像一条条规章。
+    - 世界书是强制注入的长指令（思维链红线、人称红线那种几百字的），
+      要的是「一眼看出这是硬规矩」，所以逐条保留、带 <lorebook> 围栏。
+
+    常驻且稳定，所以仍然待在系统提示里，不动缓存前缀。
+    """
+    try:
+        entries = list_entries()
+    except Exception as exc:
+        logger.warning("调性读取失败，这一轮不注入：%s", exc)
+        return ""
+    items = [e["content"].strip() for e in entries
+             if e["enabled"] and e["kind"] == "tone" and e["content"].strip()]
+    if not items:
+        return ""
+    return "\n".join(items)

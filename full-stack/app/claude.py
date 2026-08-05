@@ -224,13 +224,27 @@ def build_system_prompt(model: str, lean: bool = False) -> str:
     # 这里传空的 user_message / recent：常驻条目本来就不看它们，
     # 而只要有一条不常驻的漏进来，它在这里就不会命中——多一层保险。
     from app import lorebook  # 局部导入，跟 available_models 一样避开启动期循环
+    # 世界书：强制注入的长指令（思维链红线、人称红线那种几百字的）。
+    # 带围栏，一眼看出这是硬规矩，不是建议。
     fenced = lorebook.collect("", [])
-    before = "\n\n".join(c for c in fenced["system_before"] if c.strip())
-    after = "\n\n".join(c for c in fenced["system_after"] if c.strip())
+
+    def _fence(items):
+        body = "\n\n".join(c for c in items if c.strip())
+        return f"<lorebook>\n{body}\n</lorebook>" if body else ""
+
+    before = _fence(fenced["system_before"])
+    after = _fence(fenced["system_after"])
     if before:
         system_prompt = f"{before}\n\n{system_prompt}"
     if after:
         system_prompt = f"{system_prompt}\n\n{after}"
+
+    # 调性：短的语气偏好（一般不超过三句），合并成**一段**接在人设后面，
+    # 不加围栏——它该读起来像人设的一部分、自然融进语流，
+    # 不像一条条规章。跟世界书是两件事，别再合成一套。
+    tone = lorebook.tone_block()
+    if tone:
+        system_prompt = f"{system_prompt}\n\n以下是用户的语气偏好，回复时自然遵循：\n{tone}"
     return system_prompt
 
 
