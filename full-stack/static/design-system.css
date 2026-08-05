@@ -32,6 +32,11 @@
   --bg-composer:   #FFFFFF;                          /* 输入框：比页面底 #F8F8F6 更白，浮起来 */
   --bg-chip:       #F0EFEC;                          /* 胶囊常态：比输入框深一档，比 --bg-sunken 轻 */
   --text-primary:  #1F1E1D;
+  /* 免责声明那行。08-05 从小朵的官端对比图上量的：官端最暗 2% 像素是
+     rgb(52,52,50)，同图正文黑字量到 rgb(1,1,0)，所以这不是压缩误差。
+     它落在 --text-primary(30) 和 --text-secondary(109) 之间偏 primary 那侧。
+     别拿 --text-secondary 顶替，那是量出来 rgb(99,90,88) 的那一档，偏淡。 */
+  --text-disclaimer: #3A3A38;
   --text-secondary:#6E6D66;
   --text-faint:    #A6A39A;
 
@@ -111,6 +116,10 @@
     --bg-composer:   #2A2A28;                          /* 输入框：比页面底亮 */
     --bg-chip:       #333331;                          /* 胶囊常态：比输入框再亮一档 */
     --text-primary:  #F4F3EF;
+    /* 暗色没有官端截图可量，按浅色那边的相对位置镜像过来：浅色下它在
+       primary→secondary 之间走了 35%，暗色就把 alpha 从 1.0 往 .56 走 35%。
+       有了暗色官端图再回来核。 */
+    --text-disclaimer: rgba(244, 243, 239, 0.84);
     --text-secondary:rgba(244, 243, 239, 0.56);
     /* 最淡那一档：老值 #7A5A6A 压在 #1A0F14 上对比度只有 2.6，是笔老账。
        施工单给的 .42 算出来是 3.74，仍然过不了它自己定的「≥4.5 实测」那条验收，
@@ -191,7 +200,18 @@
   opacity: 1;
 }
 
-.glass:active {
+/* 🔴 `:not(.sheet)` 不能去掉——这就是「模型面板点一下跳一下」的真凶。
+   .sheet 的 transform 是它的**定位**，不是装饰：
+     .sheet.show          -> translateY(35dvh)   收起态
+     .sheet.show.expanded -> translateY(0)       全屏态
+   而 `.glass:active` 跟 `.sheet.show` 特异性相同（都是两个类），
+   design-system.css 又排在 index.html 的内联 <style> 之后 —— 按下去的
+   那一瞬间 transform 被整个换成 scale(.97)，translateY(35dvh) 当场作废，
+   面板往上蹿 35dvh，还带着上面那条 420ms 的回弹曲线。
+   全屏展开时 translateY 本来就是 0，换成 scale 不产生位移，所以那种情况
+   不跳 —— 跟小朵说的「除非完全展开至全屏」一一对应。
+   按压回弹是给小块可点元素用的，别再糊到定位靠 transform 的浮层上。 */
+.glass:active:not(.sheet) {
   transform: scale(0.97);
 }
 
