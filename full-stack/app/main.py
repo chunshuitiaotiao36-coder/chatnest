@@ -1057,7 +1057,13 @@ async def piano_search(kw: str = Query(max_length=200)) -> dict:
 
 
 @app.get("/api/piano/analysis", dependencies=[Depends(require_auth)])
-async def piano_analysis(id: str = Query(max_length=64)) -> dict:
+async def piano_analysis_read(id: str = Query(max_length=64)) -> dict:
+    # 🔴 这个函数**不能**叫 piano_analysis——那是顶部 import 进来的模块名
+    # （line 28），同名会在模块执行到这里时把模块引用整个顶掉，于是
+    # piano_analysis.read_cached / .startup_check 全部变成
+    # AttributeError: 'function' object has no attribute ...
+    # 症状是「频谱读不到」（被 try 吞了）+「应用起不来」（lifespan 里抛）。
+    # 路由 URL 跟函数名无关，改名是安全的。
     # 纯读（index.mjs:199 只查 song_analysis 表，不触发分析），随便调不烧钱
     return await _piano("/api/song-analysis", {"id": id})
 
