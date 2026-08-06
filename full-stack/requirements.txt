@@ -12,3 +12,9 @@ tzdata
 chromadb>=0.5.0
 jieba
 rank-bm25
+
+# 琴房频谱：在本地把歌算出来（BPM/调性/能量/频谱图），不经过任何 AI 接口。
+# 🔴 只在 app/piano_analysis.py 的函数里 import，不许放模块顶部——
+#    顶部 import 会把常驻内存永久抬高，队列 38 正在查小窝为什么涨到 189MiB。
+librosa
+matplotlib
