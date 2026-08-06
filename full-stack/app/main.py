@@ -25,7 +25,7 @@ from starlette.formparsers import MultiPartParser
 
 MultiPartParser.max_part_size = 60 * 1024 * 1024  # 与 uploads.py 的 MAX_FILE_BYTES 对齐
 
-from app import auth, backgrounds, lorebook, relays, starmap, telegram
+from app import auth, backgrounds, lorebook, piano, relays, starmap, telegram
 from app.actor import ActorBusyError, _mem_kv
 from app.claude import (
     SessionResumeError,
@@ -108,9 +108,13 @@ async def lifespan(app: FastAPI):
     # 寄生在本进程里的一个协程，不是独立服务。没配 TG 环境变量时返回 None，
     # 小窝照常跑。
     tg_task = telegram.start()
+    # 琴房引擎（Duetto）只是个可选的外部依赖：没配就在启动日志里大声说一句，
+    # 别等她点开琴房看见空歌单才去猜是哪儿断了。
+    piano.startup_check()
     try:
         yield
     finally:
+        await piano.aclose()
         await telegram.stop(tg_task)
         await registry.stop()
 
@@ -209,6 +213,9 @@ class ChatBody(BaseModel):
     effort: str = Field(default="medium", max_length=16)
     extended: bool = True
     attachments: list[str] = Field(default_factory=list, max_length=10)
+    # 琴房 tab 在放歌时带上来的「现在放的是什么」。只有琴房会送这个字段，
+    # 别的 tab 一个字都不加。**它绝不进 system prompt**，见下面注入点的注释。
+    piano: dict[str, Any] | None = None
 
 
 class ToolCaptionBody(BaseModel):
@@ -551,6 +558,19 @@ async def chat(body: ChatBody) -> StreamingResponse:
                     "\n\n[用户上传了以下文件，请使用 Read 工具查看：\n"
                     f"{paths}\n]"
                 )
+            # 🔴 正在播放的信息挂在**用户消息侧**，跟上面附件那套一个位置。
+            # 歌会换、进度每秒都在变——进 system prompt 就是每轮改前缀，
+            # cache_read 直接归零。缓存前缀稳定化那一单的教训，不重复第二遍。
+            # 分析拿不到就不附加那一段（Duetto 分析一首要几十秒，
+            # 第一次听没有是应该的），不卡在这儿等。
+            if body.piano:
+                try:
+                    block = await piano.now_playing_block(body.piano)
+                except Exception:  # 琴房上下文是锦上添花，绝不能拖垮一次对话
+                    logger.exception("piano context failed; sending without it")
+                    block = ""
+                if block:
+                    prompt += f"\n\n{block}"
             chat_args = (prompt, conv_id, resume_id, body.model,
                          body.effort, body.extended, log_timing)
             if body.model == "codex":
@@ -975,6 +995,53 @@ async def usage_data(
 async def starmap_data(refresh: bool = False) -> dict:
     # urllib 是阻塞的，跟 relays.probe 一样甩到线程里，别堵事件循环
     return await asyncio.to_thread(starmap.fetch_stars, refresh)
+
+
+# ── 琴房：Duetto 的服务端代理 ────────────────────────────────────────────
+# 前端只跟这几条说话，Duetto 的 token 一步都不出后端。
+# 🔴 Duetto 的 /api/chat 永远不在这张表里——对话走小窝自己那条线。
+
+async def _piano(path: str, params: dict[str, Any] | None = None) -> dict:
+    try:
+        return await piano.call(path, params)
+    except piano.PianoError as exc:
+        raise HTTPException(status_code=exc.status, detail=str(exc)) from exc
+
+
+@app.get("/api/piano/playlists", dependencies=[Depends(require_auth)])
+async def piano_playlists() -> dict:
+    return await _piano("/api/ncm/playlists")
+
+
+@app.get("/api/piano/playlist", dependencies=[Depends(require_auth)])
+async def piano_playlist(id: str = Query(max_length=64)) -> dict:
+    return await _piano("/api/ncm/playlist", {"id": id})
+
+
+@app.get("/api/piano/song-url", dependencies=[Depends(require_auth)])
+async def piano_song_url(id: str = Query(max_length=64)) -> dict:
+    return await _piano("/api/ncm/song-url", {"id": id})
+
+
+@app.get("/api/piano/lyric", dependencies=[Depends(require_auth)])
+async def piano_lyric(id: str = Query(max_length=64)) -> dict:
+    return await _piano("/api/ncm/lyric", {"id": id})
+
+
+@app.get("/api/piano/search", dependencies=[Depends(require_auth)])
+async def piano_search(kw: str = Query(max_length=200)) -> dict:
+    return await _piano("/api/ncm/search", {"kw": kw})
+
+
+@app.get("/api/piano/analysis", dependencies=[Depends(require_auth)])
+async def piano_analysis(id: str = Query(max_length=64)) -> dict:
+    # 纯读（index.mjs:199 只查 song_analysis 表，不触发分析），随便调不烧钱
+    return await _piano("/api/song-analysis", {"id": id})
+
+
+@app.get("/api/piano/notes", dependencies=[Depends(require_auth)])
+async def piano_notes(id: str = Query(max_length=64), limit: int = 60) -> dict:
+    return await _piano("/api/song-notes", {"id": id, "limit": max(1, min(200, limit))})
 
 
 @app.get("/api/background", dependencies=[Depends(require_auth)])
