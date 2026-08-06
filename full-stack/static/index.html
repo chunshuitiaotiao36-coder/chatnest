@@ -680,47 +680,82 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
     <span class="tab-placeholder-sub">即将到来</span>
   </div>
 </section>
+<!-- 皮肤类挂在 .piano-room 上，**不进 :root** —— 别的 tab 一个像素都不许变。 -->
 <section id="tabMusic" class="tab-page" hidden>
-  <div class="piano">
-    <div class="piano-head">
-      <button type="button" class="piano-back" id="pianoBack" hidden aria-label="回歌单列表">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-      </button>
-      <span class="piano-title" id="pianoTitle">琴房</span>
-      <span class="piano-sub" id="pianoSub">读取中…</span>
-    </div>
-    <div class="piano-list" id="pianoList"></div>
-  </div>
+  <div class="piano-room ls-skin-ningzhi" id="pianoRoom">
 
-  <!-- 播放条常驻底部。歌词挂在它上面，跟着时间轴滚。 -->
-  <div class="piano-dock" id="pianoDock" hidden>
+    <div class="piano-top">
+      <button type="button" class="piano-listbtn" id="pianoListBtn" aria-label="歌单">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 6h11M4 12h11M4 18h7M17 15v-5l4-1v5"/><circle cx="16" cy="16" r="2"/><circle cx="20" cy="15" r="2"/></svg>
+      </button>
+      <div class="piano-top-title">
+        <div class="piano-kicker">正在一起听</div>
+        <div class="piano-h" id="pianoRoomName">此刻</div>
+      </div>
+      <button type="button" class="ls-skinbtn" id="pianoSkinBtn">
+        <span class="sw"></span><span id="pianoSkinName">凝脂</span>
+      </button>
+    </div>
+
+    <!-- 唱片区。点一下折叠成迷你条，再点展开。 -->
+    <div class="piano-stage" id="pianoStage">
+      <div class="ls-vinyl-wrap" id="pianoVinylWrap">
+        <div class="ls-vinyl" id="pianoVinyl">
+          <div class="grooves"></div>
+          <div class="label" id="pianoLabel"></div>
+          <div class="hole"></div>
+        </div>
+        <div class="ls-tonearm" id="pianoTonearm" aria-hidden="true">
+          <svg viewBox="0 0 96 96" fill="none">
+            <circle cx="77" cy="17" r="9" fill="currentColor" opacity=".22"/>
+            <circle cx="77" cy="17" r="4.2" fill="currentColor"/>
+            <path d="M77 17 L44 62" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/>
+            <rect x="35" y="59" width="13" height="9" rx="2.2"
+                  transform="rotate(-36 41.5 63.5)" fill="currentColor"/>
+          </svg>
+        </div>
+      </div>
+      <div class="piano-song">
+        <div class="piano-song-t" id="pianoNowTitle">还没放歌</div>
+        <div class="piano-song-a" id="pianoNowArtist"></div>
+      </div>
+      <div class="piano-bar">
+        <input type="range" class="piano-seek" id="pianoSeek" value="0" min="0" max="1000" step="1" aria-label="进度">
+        <div class="piano-times"><span id="pianoPos">0:00</span><span id="pianoDur">0:00</span></div>
+      </div>
+      <div class="ls-ctrl piano-ctrl">
+        <button type="button" id="pianoPrev" aria-label="上一首">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zm3.5 7L18 5v14z"/></svg>
+        </button>
+        <button type="button" id="pianoPlay" class="play" aria-label="播放">
+          <svg id="pianoPlayIcon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <button type="button" id="pianoNext" aria-label="下一首">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM6 5l8.5 7L6 19z"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- 折叠态：迷你条。小唱片照样转。 -->
+    <div class="piano-mini" id="pianoMini" hidden>
+      <div class="mdisc" id="pianoMiniDisc"><span class="mlabel" id="pianoMiniLabel"></span></div>
+      <div class="mtxt">
+        <b id="pianoMiniTitle"></b><i id="pianoMiniArtist"></i>
+      </div>
+      <button type="button" class="mplay" id="pianoMiniPlay" aria-label="播放/暂停">
+        <svg id="pianoMiniIcon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+      </button>
+    </div>
+
     <div class="piano-lyric" id="pianoLyric"></div>
-    <div class="piano-now">
-      <span class="piano-now-title" id="pianoNowTitle"></span>
-      <span class="piano-now-artist" id="pianoNowArtist"></span>
-    </div>
-    <div class="piano-bar">
-      <span class="piano-time" id="pianoPos">0:00</span>
-      <input type="range" class="piano-seek" id="pianoSeek" value="0" min="0" max="1000" step="1" aria-label="进度">
-      <span class="piano-time" id="pianoDur">0:00</span>
-    </div>
-    <div class="piano-ctrl">
-      <button type="button" id="pianoPrev" aria-label="上一首">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zm3.5 7L18 5v14z"/></svg>
-      </button>
-      <button type="button" id="pianoPlay" class="is-primary" aria-label="播放">
-        <svg id="pianoPlayIcon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-      </button>
-      <button type="button" id="pianoNext" aria-label="下一首">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM6 5l8.5 7L6 19z"/></svg>
-      </button>
-    </div>
+
     <!-- 对话流的挂载点。进琴房时把 #stream 这个节点**整个搬过来**，
          走的时候搬回 #chat——同一批 DOM 节点，所以：
            · 会话天然是同一条（琴房说的话回 Chat 就在那儿，反过来也是）
            · 流式增量、markdown、思维链折叠全部原样工作，一行渲染代码都不用新写
          琴房里只露最近 8 轮，靠 .piano-trim 那条 CSS 收，不用 JS 记账。 -->
     <div class="piano-chat" id="pianoChat"></div>
+
     <!-- 说一句：走小窝本来那条线（同一个梁忱、同一条 Ombre），
          只是把「现在在放什么」挂在用户消息侧带过去。回复留在琴房，不弹走。 -->
     <form class="piano-say" id="pianoSayForm">
@@ -729,6 +764,28 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
       </button>
     </form>
+
+    <!-- 歌单抽屉：从下面推上来，选完收回。首屏留给唱片。 -->
+    <div class="piano-drawer-mask" id="pianoDrawerMask" hidden></div>
+    <div class="piano-drawer" id="pianoDrawer" hidden>
+      <div class="piano-drawer-head">
+        <button type="button" class="piano-back" id="pianoBack" hidden aria-label="回歌单列表">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <span class="piano-title" id="pianoTitle">歌单</span>
+        <span class="piano-sub" id="pianoSub">读取中…</span>
+      </div>
+      <div class="piano-list" id="pianoList"></div>
+    </div>
+
+    <!-- 皮肤选择面板 -->
+    <div class="ls-skinsheet-mask" id="pianoSkinMask" hidden>
+      <div class="ls-skinsheet" id="pianoSkinSheet">
+        <h3>屋子的光</h3>
+        <div class="sub">SKIN</div>
+        <div class="ls-skingrid" id="pianoSkinGrid"></div>
+      </div>
+    </div>
   </div>
   <audio id="pianoAudio" preload="none"></audio>
 </section>
@@ -3555,8 +3612,45 @@ function renderReadingCounter(){
    Duetto 只当引擎：网易云登录态、整首音频喂 Gemini、按歌缓存。
    界面在这儿原生做，**对话走小窝本来那条线**——同一个梁忱、同一条 Ombre。
    前端从头到尾看不见 Duetto 的 token，只跟 /api/piano/* 说话。 */
-var piano={view:'lists',lists:[],songs:[],idx:-1,lyrics:[],listName:'',loaded:false};
+var piano={view:'lists',lists:[],songs:[],idx:-1,lyrics:[],listName:'',loaded:false,collapsed:false};
 var pianoAudio=null;
+
+/* 五套皮肤 + 自定义。名字是中国传统色，不许改名、不许精简。
+   --ls-gold 是他、--ls-eve 是她——两个人两个色，色板上大块是他、
+   左下角那道小杠是她。 */
+var PIANO_SKINS=[
+  {id:'ningzhi',name:'凝脂',en:'NINGZHI',gold:'#b29a6e',eve:'#9a8aa3'},
+  {id:'douqing',name:'豆青',en:'DOUQING',gold:'#8a9a6b',eve:'#c9a45f'},
+  {id:'xueqing',name:'雪青',en:'XUEQING',gold:'#8f93c9',eve:'#b58fc5'},
+  {id:'jilan',  name:'霁蓝',en:'JILAN',  gold:'#7d9ac6',eve:'#8fb3b0'},
+  {id:'ouhe',   name:'藕荷',en:'OUHE',   gold:'#c08c9b',eve:'#b48f8a'},
+  {id:'custom', name:'自定义',en:'CUSTOM',gold:'#b0916a',eve:'#b48f9e'}
+];
+function pianoSkin(){return localStorage.getItem('piano_skin')||'ningzhi'}
+function pianoApplySkin(id){
+  const s=PIANO_SKINS.find(x=>x.id===id)||PIANO_SKINS[0];
+  const room=$('pianoRoom');
+  PIANO_SKINS.forEach(x=>room.classList.remove('ls-skin-'+x.id));
+  room.classList.add('ls-skin-'+s.id);
+  localStorage.setItem('piano_skin',s.id);
+  $('pianoSkinName').textContent=s.name;
+  pianoRenderSkinGrid();
+}
+function pianoRenderSkinGrid(){
+  const grid=$('pianoSkinGrid');if(!grid)return;
+  const cur=pianoSkin();grid.innerHTML='';
+  PIANO_SKINS.forEach(s=>{
+    const b=document.createElement('button');b.type='button';
+    b.className='ls-skincard'+(s.id===cur?' on':'');
+    b.innerHTML='<span class="sw"><i></i></span><span class="nm"><b></b><i></i></span>';
+    b.querySelector('.sw').style.background=s.gold;   /* 大块 = 他 */
+    b.querySelector('.sw i').style.background=s.eve;  /* 小杠 = 她 */
+    b.querySelector('.nm b').textContent=s.name;
+    b.querySelector('.nm i').textContent=s.en;
+    b.onclick=()=>{pianoApplySkin(s.id);$('pianoSkinMask').hidden=true};
+    grid.appendChild(b);
+  });
+}
 
 function pianoFmt(s){s=Math.max(0,Math.floor(s||0));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}
 
@@ -3660,10 +3754,17 @@ function pianoRenderSongs(){
 async function pianoPlay(i){
   if(i<0||i>=piano.songs.length)return;
   const s=piano.songs[i];piano.idx=i;piano.lyrics=[];
-  $('pianoDock').hidden=false;
   $('pianoNowTitle').textContent=s.title||'';
   $('pianoNowArtist').textContent=s.artist||'';
+  $('pianoMiniTitle').textContent=s.title||'';
+  $('pianoMiniArtist').textContent=s.artist||'';
   $('pianoLyric').textContent='';
+  /* 中心贴专辑封面；没有封面时 .label:empty::after 那条 CSS 会画一个
+     体面的占位（两个人的颜色各一圈），不是破图标。 */
+  const label=$('pianoLabel');label.innerHTML='';
+  if(s.cover){const img=new Image();img.src=s.cover;img.alt='';img.onerror=()=>{label.innerHTML=''};label.appendChild(img)}
+  if(piano.collapsed)$('pianoMini').hidden=false;
+  pianoDrawer(false);                              /* 选完收回抽屉 */
   if(piano.view==='songs')pianoRenderSongs();
   /* 播放地址和歌词并行拉，谁也不等谁 */
   const [urlRes,lrcRes]=await Promise.allSettled([
@@ -3692,10 +3793,36 @@ function pianoNext(step){
 }
 
 function pianoSetPlayIcon(playing){
-  $('pianoPlayIcon').innerHTML=playing
-    ?'<path d="M6 5h4v14H6zm8 0h4v14h-4z"/>'
-    :'<path d="M8 5v14l11-7z"/>';
+  const pause='<path d="M6 5h4v14H6zm8 0h4v14h-4z"/>',play='<path d="M8 5v14l11-7z"/>';
+  $('pianoPlayIcon').innerHTML=playing?pause:play;
+  $('pianoMiniIcon').innerHTML=playing?pause:play;
   $('pianoPlay').setAttribute('aria-label',playing?'暂停':'播放');
+  /* 🔴 转/停靠 animation-play-state，不是加减类——加减类会让唱片
+     瞬间弹回 0 度。paused 停在当前角度，再播从原地继续。 */
+  $('pianoVinyl').classList.toggle('spin',playing);
+  $('pianoMiniDisc').classList.toggle('spin',playing);
+  $('pianoTonearm').classList.toggle('on',playing);   /* 唱臂落下/抬起 */
+}
+
+/* 折叠：唱片区 ↔ 迷你条。她真聊起来的时候屏幕要给对话。 */
+function pianoSetCollapsed(v){
+  piano.collapsed=!!v;
+  $('pianoStage').hidden=piano.collapsed;
+  $('pianoMini').hidden=!piano.collapsed||piano.idx<0;
+  localStorage.setItem('piano_collapsed',piano.collapsed?'1':'');
+}
+
+/* 离开琴房时把唱片动画停掉，别在后台空转吃电；回来时按播放状态恢复。 */
+function pianoSetAnimating(on){
+  const running=on&&pianoAudio&&!pianoAudio.paused;
+  $('pianoVinyl').classList.toggle('spin',!!running);
+  $('pianoMiniDisc').classList.toggle('spin',!!running);
+}
+
+function pianoDrawer(open){
+  $('pianoDrawer').hidden=!open;
+  $('pianoDrawerMask').hidden=!open;
+  if(open)pianoLoadLists();
 }
 
 function pianoInit(){
@@ -3719,10 +3846,22 @@ function pianoInit(){
     if(d)pianoAudio.currentTime=Number(seek.value)/1000*d;
     seeking=false;
   });
-  $('pianoPlay').onclick=()=>{if(pianoAudio.paused)pianoAudio.play().catch(()=>{});else pianoAudio.pause()};
-  $('pianoPrev').onclick=()=>pianoNext(-1);
-  $('pianoNext').onclick=()=>pianoNext(1);
+  const toggle=e=>{if(e)e.stopPropagation();if(pianoAudio.paused)pianoAudio.play().catch(()=>{});else pianoAudio.pause()};
+  $('pianoPlay').onclick=toggle;
+  $('pianoMiniPlay').onclick=toggle;
+  $('pianoPrev').onclick=e=>{e.stopPropagation();pianoNext(-1)};
+  $('pianoNext').onclick=e=>{e.stopPropagation();pianoNext(1)};
   $('pianoBack').onclick=()=>pianoRenderLists();
+  /* 点唱片区折叠成迷你条，点迷你条展开。控制键上已经 stopPropagation，
+     所以点播放键不会误触折叠。 */
+  $('pianoStage').onclick=()=>pianoSetCollapsed(true);
+  $('pianoMini').onclick=()=>pianoSetCollapsed(false);
+  $('pianoListBtn').onclick=()=>pianoDrawer(true);
+  $('pianoDrawerMask').onclick=()=>pianoDrawer(false);
+  $('pianoSkinBtn').onclick=()=>{pianoRenderSkinGrid();$('pianoSkinMask').hidden=false};
+  $('pianoSkinMask').onclick=e=>{if(e.target===$('pianoSkinMask'))$('pianoSkinMask').hidden=true};
+  pianoApplySkin(pianoSkin());
+  pianoSetCollapsed(localStorage.getItem('piano_collapsed')==='1');
   $('pianoSayForm').addEventListener('submit',async e=>{
     e.preventDefault();
     const el=$('pianoSay'),text=el.value.trim();
@@ -3771,8 +3910,8 @@ function switchTab(name){
   /* 琴房：进来才拉歌单，别在开屏时白打一次。音频元素挂在 tab 里，
      切走时 tab 是 display:none——不影响 <audio> 继续放。
      #stream 跟着 tab 走：进琴房搬进来，离开搬回 #chat。 */
-  if(name==='music'){pianoInit();pianoMountStream();pianoLoadLists()}
-  else pianoUnmountStream();
+  if(name==='music'){pianoInit();pianoMountStream();pianoSetAnimating(true)}
+  else{pianoUnmountStream();if(pianoAudio)pianoSetAnimating(false)}
   if(name==='reading'){renderReadingCounter();if(!starmapCollapsed())openStarmap();
     /* 日记那块要是记着上次是展开的，进书房就把数据补上 */
     if(!$('studyDiary')?.classList.contains('is-collapsed'))loadDiary();}

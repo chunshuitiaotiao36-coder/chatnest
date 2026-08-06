@@ -1520,193 +1520,458 @@ body.tab-away #chat {
 }
 .lore-section-title { margin-top: var(--space-2) }
 
-/* ── 琴房 ────────────────────────────────────────────────────────────────
-   播放器界面是原生的，不是 iframe——Duetto 只当引擎（网易云登录态、
-   音频分析、按歌缓存），界面和对话都在小窝这边。
-   字号和颜色一律走变量，别写死。 */
+/* ══════════════ 琴房 ══════════════════════════════════════════════════
+   参照 avisforevelyn/Duetto → frontend/pkg/listen/listen.css。
+   黑胶、旋转、唱臂、五套皮肤 + 自定义 + 切换器，整块搬过来。
 
-.piano {
-  padding: var(--space-4);
-  padding-bottom: calc(var(--tabbar-space) + 220px);   /* 给底部播放条让位 */
-  max-width: 720px;
-  margin: 0 auto;
+   🔴 皮肤类挂在 .piano-room 上，--ls-* 变量**不进 :root**。
+   别的 tab 一个像素都不能变。 */
+
+/* ── 字体令牌（只在琴房内用，不污染全局）─────────────────────── */
+.piano-room {
+  --ls-serif-d: 'Cormorant Garamond', 'EB Garamond', 'Songti SC', 'Noto Serif SC', 'STSong', serif;
+  --ls-cn: 'Songti SC', 'Noto Serif SC', 'STSong', 'SimSun', serif;
+  --ls-meta: 'JetBrains Mono', 'Geist Mono', ui-monospace, monospace;
 }
-.piano-head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-bottom: var(--space-4);
+
+/* ════════════ 五套皮肤 + 自定义 ════════════
+   名字是中国传统色，原样保留。
+   🔴 --ls-gold 和 --ls-eve 是两个人各一个颜色，不是主色和辅色，
+      绝对不许合并成一个。 */
+
+/* 凝脂 — 米金 · 清冷（默认）*/
+.piano-room.ls-skin-ningzhi {
+  --ls-bg: #efece7; --ls-bg2: #e6e2db;
+  --ls-panel: #f8f6f2; --ls-panel2: #efebe4;
+  --ls-ink: #2b2723; --ls-ink-dim: #6f675e; --ls-ink-faint: #a59c90;
+  --ls-line: #ddd6cb; --ls-line-soft: #e8e2d8;
+  --ls-gold: #b29a6e; --ls-eve: #9a8aa3;
+  --ls-shadow: rgba(80,70,55,.13); --ls-glow: rgba(178,154,110,.4);
+  --ls-amb: radial-gradient(900px 600px at 20% 6%, #f6f3ee 0%, transparent 60%),
+            radial-gradient(800px 700px at 84% 96%, #e9e4db 0%, transparent 62%), #ece8e1;
 }
-.piano-title {
-  font-family: var(--font-sans);
-  font-size: var(--text-title);
-  color: var(--text-primary);
+/* 豆青 — 森系绿 · 窗边阳光 */
+.piano-room.ls-skin-douqing {
+  --ls-bg: #eaede2; --ls-bg2: #e0e4d6;
+  --ls-panel: #f4f6ee; --ls-panel2: #eaeee1;
+  --ls-ink: #2c302a; --ls-ink-dim: #5f6a55; --ls-ink-faint: #97a085;
+  --ls-line: #d3d8c5; --ls-line-soft: #e0e4d4;
+  --ls-gold: #8a9a6b; --ls-eve: #c9a45f;
+  --ls-shadow: rgba(70,80,55,.14); --ls-glow: rgba(138,154,107,.42);
+  --ls-amb: radial-gradient(700px 520px at 16% 4%, #f3f6ea 0%, transparent 58%),
+            radial-gradient(900px 800px at 90% 92%, #e3ead4 0%, transparent 60%), #e7ebde;
 }
-.piano-sub {
-  font-size: var(--text-sm);
-  color: var(--text-faint);
-  margin-left: auto;
+/* 雪青 — 清透蓝紫白 */
+.piano-room.ls-skin-xueqing {
+  --ls-bg: #f0f1fa; --ls-bg2: #e7e8f5;
+  --ls-panel: #f8f8fd; --ls-panel2: #eeeef9;
+  --ls-ink: #3b3a52; --ls-ink-dim: #6d6c8c; --ls-ink-faint: #a6a6c9;
+  --ls-line: #dddef0; --ls-line-soft: #e9e9f6;
+  --ls-gold: #8f93c9; --ls-eve: #b58fc5;
+  --ls-shadow: rgba(70,72,120,.13); --ls-glow: rgba(143,147,201,.42);
+  --ls-amb: radial-gradient(900px 620px at 22% 8%, #f6f6fc 0%, transparent 60%),
+            radial-gradient(800px 720px at 84% 96%, #e9eaf7 0%, transparent 62%), #f0f1fa;
 }
-.piano-back {
-  display: grid;
-  place-items: center;
-  width: 28px; height: 28px;
-  border: none;
-  border-radius: var(--radius-full);
-  background: transparent;
-  color: var(--text-secondary);
+/* 霁蓝 — 雨过天青 · 雾蓝 */
+.piano-room.ls-skin-jilan {
+  --ls-bg: #e9eef4; --ls-bg2: #dfe6ee;
+  --ls-panel: #f5f8fb; --ls-panel2: #eaf0f6;
+  --ls-ink: #2a3038; --ls-ink-dim: #5f6c7c; --ls-ink-faint: #94a2b2;
+  --ls-line: #d3dde7; --ls-line-soft: #e1e8f0;
+  --ls-gold: #7d9ac6; --ls-eve: #8fb3b0;
+  --ls-shadow: rgba(60,75,95,.13); --ls-glow: rgba(125,154,198,.42);
+  --ls-amb: radial-gradient(900px 620px at 20% 6%, #f2f6fa 0%, transparent 60%),
+            radial-gradient(820px 720px at 86% 94%, #e2eaf3 0%, transparent 62%), #e8edf4;
+}
+/* 藕荷 — 软萌 · 微粉 */
+.piano-room.ls-skin-ouhe {
+  --ls-bg: #f5eef0; --ls-bg2: #efe6ea;
+  --ls-panel: #fbf6f7; --ls-panel2: #f4ecef;
+  --ls-ink: #322a2d; --ls-ink-dim: #7a6a70; --ls-ink-faint: #b6a3ab;
+  --ls-line: #e7d8de; --ls-line-soft: #f0e4e9;
+  --ls-gold: #c08c9b; --ls-eve: #b48f8a;
+  --ls-shadow: rgba(120,80,95,.13); --ls-glow: rgba(192,140,155,.42);
+  --ls-amb: radial-gradient(800px 560px at 16% 6%, #fcf4f6 0%, transparent 58%),
+            radial-gradient(900px 760px at 88% 94%, #f3e4ea 0%, transparent 60%), #f1e8ec;
+}
+/* 自定义 — 第六套，原样搬。fonts/chillround 那套字体是留给它的口子，
+   代码里当前没有引用，等小朵定，不要擅自删目录。 */
+.piano-room.ls-skin-custom {
+  --ls-bg: #f4f1f3; --ls-bg2: #eae4e8;
+  --ls-panel: #faf7f9; --ls-panel2: #f0ebee;
+  --ls-ink: #2b2530; --ls-ink-dim: #6f6675; --ls-ink-faint: #a99fb0;
+  --ls-line: #e0d8dd; --ls-line-soft: #ebe4e8;
+  --ls-gold: #b0916a; --ls-eve: #b48f9e;
+  --ls-shadow: rgba(80,60,75,.13); --ls-glow: rgba(200,150,180,.4);
+  --ls-amb: radial-gradient(900px 600px at 20% 6%, #f8f4f6 0%, transparent 60%),
+            radial-gradient(800px 700px at 84% 96%, #efe8ed 0%, transparent 62%), #ece6ea;
+}
+
+/* ── 屋子 ─────────────────────────────────────────────────────── */
+.piano-room {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  background: var(--ls-amb);
+  color: var(--ls-ink);
+  padding-bottom: var(--tabbar-space);
+  overflow: hidden;
+}
+/* 🔴 暗色按方案 A：琴房不跟随系统暗色，永远是那五种光线。
+   一间屋子有自己的光线，不奇怪。等小朵定了再说别的。 */
+
+.piano-top {
+  flex-shrink: 0;
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px 20px 8px;
+}
+.piano-top-title { flex: 1; min-width: 0 }
+.piano-kicker {
+  font-family: var(--ls-meta);
+  font-size: 9.5px; letter-spacing: .26em; text-transform: uppercase;
+  color: var(--ls-gold);
+}
+.piano-h {
+  font-family: var(--ls-serif-d);
+  font-size: 27px; font-weight: 500; line-height: 1; margin-top: 3px;
+  font-style: italic; color: var(--ls-ink);
+}
+.piano-listbtn {
+  display: grid; place-items: center;
+  width: 36px; height: 36px; flex: none;
+  border: 1px solid var(--ls-line); border-radius: 50%;
+  background: color-mix(in srgb, var(--ls-panel) 70%, transparent);
+  color: var(--ls-ink-dim); cursor: pointer;
+}
+.piano-listbtn svg { width: 19px; height: 19px }
+.piano-listbtn:hover { border-color: var(--ls-gold); color: var(--ls-gold) }
+
+/* 皮肤切换按钮：色点跟着当前皮肤的 --ls-gold 走 */
+.ls-skinbtn {
+  display: flex; align-items: center; gap: 7px;
+  padding: 7px 13px; border-radius: 22px; flex: none;
+  border: 1px solid var(--ls-line);
+  background: color-mix(in srgb, var(--ls-panel) 70%, transparent);
+  font-family: var(--ls-meta); font-size: 11px;
+  color: var(--ls-ink-dim);
+  box-shadow: 0 2px 8px var(--ls-shadow);
   cursor: pointer;
 }
-.piano-back svg { width: 18px; height: 18px }
-.piano-back[hidden] { display: none }
+.ls-skinbtn:hover { border-color: var(--ls-gold) }
+.ls-skinbtn .sw {
+  width: 11px; height: 11px; border-radius: 50%;
+  background: var(--ls-gold);
+  box-shadow: 0 0 6px var(--ls-glow);
+}
 
-.piano-list { display: flex; flex-direction: column; gap: var(--space-1) }
-.piano-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3);
-  border: none;
-  border-radius: var(--radius-md);
-  background: transparent;
-  text-align: left;
-  color: var(--text-primary);
-  font-family: var(--font-sans);
-  font-size: var(--text-base);
+/* ── 黑胶 ─────────────────────────────────────────────────────
+   盘面就是黑的，不跟皮肤变——唱片本来就是黑的。 */
+.piano-stage {
+  flex-shrink: 0;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 4px 20px 0;
   cursor: pointer;
-  width: 100%;
 }
-.piano-row:hover { background: var(--bg-chip) }
-.piano-row.is-playing { color: var(--accent) }
-.piano-row-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 }
-.piano-row-title {
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+.piano-stage[hidden] { display: none }
+.ls-vinyl-wrap { position: relative; width: 200px; height: 200px; margin: 0 0 2px }
+.ls-vinyl {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, #2a2724 0 33%, #16140f 33% 100%);
+  box-shadow: 0 14px 40px rgba(0,0,0,.4), inset 0 0 40px rgba(0,0,0,.6);
+  display: flex; align-items: center; justify-content: center;
+  animation: lsSpin 9s linear infinite;
+  /* 🔴 停的时候用 paused，不是把类去掉——去掉类唱片会瞬间弹回 0 度。
+     paused 是停在当前角度，再播从原地继续。 */
+  animation-play-state: paused;
 }
-.piano-row-sub {
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+.ls-vinyl.spin { animation-play-state: running }
+@keyframes lsSpin { to { transform: rotate(360deg) } }
+.ls-vinyl .grooves {
+  position: absolute; inset: 16px; border-radius: 50%;
+  background: repeating-radial-gradient(circle at 50% 50%,
+    rgba(255,255,255,.04) 0 1px, transparent 1px 4px);
 }
-.piano-empty {
-  padding: var(--space-4);
-  color: var(--text-faint);
-  font-size: var(--text-sm);
-  text-align: center;
+.ls-vinyl .label {
+  width: 120px; height: 120px; border-radius: 50%; overflow: hidden;
+  box-shadow: 0 0 0 5px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.1);
+  background: var(--ls-panel2);
+  display: grid; place-items: center;
+}
+.ls-vinyl .label img { width: 100%; height: 100%; object-fit: cover; display: block }
+/* 没有封面时是一个体面的占位，不是破图标 */
+.ls-vinyl .label:empty::after {
+  content: '';
+  width: 100%; height: 100%;
+  background: radial-gradient(circle at 50% 42%,
+    color-mix(in srgb, var(--ls-gold) 55%, transparent) 0 18%,
+    color-mix(in srgb, var(--ls-eve) 40%, transparent) 18% 46%,
+    var(--ls-panel2) 46% 100%);
+}
+.ls-vinyl .hole {
+  position: absolute; width: 11px; height: 11px; border-radius: 50%;
+  background: var(--ls-bg); box-shadow: 0 0 0 3px rgba(0,0,0,.5);
+}
+/* 唱臂：底座 + 斜杆 + 唱头。播放时落到盘上，暂停抬起。 */
+.ls-tonearm {
+  position: absolute; top: -10px; right: -6px;
+  width: 96px; height: 96px;
+  color: var(--ls-ink-dim); z-index: 6;
+  transform: rotate(-32deg); transform-origin: 80% 18%;
+  transition: transform .4s cubic-bezier(.22,.61,.36,1);
+  pointer-events: none;
+}
+.ls-tonearm.on { transform: rotate(-6deg) }
+.ls-tonearm svg { width: 100%; height: 100% }
+
+.piano-song { text-align: center; margin-top: 12px }
+.piano-song-t {
+  font-family: var(--ls-serif-d); font-style: italic;
+  font-size: 22px; font-weight: 600; color: var(--ls-ink);
+  line-height: 1.2;
+}
+.piano-song-a {
+  font-family: var(--ls-meta); font-size: 10.5px;
+  color: var(--ls-ink-faint); margin-top: 4px;
 }
 
-/* 播放条：固定在 tabbar 上方 */
-.piano-dock {
-  position: fixed;
-  left: 0; right: 0;
-  bottom: var(--tabbar-space);
-  z-index: 21;
-  padding: var(--space-3) var(--space-4);
-  background: var(--bg-composer);
-  border-top: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-.piano-dock[hidden] { display: none }
-
-.piano-lyric {
-  min-height: 1.4em;
-  font-size: var(--text-sm);
-  line-height: 1.4;
-  color: var(--text-secondary);
-  text-align: center;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.piano-now {
-  display: flex; align-items: baseline; gap: var(--space-2);
-  justify-content: center;
-  min-width: 0;
-}
-.piano-now-title {
-  font-size: var(--text-base);
-  color: var(--text-primary);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.piano-now-artist { font-size: var(--text-sm); color: var(--text-faint) }
-
-.piano-bar { display: flex; align-items: center; gap: var(--space-2) }
-.piano-time {
-  font-size: var(--text-sm);
-  color: var(--text-faint);
-  font-variant-numeric: tabular-nums;
-  min-width: 3.2em;
-  text-align: center;
-}
+.piano-bar { width: min(340px, 100%); margin: 12px 0 2px }
 .piano-seek {
-  flex: 1;
-  -webkit-appearance: none; appearance: none;
-  height: 3px;
-  border-radius: var(--radius-full);
-  background: var(--border-strong);
-  cursor: pointer;
+  width: 100%; -webkit-appearance: none; appearance: none;
+  height: 4px; border-radius: 4px; background: var(--ls-line); cursor: pointer;
 }
 .piano-seek::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 12px; height: 12px;
-  border-radius: var(--radius-full);
-  background: var(--accent);
+  -webkit-appearance: none; width: 11px; height: 11px; border-radius: 50%;
+  background: var(--ls-gold); box-shadow: 0 0 0 3px var(--ls-panel);
 }
 .piano-seek::-moz-range-thumb {
-  width: 12px; height: 12px; border: none;
-  border-radius: var(--radius-full);
-  background: var(--accent);
+  width: 11px; height: 11px; border: none; border-radius: 50%;
+  background: var(--ls-gold); box-shadow: 0 0 0 3px var(--ls-panel);
+}
+.piano-times {
+  display: flex; justify-content: space-between; margin-top: 6px;
+  font-family: var(--ls-meta); font-size: 10px; color: var(--ls-ink-faint);
 }
 
-.piano-ctrl { display: flex; align-items: center; justify-content: center; gap: var(--space-4) }
-.piano-ctrl button {
-  display: grid; place-items: center;
-  width: 36px; height: 36px;
-  border: none; border-radius: var(--radius-full);
-  background: transparent;
-  color: var(--text-secondary);
+.ls-ctrl {
+  display: flex; align-items: center; justify-content: center;
+  gap: 22px; padding: 8px 0 10px;
+}
+.ls-ctrl button {
+  display: flex; align-items: center; justify-content: center;
+  color: var(--ls-ink-dim); background: none; border: 0; cursor: pointer;
+  transition: color .2s, transform .15s;
+}
+.ls-ctrl button:hover { color: var(--ls-ink) }
+.ls-ctrl button:active { transform: scale(.9) }
+.ls-ctrl svg { width: 24px; height: 24px; fill: currentColor }
+.ls-ctrl .play {
+  width: 60px; height: 60px; border-radius: 50%;
+  background: var(--ls-gold); color: #fff;
+  box-shadow: 0 8px 24px var(--ls-glow);
+}
+.ls-ctrl .play svg { width: 26px; height: 26px }
+
+/* ── 折叠态：迷你条 ───────────────────────────────────────── */
+.piano-mini {
+  flex-shrink: 0;
+  display: flex; align-items: center; gap: 11px;
+  margin: 8px 18px 4px; padding: 8px 12px;
+  border: 1px solid var(--ls-line-soft); border-radius: 16px;
+  background: color-mix(in srgb, var(--ls-panel) 72%, transparent);
   cursor: pointer;
 }
-.piano-ctrl button svg { width: 20px; height: 20px }
-.piano-ctrl button.is-primary {
-  width: 44px; height: 44px;
-  background: var(--accent);
-  color: var(--accent-fg);
+.piano-mini[hidden] { display: none }
+.piano-mini .mdisc {
+  width: 46px; height: 46px; border-radius: 50%; flex: none;
+  background: radial-gradient(circle at 50% 50%, #2a2724 0 30%, #16140f 30% 100%);
+  display: grid; place-items: center;
+  animation: lsSpin 9s linear infinite; animation-play-state: paused;
+  box-shadow: 0 3px 10px rgba(0,0,0,.3);
 }
-.piano-ctrl button.is-primary svg { width: 24px; height: 24px }
+.piano-mini .mdisc.spin { animation-play-state: running }
+.piano-mini .mlabel {
+  width: 17px; height: 17px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--ls-gold), var(--ls-eve));
+  box-shadow: 0 0 0 2px rgba(0,0,0,.35);
+}
+.piano-mini .mtxt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px }
+.piano-mini .mtxt b {
+  font-family: var(--ls-serif-d); font-style: italic; font-size: 15px; font-weight: 600;
+  color: var(--ls-ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.piano-mini .mtxt i {
+  font-family: var(--ls-meta); font-style: normal; font-size: 10px;
+  color: var(--ls-ink-faint);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.piano-mini .mplay {
+  width: 34px; height: 34px; border-radius: 50%; flex: none;
+  display: grid; place-items: center; border: 0; cursor: pointer;
+  background: var(--ls-gold); color: #fff;
+  box-shadow: 0 4px 12px var(--ls-glow);
+}
+.piano-mini .mplay svg { width: 17px; height: 17px; fill: currentColor }
 
-.piano-say { display: flex; align-items: center; gap: var(--space-2) }
+/* ── 歌词 ─────────────────────────────────────────────────── */
+.piano-lyric {
+  flex-shrink: 0;
+  min-height: 1.5em; padding: 6px 20px 8px;
+  font-family: var(--ls-cn); font-size: 13px; line-height: 1.5;
+  color: var(--ls-ink-dim); text-align: center;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ── 对话流 ───────────────────────────────────────────────── */
+.piano-chat { flex: 1; min-height: 0; display: flex }
+.piano-chat:empty { display: none }
+.stream-inner.piano-trim > *:nth-last-child(n+17) { display: none }
+
+/* ── 说一句 ───────────────────────────────────────────────── */
+.piano-say {
+  flex-shrink: 0;
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 18px 10px;
+}
 .piano-say input {
-  flex: 1;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-full);
-  background: var(--bg-chip);
-  color: var(--text-primary);
-  font-family: var(--font-sans);
-  font-size: var(--text-base);
+  flex: 1; padding: 10px 15px;
+  border: 1px solid var(--ls-line); border-radius: 22px;
+  background: color-mix(in srgb, var(--ls-panel) 80%, transparent);
+  color: var(--ls-ink);
+  font-family: var(--ls-cn); font-size: 14px;
 }
-.piano-say input:focus { outline: none; border-color: var(--accent) }
+.piano-say input::placeholder { color: var(--ls-ink-faint) }
+.piano-say input:focus { outline: none; border-color: var(--ls-gold) }
 .piano-say button {
-  display: grid; place-items: center;
-  width: 34px; height: 34px;
-  border: none; border-radius: var(--radius-full);
-  background: var(--accent);
-  color: var(--accent-fg);
-  cursor: pointer;
-  flex: none;
+  display: grid; place-items: center; flex: none;
+  width: 36px; height: 36px; border: 0; border-radius: 50%;
+  background: var(--ls-gold); color: #fff; cursor: pointer;
+  box-shadow: 0 4px 12px var(--ls-glow);
 }
 .piano-say button svg { width: 18px; height: 18px }
 .piano-say button:disabled { opacity: .45; cursor: default }
 
-/* 琴房里的对话流：#stream 被搬进来时的容器。
-   #stream 自己是 flex:1，所以这儿必须是 flex 容器并给出高度上限，
-   否则它会撑到零高或撑破播放条。 */
-.piano-chat {
-  display: flex;
-  max-height: 34vh;
-  min-height: 0;
+/* ── 歌单抽屉 ─────────────────────────────────────────────── */
+.piano-drawer-mask {
+  position: absolute; inset: 0; z-index: 30;
+  background: rgba(10,8,7,.35); backdrop-filter: blur(3px);
 }
-.piano-chat:empty { display: none }
-/* 琴房里只露最近 8 轮（一轮 = 用户一条 + 梁忱一条 = 2 个子元素）。
-   纯 CSS 收，不用 JS 记账；搬回 Chat 时去掉这个类，历史原样回来。 */
-.stream-inner.piano-trim > *:nth-last-child(n+17) { display: none }
+.piano-drawer-mask[hidden] { display: none }
+.piano-drawer {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 31;
+  max-height: 68%;
+  display: flex; flex-direction: column;
+  padding: 16px 18px calc(var(--tabbar-space) + 12px);
+  border-radius: 22px 22px 0 0;
+  background: color-mix(in srgb, var(--ls-panel) 92%, transparent);
+  box-shadow: 0 -10px 50px var(--ls-shadow);
+  animation: lsUp .3s cubic-bezier(.22,.61,.36,1) both;
+}
+.piano-drawer[hidden] { display: none }
+@keyframes lsUp { from { transform: translateY(20px); opacity: .6 } to { transform: none; opacity: 1 } }
+.piano-drawer-head {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex: none;
+}
+.piano-title {
+  font-family: var(--ls-serif-d); font-style: italic;
+  font-size: 20px; font-weight: 600; color: var(--ls-ink);
+}
+.piano-sub {
+  margin-left: auto;
+  font-family: var(--ls-meta); font-size: 10px; color: var(--ls-ink-faint);
+}
+.piano-back {
+  display: grid; place-items: center; width: 26px; height: 26px;
+  border: 0; border-radius: 50%; background: none;
+  color: var(--ls-ink-dim); cursor: pointer;
+}
+.piano-back svg { width: 18px; height: 18px }
+.piano-back[hidden] { display: none }
+.piano-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px }
+.piano-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px; width: 100%;
+  border: 0; border-radius: 12px; background: transparent;
+  text-align: left; color: var(--ls-ink); cursor: pointer;
+  font-family: var(--ls-cn); font-size: 14px;
+}
+.piano-row:hover { background: color-mix(in srgb, var(--ls-gold) 9%, transparent) }
+.piano-row.is-playing { color: var(--ls-gold) }
+.piano-row-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 }
+.piano-row-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.piano-row-sub {
+  font-family: var(--ls-meta); font-size: 10.5px; color: var(--ls-ink-faint);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.piano-empty {
+  padding: 18px; text-align: center;
+  font-family: var(--ls-cn); font-size: 13px; color: var(--ls-ink-faint);
+}
+
+/* ── 皮肤选择面板 ─────────────────────────────────────────── */
+.ls-skinsheet-mask {
+  position: absolute; inset: 0; z-index: 40;
+  background: rgba(10,8,7,.5); backdrop-filter: blur(4px);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.ls-skinsheet-mask[hidden] { display: none }
+@media (min-width: 520px) { .ls-skinsheet-mask { align-items: center } }
+.ls-skinsheet {
+  width: min(440px, 96vw);
+  background: color-mix(in srgb, var(--ls-panel) 92%, transparent);
+  border-radius: 22px 22px 0 0;
+  padding: 20px 22px calc(var(--tabbar-space) + 20px);
+  box-shadow: 0 -10px 60px rgba(0,0,0,.4);
+  animation: lsUp .3s cubic-bezier(.22,.61,.36,1) both;
+}
+@media (min-width: 520px) {
+  .ls-skinsheet { border-radius: 22px; padding-bottom: 24px }
+}
+.ls-skinsheet h3 {
+  font-family: var(--ls-serif-d); font-style: italic;
+  font-size: 22px; font-weight: 600; color: var(--ls-ink);
+}
+.ls-skinsheet .sub {
+  font-family: var(--ls-meta); font-size: 10px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--ls-gold); margin: 3px 0 16px;
+}
+.ls-skingrid { display: grid; grid-template-columns: 1fr 1fr; gap: 11px }
+.ls-skincard {
+  display: flex; gap: 11px; align-items: center;
+  padding: 12px; border-radius: 14px;
+  border: 1.5px solid var(--ls-line); background: none;
+  text-align: left; cursor: pointer; transition: border-color .2s;
+}
+.ls-skincard.on {
+  border-color: var(--ls-gold);
+  background: color-mix(in srgb, var(--ls-gold) 7%, transparent);
+}
+/* 色板：大块是他（--ls-gold），左下角那道小杠是她（--ls-eve）。
+   🔴 两个人两个色，这就是为什么不能合并成一个。 */
+.ls-skincard .sw {
+  width: 40px; height: 40px; border-radius: 11px; flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.12);
+  position: relative; overflow: hidden;
+}
+.ls-skincard .sw i {
+  position: absolute; bottom: 6px; left: 6px;
+  width: 13px; height: 4px; border-radius: 3px;
+}
+.ls-skincard .nm b {
+  font-family: var(--ls-serif-d); font-style: italic;
+  font-size: 16px; font-weight: 600; display: block; color: var(--ls-ink);
+}
+.ls-skincard .nm i {
+  font-family: var(--ls-meta); font-size: 9px; font-style: normal;
+  color: var(--ls-ink-faint);
+}
+
+/* ════════════ 🔴 雪青特例 ════════════
+   雪青的 --ls-gold 是 #8f93c9，浅；白字压在上面一片糊。
+   源文件 listen.css 里 22 条 .ls-skin-xueqing 覆盖全是同一件事：
+   **主色底上的字，从白改成深墨 #3b3a52。**
+   这里把这条规律落到琴房里所有「白字压在 --ls-gold 上」的元素。
+   源规则与本仓映射见 commit message。 */
+.piano-room.ls-skin-xueqing .ls-ctrl .play { color: #3b3a52 }
+.piano-room.ls-skin-xueqing .piano-say button { color: #3b3a52 }
+.piano-room.ls-skin-xueqing .piano-mini .mplay { color: #3b3a52 }
+.piano-room.ls-skin-xueqing .piano-row.is-playing { color: #5a5e9e }
