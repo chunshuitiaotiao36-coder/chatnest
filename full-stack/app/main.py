@@ -111,6 +111,7 @@ async def lifespan(app: FastAPI):
     # 琴房引擎（Duetto）只是个可选的外部依赖：没配就在启动日志里大声说一句，
     # 别等她点开琴房看见空歌单才去猜是哪儿断了。
     piano.startup_check()
+    piano_analysis.startup_check()
     try:
         yield
     finally:
@@ -1101,16 +1102,23 @@ async def piano_spectrum(body: PianoAnalyzeBody) -> dict:
     已经算过就直接回；没算过就**丢进线程**立刻返回——一首歌要下载 + 算 FFT，
     几十秒起步，绝不能阻塞。
     """
+    # 🔴 这几条以前是静默 return 的，出了事日志里一个字都没有——
+    # 「fallback 的意义是不崩，不是不吭声」那条教训又踩了一次。现在每条路都出声。
+    timing_logger.info("[琴房频谱] 收到触发 id=%s %s", body.id, body.title)
     cached = piano_analysis.read_cached(body.id)
     if cached:
+        timing_logger.info("[琴房频谱] %s 已有缓存，跳过", body.id)
         return {"ok": True, "cached": True}
     try:
         data = await _piano("/api/ncm/song-url", {"id": body.id})
         url = str(data.get("url") or "")
-    except HTTPException:
-        return {"ok": True, "queued": False}      # 拿不到地址，安静跳过
-    if not url:
+    except HTTPException as exc:
+        timing_logger.warning("[琴房频谱] %s 拿不到播放地址：%s", body.id, exc.detail)
         return {"ok": True, "queued": False}
+    if not url:
+        timing_logger.warning("[琴房频谱] %s 播放地址是空的（VIP 或已下架？）", body.id)
+        return {"ok": True, "queued": False}
+    timing_logger.info("[琴房频谱] %s 开始后台分析", body.id)
     # 丢后台，不 await 结果
     asyncio.create_task(asyncio.to_thread(
         piano_analysis.analyze, body.id, url, body.title, body.artist))

@@ -52,6 +52,29 @@ _HEADERS = {
 _KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
 
+def startup_check() -> None:
+    """开机就把话说清楚：缓存目录能不能写、librosa 装没装上。
+
+    🔴 只查 importlib 的 spec，**不真的 import**——真 import 会把几十上百 MB
+    永久留在常驻内存里，那正是这一单要避开的东西。
+    """
+    try:
+        CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        n = len(list(CACHE_DIR.glob("*.json")))
+    except Exception as exc:
+        logger.warning("[琴房频谱] 缓存目录不可写 %s：%s", CACHE_DIR, exc)
+        return
+    import importlib.util
+    missing = [m for m in ("librosa", "matplotlib", "numpy")
+               if importlib.util.find_spec(m) is None]
+    if missing:
+        logger.warning(
+            "[琴房频谱] 缺少依赖 %s —— 频谱分析会全部失败（界面照常）。"
+            "requirements.txt 进镜像了吗？", "、".join(missing))
+        return
+    logger.info("[琴房频谱] 就位 %s（已有 %d 首）", CACHE_DIR, n)
+
+
 def paths_for(song_id: str) -> tuple[Path, Path]:
     return CACHE_DIR / f"{song_id}.json", CACHE_DIR / f"{song_id}.png"
 
