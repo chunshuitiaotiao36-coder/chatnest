@@ -25,7 +25,7 @@ from starlette.formparsers import MultiPartParser
 
 MultiPartParser.max_part_size = 60 * 1024 * 1024  # 与 uploads.py 的 MAX_FILE_BYTES 对齐
 
-from app import auth, backgrounds, lorebook, piano, relays, starmap, telegram
+from app import auth, backgrounds, lorebook, piano, piano_analysis, relays, starmap, telegram
 from app.actor import ActorBusyError, _mem_kv
 from app.claude import (
     SessionResumeError,
@@ -569,6 +569,28 @@ async def chat(body: ChatBody) -> StreamingResponse:
                 except Exception:  # 琴房上下文是锦上添花，绝不能拖垮一次对话
                     logger.exception("piano context failed; sending without it")
                     block = ""
+                # 频谱：本地算出来的客观数据（BPM / 调性 / 能量走向）。
+                # 跟歌词那条是互补——频谱说这首歌多快、什么调、哪一段最满，
+                # 歌词说唱的是什么。两个都注入，加起来才是一首完整的歌。
+                try:
+                    meta = piano_analysis.read_cached(str(body.piano.get("id") or ""))
+                except Exception:
+                    meta = None
+                if meta:
+                    line = piano_analysis.context_line(meta)
+                    if line:
+                        block = f"{block}\n——\n{line}" if block else line
+                    # 🔴 频谱图只在换歌之后的第一次对话送一次。前端用 wantImage
+                    # 标记，同一首歌之后不再送——图片吃 token，而且送一次就记住了。
+                    if body.piano.get("wantImage"):
+                        png = meta.get("spectrogram") or ""
+                        if png and Path(png).exists():
+                            block += (
+                                "\n\n[这首歌的频谱图，请用 Read 工具看一眼：\n"
+                                f"{png}\n"
+                                "三联图：上=梅尔频谱（高低频的分布）"
+                                "中=色度图（调性走向）下=能量包络（起伏）]"
+                            )
                 if block:
                     prompt += f"\n\n{block}"
             chat_args = (prompt, conv_id, resume_id, body.model,
@@ -1070,6 +1092,29 @@ async def piano_analyze_audio(body: PianoAnalyzeBody) -> dict:
         # 🔴 一声不吭。没配 key 时 Duetto 那边直接返空不报错，
         # 没有分析只是少一段上下文，不是故障。
         return {"ok": True, "queued": True}
+
+
+@app.post("/api/piano/spectrum", dependencies=[Depends(require_auth)])
+async def piano_spectrum(body: PianoAnalyzeBody) -> dict:
+    """本地把这首歌算出来（librosa，不经过任何 AI 接口）。
+
+    已经算过就直接回；没算过就**丢进线程**立刻返回——一首歌要下载 + 算 FFT，
+    几十秒起步，绝不能阻塞。
+    """
+    cached = piano_analysis.read_cached(body.id)
+    if cached:
+        return {"ok": True, "cached": True}
+    try:
+        data = await _piano("/api/ncm/song-url", {"id": body.id})
+        url = str(data.get("url") or "")
+    except HTTPException:
+        return {"ok": True, "queued": False}      # 拿不到地址，安静跳过
+    if not url:
+        return {"ok": True, "queued": False}
+    # 丢后台，不 await 结果
+    asyncio.create_task(asyncio.to_thread(
+        piano_analysis.analyze, body.id, url, body.title, body.artist))
+    return {"ok": True, "queued": True}
 
 
 @app.get("/api/piano/notes", dependencies=[Depends(require_auth)])

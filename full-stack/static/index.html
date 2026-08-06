@@ -3677,7 +3677,10 @@ function pianoNowPlaying(){
   return {id:String(s.id),title:s.title||'',artist:s.artist||'',
           pos:Math.floor(pianoAudio.currentTime||0),
           dur:Math.floor(pianoAudio.duration||s.dur||0),
-          lyric:pianoCurrentLyric()};
+          lyric:pianoCurrentLyric(),
+          /* 频谱图只在换歌之后的第一次对话送一次——图吃 token，
+             而且送一次他就记住了。发完就把这首标记掉。 */
+          wantImage:!_pianoImgSent.has(String(s.id))};
 }
 
 function pianoCurrentLyric(){
@@ -3799,6 +3802,7 @@ async function pianoPlay(i){
      await 了就等于把后面所有逻辑焊死在这儿，而且一声不吭。 */
   pianoAudio.play().catch(()=>{});
   pianoEnsureAnalysis(s);        /* 切歌后按一下开关，不 await */
+  pianoEnsureSpectrum(s);        /* 本地频谱，同样不 await */
 }
 
 /* 切歌之后按一下分析的开关。Duetto 的分析是惰性的：读的那条只查库，
@@ -3811,6 +3815,19 @@ async function pianoPlay(i){
    触发之后不轮询：下次她在琴房说话，聊天那条路本来就会 GET 一次分析，
    那时候算好了自然带上。 */
 var _pianoAnalyzed=new Set();
+var _pianoImgSent=new Set();      /* 已经送过频谱图的歌，同一首不再送 */
+
+/* 本地频谱分析（librosa，在小窝自己进程里算，不经过任何 AI 接口）。
+   跟上面那条一样：不 await、同一首只触发一次、失败一声不吭。 */
+var _pianoSpectrum=new Set();
+function pianoEnsureSpectrum(s){
+  const id=String(s&&s.id||'');
+  if(!id||!/^\d+$/.test(id)||_pianoSpectrum.has(id))return;
+  _pianoSpectrum.add(id);
+  api('/api/piano/spectrum',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({id,title:s.title||'',artist:s.artist||''})}).catch(()=>{});
+}
 function pianoEnsureAnalysis(s){
   const id=String(s&&s.id||'');
   if(!id||!/^\d+$/.test(id)||_pianoAnalyzed.has(id))return;
@@ -3996,7 +4013,9 @@ function pianoInit(){
     /* 走同一条线（同一个梁忱、同一条会话、同一条 Ombre），
        只是把「正在放什么」挂在用户消息侧带过去。
        回复就渲染在下面那条流里——**不弹去 Chat**，人得留在这儿。 */
-    sendMessage(text,true,[],[],{piano:pianoNowPlaying()});
+    const np=pianoNowPlaying();
+    if(np&&np.wantImage)_pianoImgSent.add(np.id);   /* 这一轮送了，之后不再送 */
+    sendMessage(text,true,[],[],{piano:np});
     $('pianoBlank').hidden=true;      /* 一说话就不再是空会话 */
   });
 }
