@@ -685,9 +685,6 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
   <div class="piano-room ls-skin-ningzhi" id="pianoRoom">
 
     <div class="piano-top">
-      <button type="button" class="piano-listbtn" id="pianoListBtn" aria-label="歌单">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 6h11M4 12h11M4 18h7M17 15v-5l4-1v5"/><circle cx="16" cy="16" r="2"/><circle cx="20" cy="15" r="2"/></svg>
-      </button>
       <div class="piano-top-title">
         <div class="piano-kicker">正在一起听</div>
         <div class="piano-h" id="pianoRoomName">此刻</div>
@@ -698,6 +695,14 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
     </div>
 
     <!-- 唱片区。点一下折叠成迷你条，再点展开。 -->
+    <!-- 网易云没登录时，二维码占唱片的位置。登录了就整块不显示。
+         登录入口做在琴房里，不让她为了扫个码绕出去。 -->
+    <div class="piano-qr" id="pianoQr" hidden>
+      <div class="piano-qr-box"><img id="pianoQrImg" alt="网易云登录二维码"></div>
+      <div class="piano-qr-tip" id="pianoQrTip">用网易云 App 扫码</div>
+      <button type="button" class="piano-qr-again" id="pianoQrAgain" hidden>重新生成</button>
+    </div>
+
     <div class="piano-stage" id="pianoStage">
       <div class="ls-vinyl-wrap" id="pianoVinylWrap">
         <div class="ls-vinyl" id="pianoVinyl">
@@ -723,7 +728,10 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
         <input type="range" class="piano-seek" id="pianoSeek" value="0" min="0" max="1000" step="1" aria-label="进度">
         <div class="piano-times"><span id="pianoPos">0:00</span><span id="pianoDur">0:00</span></div>
       </div>
+      <!-- 照 Duetto 原版的控制条：循环 / 上一首 / 播放 / 下一首 / 播放列表。
+           循环第一期不做，左边留一个等宽占位保持对称。 -->
       <div class="ls-ctrl piano-ctrl">
+        <span class="ctrl-spacer" aria-hidden="true"></span>
         <button type="button" id="pianoPrev" aria-label="上一首">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zm3.5 7L18 5v14z"/></svg>
         </button>
@@ -732,6 +740,9 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
         </button>
         <button type="button" id="pianoNext" aria-label="下一首">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM6 5l8.5 7L6 19z"/></svg>
+        </button>
+        <button type="button" id="pianoListBtn" aria-label="歌单">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
         </button>
       </div>
     </div>
@@ -755,6 +766,10 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
            · 流式增量、markdown、思维链折叠全部原样工作，一行渲染代码都不用新写
          琴房里只露最近 8 轮，靠 .piano-trim 那条 CSS 收，不用 JS 记账。 -->
     <div class="piano-chat" id="pianoChat"></div>
+    <!-- 会话为空时琴房自己的那一句。Chat 的开屏语只在琴房藏起来
+         （.piano-trim .empty），搬回 Chat 原样回来，一个字没改。
+         藏了不补那儿会是一片空白，所以有这一句。 -->
+    <div class="piano-blank" id="pianoBlank" hidden>放一首，我们一起听。</div>
 
     <!-- 说一句：走小窝本来那条线（同一个梁忱、同一条 Ombre），
          只是把「现在在放什么」挂在用户消息侧带过去。回复留在琴房，不弹走。 -->
@@ -765,18 +780,19 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
       </button>
     </form>
 
-    <!-- 歌单抽屉：从下面推上来，选完收回。首屏留给唱片。 -->
-    <div class="piano-drawer-mask" id="pianoDrawerMask" hidden></div>
-    <div class="piano-drawer" id="pianoDrawer" hidden>
-      <div class="piano-drawer-head">
-        <button type="button" class="piano-back" id="pianoBack" hidden aria-label="回歌单列表">
+    <!-- 歌单抽屉：走 .sheet 那套（复用 initSheetDrag，不新写拖拽）。
+         皮肤变量靠 DOM 继承拿到，外观在 CSS 里按琴房覆盖。 -->
+    <section class="sheet piano-sheet" id="pianoDrawer" aria-hidden="true" inert>
+      <div class="sheet-handle"></div>
+      <header class="sheet-head">
+        <button class="icon-button" id="pianoBack" hidden aria-label="回歌单列表">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
         </button>
-        <span class="piano-title" id="pianoTitle">歌单</span>
-        <span class="piano-sub" id="pianoSub">读取中…</span>
-      </div>
-      <div class="piano-list" id="pianoList"></div>
-    </div>
+        <h2 class="sheet-title" id="pianoTitle">歌单</h2>
+        <span class="piano-sub" id="pianoSub"></span>
+      </header>
+      <div class="sheet-content"><div class="piano-list" id="pianoList"></div></div>
+    </section>
 
     <!-- 皮肤选择面板 -->
     <div class="ls-skinsheet-mask" id="pianoSkinMask" hidden>
@@ -3820,9 +3836,87 @@ function pianoSetAnimating(on){
 }
 
 function pianoDrawer(open){
-  $('pianoDrawer').hidden=!open;
-  $('pianoDrawerMask').hidden=!open;
-  if(open)pianoLoadLists();
+  const el=$('pianoDrawer');
+  el.classList.toggle('show',open);
+  el.classList.toggle('expanded',open);
+  el.setAttribute('aria-hidden',open?'false':'true');
+  if(open){el.removeAttribute('inert');pianoLoadLists()}else{el.setAttribute('inert','');el.style.transform=''}
+}
+
+/* 会话为空时露琴房自己那一句。Chat 的开屏语被 .piano-trim .empty 藏了，
+   藏了不补那儿是一片空白。 */
+function pianoSyncBlank(){
+  const inPiano=stream.parentElement&&stream.parentElement.id==='pianoChat';
+  const onlyEmpty=!streamInner.querySelector('.msg-claude, .msg-user');
+  $('pianoBlank').hidden=!(inPiano&&onlyEmpty);
+}
+
+/* ── 网易云扫码 ────────────────────────────────────────────────
+   二维码和登录态都在 Duetto 那边，chatnest 只转发。 */
+var pianoQr={timer:null,key:'',started:0};
+var PIANO_QR_MAX_MS=120000;   /* 🔴 轮询上限 120 秒 */
+
+function pianoQrStop(){if(pianoQr.timer){clearInterval(pianoQr.timer);pianoQr.timer=null}}
+
+async function pianoCheckLogin(){
+  try{
+    const r=await api('/api/piano/ncm/status');
+    const d=await r.json();
+    if(d.logged){pianoQrHide();return true}
+  }catch(e){/* 引擎没配好时下面会给提示，这里别弹 */}
+  pianoQrShow();
+  return false;
+}
+function pianoQrHide(){
+  pianoQrStop();
+  $('pianoQr').hidden=true;
+  $('pianoStage').hidden=piano.collapsed;
+}
+async function pianoQrShow(){
+  $('pianoQr').hidden=false;
+  $('pianoStage').hidden=true;$('pianoMini').hidden=true;
+  await pianoQrNew();
+}
+async function pianoQrNew(){
+  pianoQrStop();
+  $('pianoQrAgain').hidden=true;
+  $('pianoQrTip').textContent='正在取二维码…';
+  try{
+    const r=await api('/api/piano/ncm/qr');
+    const d=await r.json();
+    if(!d.qrimg)throw Error('no qr');
+    $('pianoQrImg').src=d.qrimg;
+    pianoQr.key=d.key;pianoQr.started=Date.now();
+    $('pianoQrTip').textContent='用网易云 App 扫码';
+  }catch(e){
+    $('pianoQrTip').textContent='二维码取不到，琴房引擎可能没接上';
+    $('pianoQrAgain').hidden=false;
+    return;
+  }
+  /* 每 2 秒问一次。🔴 120 秒没扫上就停——她可能开着琴房睡了，
+     无限轮询就是一整夜的空请求。 */
+  pianoQr.timer=setInterval(async()=>{
+    if(Date.now()-pianoQr.started>PIANO_QR_MAX_MS){
+      pianoQrStop();
+      $('pianoQrTip').textContent='二维码过期了';
+      $('pianoQrAgain').hidden=false;
+      return;
+    }
+    try{
+      const r=await api('/api/piano/ncm/check?key='+encodeURIComponent(pianoQr.key));
+      const d=await r.json();
+      if(d.code===800){ /* 二维码本身过期 */
+        pianoQrStop();$('pianoQrTip').textContent='二维码过期了';$('pianoQrAgain').hidden=false;return;
+      }
+      if(d.code===802)$('pianoQrTip').textContent='扫上了，在手机上确认一下';
+      if(d.logged||d.code===803){
+        pianoQrHide();
+        piano.loaded=false;
+        toast('网易云登录成功'+(d.nickname?('，'+d.nickname):''));
+        pianoLoadLists(true);
+      }
+    }catch(e){/* 单次失败不打断，等下一轮 */}
+  },2000);
 }
 
 function pianoInit(){
@@ -3856,8 +3950,10 @@ function pianoInit(){
      所以点播放键不会误触折叠。 */
   $('pianoStage').onclick=()=>pianoSetCollapsed(true);
   $('pianoMini').onclick=()=>pianoSetCollapsed(false);
-  $('pianoListBtn').onclick=()=>pianoDrawer(true);
-  $('pianoDrawerMask').onclick=()=>pianoDrawer(false);
+  $('pianoListBtn').onclick=e=>{e.stopPropagation();pianoDrawer(true)};
+  $('pianoQrAgain').onclick=()=>pianoQrNew();
+  /* 复用 Chat 那套 sheet 拖拽（08-05 修过阈值的那个），不新写 */
+  initSheetDrag($('pianoDrawer'),'#pianoBack',()=>{});
   $('pianoSkinBtn').onclick=()=>{pianoRenderSkinGrid();$('pianoSkinMask').hidden=false};
   $('pianoSkinMask').onclick=e=>{if(e.target===$('pianoSkinMask'))$('pianoSkinMask').hidden=true};
   pianoApplySkin(pianoSkin());
@@ -3872,6 +3968,7 @@ function pianoInit(){
        只是把「正在放什么」挂在用户消息侧带过去。
        回复就渲染在下面那条流里——**不弹去 Chat**，人得留在这儿。 */
     sendMessage(text,true,[],[],{piano:pianoNowPlaying()});
+    $('pianoBlank').hidden=true;      /* 一说话就不再是空会话 */
   });
 }
 
@@ -3882,12 +3979,14 @@ function pianoMountStream(){
   host.appendChild(stream);
   streamInner.classList.add('piano-trim');       /* 只露最近 8 轮 */
   stream.scrollTop=stream.scrollHeight;
+  pianoSyncBlank();
 }
 function pianoUnmountStream(){
   if(stream.parentElement===chat)return;
   streamInner.classList.remove('piano-trim');
   chat.insertBefore(stream,chat.querySelector('.composer-wrap'));
   stream.scrollTop=stream.scrollHeight;
+  $('pianoBlank').hidden=true;
 }
 
 var currentTab='chat';
@@ -3910,8 +4009,9 @@ function switchTab(name){
   /* 琴房：进来才拉歌单，别在开屏时白打一次。音频元素挂在 tab 里，
      切走时 tab 是 display:none——不影响 <audio> 继续放。
      #stream 跟着 tab 走：进琴房搬进来，离开搬回 #chat。 */
-  if(name==='music'){pianoInit();pianoMountStream();pianoSetAnimating(true)}
-  else{pianoUnmountStream();if(pianoAudio)pianoSetAnimating(false)}
+  if(name==='music'){pianoInit();pianoMountStream();pianoSetAnimating(true);pianoCheckLogin()}
+  /* 走的时候必须停轮询，否则她切去别的 tab，二维码还在后台每 2 秒打一次 */
+  else{pianoUnmountStream();pianoQrStop();if(pianoAudio)pianoSetAnimating(false)}
   if(name==='reading'){renderReadingCounter();if(!starmapCollapsed())openStarmap();
     /* 日记那块要是记着上次是展开的，进书房就把数据补上 */
     if(!$('studyDiary')?.classList.contains('is-collapsed'))loadDiary();}

@@ -1044,6 +1044,24 @@ async def piano_notes(id: str = Query(max_length=64), limit: int = 60) -> dict:
     return await _piano("/api/song-notes", {"id": id, "limit": max(1, min(200, limit))})
 
 
+# 网易云扫码登录。登录入口做在琴房里，不让她为了扫个码绕出去。
+# 二维码和登录态都由 Duetto 持有，chatnest 只是转发——cookie 一步都不进小窝。
+
+@app.get("/api/piano/ncm/qr", dependencies=[Depends(require_auth)])
+async def piano_ncm_qr() -> dict:
+    return await _piano("/api/ncm/qr")
+
+
+@app.get("/api/piano/ncm/check", dependencies=[Depends(require_auth)])
+async def piano_ncm_check(key: str = Query(max_length=256)) -> dict:
+    return await _piano("/api/ncm/check", {"key": key})
+
+
+@app.get("/api/piano/ncm/status", dependencies=[Depends(require_auth)])
+async def piano_ncm_status() -> dict:
+    return await _piano("/api/ncm/status")
+
+
 @app.get("/api/background", dependencies=[Depends(require_auth)])
 async def background_state() -> dict:
     return backgrounds.get_state()
