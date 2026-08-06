@@ -681,11 +681,56 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
   </div>
 </section>
 <section id="tabMusic" class="tab-page" hidden>
-  <div class="tab-placeholder">
-    <span class="tab-placeholder-icon">🎹</span>
-    <span class="tab-placeholder-title">琴房</span>
-    <span class="tab-placeholder-sub">即将到来</span>
+  <div class="piano">
+    <div class="piano-head">
+      <button type="button" class="piano-back" id="pianoBack" hidden aria-label="回歌单列表">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <span class="piano-title" id="pianoTitle">琴房</span>
+      <span class="piano-sub" id="pianoSub">读取中…</span>
+    </div>
+    <div class="piano-list" id="pianoList"></div>
   </div>
+
+  <!-- 播放条常驻底部。歌词挂在它上面，跟着时间轴滚。 -->
+  <div class="piano-dock" id="pianoDock" hidden>
+    <div class="piano-lyric" id="pianoLyric"></div>
+    <div class="piano-now">
+      <span class="piano-now-title" id="pianoNowTitle"></span>
+      <span class="piano-now-artist" id="pianoNowArtist"></span>
+    </div>
+    <div class="piano-bar">
+      <span class="piano-time" id="pianoPos">0:00</span>
+      <input type="range" class="piano-seek" id="pianoSeek" value="0" min="0" max="1000" step="1" aria-label="进度">
+      <span class="piano-time" id="pianoDur">0:00</span>
+    </div>
+    <div class="piano-ctrl">
+      <button type="button" id="pianoPrev" aria-label="上一首">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zm3.5 7L18 5v14z"/></svg>
+      </button>
+      <button type="button" id="pianoPlay" class="is-primary" aria-label="播放">
+        <svg id="pianoPlayIcon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+      </button>
+      <button type="button" id="pianoNext" aria-label="下一首">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM6 5l8.5 7L6 19z"/></svg>
+      </button>
+    </div>
+    <!-- 对话流的挂载点。进琴房时把 #stream 这个节点**整个搬过来**，
+         走的时候搬回 #chat——同一批 DOM 节点，所以：
+           · 会话天然是同一条（琴房说的话回 Chat 就在那儿，反过来也是）
+           · 流式增量、markdown、思维链折叠全部原样工作，一行渲染代码都不用新写
+         琴房里只露最近 8 轮，靠 .piano-trim 那条 CSS 收，不用 JS 记账。 -->
+    <div class="piano-chat" id="pianoChat"></div>
+    <!-- 说一句：走小窝本来那条线（同一个梁忱、同一条 Ombre），
+         只是把「现在在放什么」挂在用户消息侧带过去。回复留在琴房，不弹走。 -->
+    <form class="piano-say" id="pianoSayForm">
+      <input id="pianoSay" type="text" maxlength="500" autocomplete="off" placeholder="跟他说说这首歌…">
+      <button type="submit" aria-label="说">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </button>
+    </form>
+  </div>
+  <audio id="pianoAudio" preload="none"></audio>
 </section>
 <section id="tabReading" class="tab-page" hidden>
   <div class="reading-counter"><span id="readingCounterDays"></span></div>
@@ -2126,6 +2171,9 @@ async function sendMessage(text,showUser=true,files=[],existingAttachments=[],op
     const body={message:text,conversation_id:state.convId,session_id:state.legacySessionId,model:state.model,effort:s.effort||'medium',extended:s.extended!==false,attachments:branchMode?[]:attachments.map(item=>item.path)};
     if(options.editMessageId)body.edit_message_id=options.editMessageId;
     if(options.retryMessageId)body.retry_message_id=options.retryMessageId;
+    /* 琴房在放歌时才带这个；后端把它挂在用户消息侧，不进 system prompt。
+       别的 tab 一个字都不加。 */
+    if(options.piano)body.piano=options.piano;
     const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${state.token}`},body:JSON.stringify(body),signal:controller.signal});
     if(runId!==_chatRunId)return;
     if(r.status===401){showGate();throw Error('登录已失效')}if(!r.ok||!r.body){const detail=await r.json().catch(()=>({}));throw Error(detail.detail||'请求失败')}
@@ -3503,6 +3551,206 @@ function renderReadingCounter(){
 /* —— 底部导航栏 ——
    Chat 不做 display:none，靠 .tab-page 的不透明背景盖住，
    这样 #stream 的滚动位置和输入框状态都不会被重置。 */
+/* ── 琴房 ──────────────────────────────────────────────────────────────
+   Duetto 只当引擎：网易云登录态、整首音频喂 Gemini、按歌缓存。
+   界面在这儿原生做，**对话走小窝本来那条线**——同一个梁忱、同一条 Ombre。
+   前端从头到尾看不见 Duetto 的 token，只跟 /api/piano/* 说话。 */
+var piano={view:'lists',lists:[],songs:[],idx:-1,lyrics:[],listName:'',loaded:false};
+var pianoAudio=null;
+
+function pianoFmt(s){s=Math.max(0,Math.floor(s||0));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}
+
+/* 现在在放什么。送给后端挂在用户消息侧用；没在放歌就返回 null。 */
+function pianoNowPlaying(){
+  const s=piano.songs[piano.idx];
+  if(!s||!pianoAudio)return null;
+  return {id:String(s.id),title:s.title||'',artist:s.artist||'',
+          pos:Math.floor(pianoAudio.currentTime||0),
+          dur:Math.floor(pianoAudio.duration||s.dur||0),
+          lyric:pianoCurrentLyric()};
+}
+
+function pianoCurrentLyric(){
+  if(!piano.lyrics.length||!pianoAudio)return '';
+  const t=pianoAudio.currentTime||0;let cur='';
+  for(const l of piano.lyrics){if(l.t<=t)cur=l.text;else break}
+  return cur;
+}
+
+/* [分:秒.毫秒] 逐行解析。一行可能挂多个时间戳，全部展开。 */
+function pianoParseLrc(text){
+  const out=[];
+  String(text||'').split('\n').forEach(line=>{
+    const body=line.replace(/\[\d{1,2}:\d{1,2}(?:[.:]\d{1,3})?\]/g,'').trim();
+    if(!body)return;
+    let m;const re=/\[(\d{1,2}):(\d{1,2})(?:[.:](\d{1,3}))?\]/g;
+    while((m=re.exec(line))){
+      const ms=m[3]?Number(String(m[3]).padEnd(3,'0')):0;
+      out.push({t:Number(m[1])*60+Number(m[2])+ms/1000,text:body});
+    }
+  });
+  return out.sort((a,b)=>a.t-b.t);
+}
+
+async function pianoLoadLists(force){
+  if(piano.loaded&&!force)return;
+  const list=$('pianoList'),sub=$('pianoSub');
+  sub.textContent='读取中…';list.innerHTML='';
+  try{
+    const r=await api('/api/piano/playlists');
+    const d=await r.json();
+    if(d.logged===false){
+      sub.textContent='';
+      list.innerHTML='<div class="piano-empty">琴房引擎还没登录网易云。去 Duetto 那个地址扫一次码，回来刷新。</div>';
+      return;
+    }
+    piano.lists=d.playlists||[];piano.loaded=true;
+    sub.textContent=piano.lists.length+' 个歌单';
+    pianoRenderLists();
+  }catch(e){
+    sub.textContent='';
+    list.innerHTML='<div class="piano-empty">歌单没拉到。'+(e&&e.message?String(e.message).slice(0,60):'')+'</div>';
+  }
+}
+
+function pianoRenderLists(){
+  piano.view='lists';$('pianoBack').hidden=true;$('pianoTitle').textContent='琴房';
+  $('pianoSub').textContent=piano.lists.length+' 个歌单';
+  const list=$('pianoList');list.innerHTML='';
+  piano.lists.forEach(pl=>{
+    const b=document.createElement('button');b.type='button';b.className='piano-row';
+    b.innerHTML='<span class="piano-row-main"><span class="piano-row-title"></span><span class="piano-row-sub"></span></span>';
+    b.querySelector('.piano-row-title').textContent=pl.name||'未命名歌单';
+    b.querySelector('.piano-row-sub').textContent=(pl.count||0)+' 首';
+    b.onclick=()=>pianoOpenList(pl);
+    list.appendChild(b);
+  });
+}
+
+async function pianoOpenList(pl){
+  const list=$('pianoList'),sub=$('pianoSub');
+  piano.view='songs';piano.listName=pl.name||'';
+  $('pianoBack').hidden=false;$('pianoTitle').textContent=piano.listName||'歌单';
+  sub.textContent='读取中…';list.innerHTML='';
+  try{
+    const r=await api('/api/piano/playlist?id='+encodeURIComponent(pl.id));
+    const d=await r.json();
+    piano.songs=d.songs||[];
+    sub.textContent=piano.songs.length+' 首';
+    pianoRenderSongs();
+  }catch(e){
+    sub.textContent='';
+    list.innerHTML='<div class="piano-empty">这个歌单打不开。</div>';
+  }
+}
+
+function pianoRenderSongs(){
+  const list=$('pianoList');list.innerHTML='';
+  piano.songs.forEach((s,i)=>{
+    const b=document.createElement('button');b.type='button';
+    b.className='piano-row'+(i===piano.idx?' is-playing':'');
+    b.innerHTML='<span class="piano-row-main"><span class="piano-row-title"></span><span class="piano-row-sub"></span></span>';
+    b.querySelector('.piano-row-title').textContent=s.title||'';
+    b.querySelector('.piano-row-sub').textContent=s.artist||'';
+    b.onclick=()=>pianoPlay(i);
+    list.appendChild(b);
+  });
+}
+
+async function pianoPlay(i){
+  if(i<0||i>=piano.songs.length)return;
+  const s=piano.songs[i];piano.idx=i;piano.lyrics=[];
+  $('pianoDock').hidden=false;
+  $('pianoNowTitle').textContent=s.title||'';
+  $('pianoNowArtist').textContent=s.artist||'';
+  $('pianoLyric').textContent='';
+  if(piano.view==='songs')pianoRenderSongs();
+  /* 播放地址和歌词并行拉，谁也不等谁 */
+  const [urlRes,lrcRes]=await Promise.allSettled([
+    api('/api/piano/song-url?id='+encodeURIComponent(s.id)).then(r=>r.json()),
+    api('/api/piano/lyric?id='+encodeURIComponent(s.id)).then(r=>r.json())
+  ]);
+  if(piano.idx!==i)return;                      /* 期间又换歌了，丢掉这一轮 */
+  /* 歌词是锦上添花，拿不到就静音降级，不挡播放 */
+  piano.lyrics=lrcRes.status==='fulfilled'?pianoParseLrc(lrcRes.value.lyric||''):[];
+  if(urlRes.status!=='fulfilled'){toast('播放失败');return}
+  const url=urlRes.value.url;
+  if(!url){toast('这首拿不到播放地址（可能是 VIP 或已下架）');return}
+  pianoAudio.src=url;
+  /* 🔴 不许 await 这个 play()。音频加载不出来时（VIP / 下架 / 链接过期，
+     网易云上很常见）它既不 resolve 也不 reject，会一直挂着——
+     await 了就等于把后面所有逻辑焊死在这儿，而且一声不吭。 */
+  pianoAudio.play().catch(()=>{});
+}
+
+function pianoNext(step){
+  if(!piano.songs.length)return;
+  let i=piano.idx+step;
+  if(i<0)i=piano.songs.length-1;
+  if(i>=piano.songs.length)i=0;
+  pianoPlay(i);
+}
+
+function pianoSetPlayIcon(playing){
+  $('pianoPlayIcon').innerHTML=playing
+    ?'<path d="M6 5h4v14H6zm8 0h4v14h-4z"/>'
+    :'<path d="M8 5v14l11-7z"/>';
+  $('pianoPlay').setAttribute('aria-label',playing?'暂停':'播放');
+}
+
+function pianoInit(){
+  if(pianoAudio)return;
+  pianoAudio=$('pianoAudio');
+  const seek=$('pianoSeek');let seeking=false;
+  pianoAudio.addEventListener('timeupdate',()=>{
+    const d=pianoAudio.duration||0;
+    $('pianoPos').textContent=pianoFmt(pianoAudio.currentTime);
+    $('pianoDur').textContent=pianoFmt(d);
+    if(!seeking&&d)seek.value=String(Math.round(pianoAudio.currentTime/d*1000));
+    const l=pianoCurrentLyric();
+    if(l!==$('pianoLyric').textContent)$('pianoLyric').textContent=l;
+  });
+  pianoAudio.addEventListener('play',()=>pianoSetPlayIcon(true));
+  pianoAudio.addEventListener('pause',()=>pianoSetPlayIcon(false));
+  pianoAudio.addEventListener('ended',()=>pianoNext(1));
+  seek.addEventListener('input',()=>{seeking=true});
+  seek.addEventListener('change',()=>{
+    const d=pianoAudio.duration||0;
+    if(d)pianoAudio.currentTime=Number(seek.value)/1000*d;
+    seeking=false;
+  });
+  $('pianoPlay').onclick=()=>{if(pianoAudio.paused)pianoAudio.play().catch(()=>{});else pianoAudio.pause()};
+  $('pianoPrev').onclick=()=>pianoNext(-1);
+  $('pianoNext').onclick=()=>pianoNext(1);
+  $('pianoBack').onclick=()=>pianoRenderLists();
+  $('pianoSayForm').addEventListener('submit',async e=>{
+    e.preventDefault();
+    const el=$('pianoSay'),text=el.value.trim();
+    if(!text)return;
+    if(state.busy){toast('上一条还在回');return}
+    el.value='';
+    /* 走同一条线（同一个梁忱、同一条会话、同一条 Ombre），
+       只是把「正在放什么」挂在用户消息侧带过去。
+       回复就渲染在下面那条流里——**不弹去 Chat**，人得留在这儿。 */
+    sendMessage(text,true,[],[],{piano:pianoNowPlaying()});
+  });
+}
+
+/* 把 #stream 搬进琴房 / 搬回 Chat。搬的是同一个节点，不是复制。 */
+function pianoMountStream(){
+  const host=$('pianoChat');
+  if(!host||stream.parentElement===host)return;
+  host.appendChild(stream);
+  streamInner.classList.add('piano-trim');       /* 只露最近 8 轮 */
+  stream.scrollTop=stream.scrollHeight;
+}
+function pianoUnmountStream(){
+  if(stream.parentElement===chat)return;
+  streamInner.classList.remove('piano-trim');
+  chat.insertBefore(stream,chat.querySelector('.composer-wrap'));
+  stream.scrollTop=stream.scrollHeight;
+}
+
 var currentTab='chat';
 function tabPages(){return{tidal:$('tabTidal'),music:$('tabMusic'),reading:$('tabReading'),home:$('tabHome')}}
 function switchTab(name){
@@ -3520,6 +3768,11 @@ function switchTab(name){
   currentTab=name;
   if(name!=='chat')closeDrawer();
   if(name==='home')openHomeProfile().catch(()=>toast('Profile 加载失败'));
+  /* 琴房：进来才拉歌单，别在开屏时白打一次。音频元素挂在 tab 里，
+     切走时 tab 是 display:none——不影响 <audio> 继续放。
+     #stream 跟着 tab 走：进琴房搬进来，离开搬回 #chat。 */
+  if(name==='music'){pianoInit();pianoMountStream();pianoLoadLists()}
+  else pianoUnmountStream();
   if(name==='reading'){renderReadingCounter();if(!starmapCollapsed())openStarmap();
     /* 日记那块要是记着上次是展开的，进书房就把数据补上 */
     if(!$('studyDiary')?.classList.contains('is-collapsed'))loadDiary();}

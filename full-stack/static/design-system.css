@@ -1519,3 +1519,194 @@ body.tab-away #chat {
   line-height: 1;
 }
 .lore-section-title { margin-top: var(--space-2) }
+
+/* ── 琴房 ────────────────────────────────────────────────────────────────
+   播放器界面是原生的，不是 iframe——Duetto 只当引擎（网易云登录态、
+   音频分析、按歌缓存），界面和对话都在小窝这边。
+   字号和颜色一律走变量，别写死。 */
+
+.piano {
+  padding: var(--space-4);
+  padding-bottom: calc(var(--tabbar-space) + 220px);   /* 给底部播放条让位 */
+  max-width: 720px;
+  margin: 0 auto;
+}
+.piano-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+.piano-title {
+  font-family: var(--font-sans);
+  font-size: var(--text-title);
+  color: var(--text-primary);
+}
+.piano-sub {
+  font-size: var(--text-sm);
+  color: var(--text-faint);
+  margin-left: auto;
+}
+.piano-back {
+  display: grid;
+  place-items: center;
+  width: 28px; height: 28px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.piano-back svg { width: 18px; height: 18px }
+.piano-back[hidden] { display: none }
+
+.piano-list { display: flex; flex-direction: column; gap: var(--space-1) }
+.piano-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  text-align: left;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  cursor: pointer;
+  width: 100%;
+}
+.piano-row:hover { background: var(--bg-chip) }
+.piano-row.is-playing { color: var(--accent) }
+.piano-row-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 }
+.piano-row-title {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.piano-row-sub {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.piano-empty {
+  padding: var(--space-4);
+  color: var(--text-faint);
+  font-size: var(--text-sm);
+  text-align: center;
+}
+
+/* 播放条：固定在 tabbar 上方 */
+.piano-dock {
+  position: fixed;
+  left: 0; right: 0;
+  bottom: var(--tabbar-space);
+  z-index: 21;
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-composer);
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.piano-dock[hidden] { display: none }
+
+.piano-lyric {
+  min-height: 1.4em;
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  color: var(--text-secondary);
+  text-align: center;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.piano-now {
+  display: flex; align-items: baseline; gap: var(--space-2);
+  justify-content: center;
+  min-width: 0;
+}
+.piano-now-title {
+  font-size: var(--text-base);
+  color: var(--text-primary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.piano-now-artist { font-size: var(--text-sm); color: var(--text-faint) }
+
+.piano-bar { display: flex; align-items: center; gap: var(--space-2) }
+.piano-time {
+  font-size: var(--text-sm);
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+  min-width: 3.2em;
+  text-align: center;
+}
+.piano-seek {
+  flex: 1;
+  -webkit-appearance: none; appearance: none;
+  height: 3px;
+  border-radius: var(--radius-full);
+  background: var(--border-strong);
+  cursor: pointer;
+}
+.piano-seek::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px; height: 12px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+}
+.piano-seek::-moz-range-thumb {
+  width: 12px; height: 12px; border: none;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+}
+
+.piano-ctrl { display: flex; align-items: center; justify-content: center; gap: var(--space-4) }
+.piano-ctrl button {
+  display: grid; place-items: center;
+  width: 36px; height: 36px;
+  border: none; border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.piano-ctrl button svg { width: 20px; height: 20px }
+.piano-ctrl button.is-primary {
+  width: 44px; height: 44px;
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+.piano-ctrl button.is-primary svg { width: 24px; height: 24px }
+
+.piano-say { display: flex; align-items: center; gap: var(--space-2) }
+.piano-say input {
+  flex: 1;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--bg-chip);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+}
+.piano-say input:focus { outline: none; border-color: var(--accent) }
+.piano-say button {
+  display: grid; place-items: center;
+  width: 34px; height: 34px;
+  border: none; border-radius: var(--radius-full);
+  background: var(--accent);
+  color: var(--accent-fg);
+  cursor: pointer;
+  flex: none;
+}
+.piano-say button svg { width: 18px; height: 18px }
+.piano-say button:disabled { opacity: .45; cursor: default }
+
+/* 琴房里的对话流：#stream 被搬进来时的容器。
+   #stream 自己是 flex:1，所以这儿必须是 flex 容器并给出高度上限，
+   否则它会撑到零高或撑破播放条。 */
+.piano-chat {
+  display: flex;
+  max-height: 34vh;
+  min-height: 0;
+}
+.piano-chat:empty { display: none }
+/* 琴房里只露最近 8 轮（一轮 = 用户一条 + 梁忱一条 = 2 个子元素）。
+   纯 CSS 收，不用 JS 记账；搬回 Chat 时去掉这个类，历史原样回来。 */
+.stream-inner.piano-trim > *:nth-last-child(n+17) { display: none }
