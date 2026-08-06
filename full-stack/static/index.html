@@ -3798,6 +3798,35 @@ async function pianoPlay(i){
      网易云上很常见）它既不 resolve 也不 reject，会一直挂着——
      await 了就等于把后面所有逻辑焊死在这儿，而且一声不吭。 */
   pianoAudio.play().catch(()=>{});
+  pianoEnsureAnalysis(s);        /* 切歌后按一下开关，不 await */
+}
+
+/* 切歌之后按一下分析的开关。Duetto 的分析是惰性的：读的那条只查库，
+   库里没有就返回空，真正触发要 POST。
+   🔴 三条约束，一条都不能松：
+     一、不许 await——分析一首几十秒，界面一秒都不能等，发出去就不管。
+     二、同一首只触发一次（_pianoAnalyzed 这个 Set），切来切去不重复烧钱。
+     三、失败一声不吭——没配 key 时 Duetto 返 {ok:true,text:''} 不报错，
+         那是正常的，没有分析只是少一段上下文，不是故障。
+   触发之后不轮询：下次她在琴房说话，聊天那条路本来就会 GET 一次分析，
+   那时候算好了自然带上。 */
+var _pianoAnalyzed=new Set();
+function pianoEnsureAnalysis(s){
+  const id=String(s&&s.id||'');
+  if(!id||!/^\d+$/.test(id)||_pianoAnalyzed.has(id))return;
+  _pianoAnalyzed.add(id);                      /* 先记，失败也不重试，别烧钱 */
+  (async()=>{
+    try{
+      const r=await api('/api/piano/analysis?id='+encodeURIComponent(id));
+      const d=await r.json();
+      if((d.text||'').trim())return;           /* 缓存命中，什么都不做 */
+      /* 打的是「听」那条（fork 里新加的 /api/song-analysis-audio），
+         不是原版那条纯歌词的——那条会把音频版焊死。 */
+      await api('/api/piano/analysis/audio',{method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({id,title:s.title||'',artist:s.artist||''})});
+    }catch(e){/* 🔴 一声不吭 */}
+  })();
 }
 
 function pianoNext(step){

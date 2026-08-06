@@ -1039,6 +1039,39 @@ async def piano_analysis(id: str = Query(max_length=64)) -> dict:
     return await _piano("/api/song-analysis", {"id": id})
 
 
+class PianoAnalyzeBody(BaseModel):
+    id: str = Field(max_length=64)
+    title: str = Field(default="", max_length=300)
+    artist: str = Field(default="", max_length=300)
+
+
+@app.post("/api/piano/analysis/audio", dependencies=[Depends(require_auth)])
+async def piano_analyze_audio(body: PianoAnalyzeBody) -> dict:
+    """让 Duetto 去**听**这首歌（下整首音频送 Gemini），不是读歌词。
+
+    🔴 对面必须是 fork 里新加的 /api/song-analysis-audio。
+    Duetto 原版的 POST /api/song-analysis 走的是纯歌词那条，
+    而两条写同一张 song_analysis 表、都是「有就跳过」——
+    歌词版先落库，音频版就永远不会跑了。所以那条**连代理都不留**，
+    免得日后有人误调，一调就把这首歌的音频版焊死。
+
+    只透传 {id,title,artist}——不传 ai 字段，让它用服务端 settings.json
+    里配好的那套。
+    """
+    try:
+        return await piano.post(
+            "/api/song-analysis-audio",
+            {"id": body.id, "title": body.title, "artist": body.artist},
+            # fork 那条是 fire-and-forget，立刻回 {ok:true,started:true}，
+            # 所以这里不需要长超时。
+            timeout=piano.CONTEXT_TIMEOUT,
+        )
+    except piano.PianoError:
+        # 🔴 一声不吭。没配 key 时 Duetto 那边直接返空不报错，
+        # 没有分析只是少一段上下文，不是故障。
+        return {"ok": True, "queued": True}
+
+
 @app.get("/api/piano/notes", dependencies=[Depends(require_auth)])
 async def piano_notes(id: str = Query(max_length=64), limit: int = 60) -> dict:
     return await _piano("/api/song-notes", {"id": id, "limit": max(1, min(200, limit))})

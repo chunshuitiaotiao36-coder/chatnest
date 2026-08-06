@@ -70,6 +70,31 @@ class PianoError(RuntimeError):
         self.status = status
 
 
+async def post(path: str, body: dict[str, Any],
+               *, timeout: float | None = None) -> dict[str, Any]:
+    """打 Duetto 的一个 POST 接口。token 同样只在这一层。"""
+    if not TOKEN:
+        raise PianoError("琴房引擎未配置（缺 DUETTO_TOKEN）", status=503)
+    client = await _get_client()
+    try:
+        resp = await client.post(
+            f"{BASE_URL}{path}",
+            json=body,
+            headers={"Authorization": f"Bearer {TOKEN}"},
+            timeout=timeout or TIMEOUT,
+        )
+    except httpx.HTTPError as exc:
+        raise PianoError(f"琴房引擎连不上：{exc.__class__.__name__}") from exc
+    if resp.status_code == 401:
+        raise PianoError("琴房引擎拒绝了 token（401），DUETTO_TOKEN 需要重配", status=502)
+    if resp.status_code >= 400:
+        raise PianoError(f"琴房引擎返回 {resp.status_code}")
+    try:
+        return resp.json()
+    except ValueError as exc:
+        raise PianoError("琴房引擎返回的不是 JSON") from exc
+
+
 async def call(path: str, params: dict[str, Any] | None = None,
                *, timeout: float | None = None) -> dict[str, Any]:
     """打 Duetto 的一个 GET 接口。token 在这里挂上，不出这一层。"""
