@@ -270,7 +270,9 @@ def _now_line() -> str:
     return f"[现在是 {now:%Y-%m-%d} 星期{_WEEKDAYS[now.weekday()]} {now:%H:%M}]"
 
 
-async def build_user_prompt(message: str, conv_id: str | None = None) -> str:
+async def build_user_prompt(
+    message: str, conv_id: str | None = None, carry: str = ""
+) -> str:
     """Memory recall is volatile (re-retrieved per message), so it must never
     enter system_prompt — that would move the cache-breaking bytes to the very
     front of the request. Riding on the user turn puts it after every cache
@@ -278,11 +280,20 @@ async def build_user_prompt(message: str, conv_id: str | None = None) -> str:
     The wall clock rides along for the same reason (see _now_line).
 
     The recall goes before the user's own words so the last thing the model
-    reads is what she actually said."""
+    reads is what she actually said.
+
+    carry 是 TG 短窗口换会话之后的那段开场白（最近两轮的原文）。它只拼进
+    body，**不**参与下面的向量检索和世界书关键词扫描——那两样只看 message：
+    两轮旧原文会污染检索 query，还会让上一轮已经触发过的条目再触发一次。
+    网页端不传，默认空串，行为一个字没变。"""
     now_line = _now_line()
     head = f"{now_line}\n\n" if now_line else ""
     memory_hits = await fetch_memory_hits(message)
     body = message
+    if carry:
+        # 排在她这条新消息**之前**，跟 chat_bottom 同一个道理：
+        # 最后读到的仍然是她说的话。
+        body = f"{carry}\n\n{body}"
     if memory_hits:
         body = (
             "<memory_recall>\n"
@@ -290,7 +301,9 @@ async def build_user_prompt(message: str, conv_id: str | None = None) -> str:
             "自己判断是否引用；不要照搬，更不要逐字复读）：\n"
             f"{memory_hits}\n"
             "</memory_recall>\n\n"
-            f"{message}"
+            # 这里是 body 不是 message：carry 已经拼在里面了，写 message
+            # 会把它整段吃掉。carry 为空时两者完全等价。
+            f"{body}"
         )
 
     # 世界书的对话侧三个位置。关键词触发的条目**只能**落在这儿——它们命中与否
@@ -372,13 +385,18 @@ async def stream_chat(
     timing_callback: Callable[[str], None] | None = None,
     lean: bool = False,
     source: str = "web",
+    carry: str = "",
 ) -> AsyncGenerator[dict, None]:
     """lean=True 是 Telegram 那条轻量线：轻量人设 + 精简工具集，
     但**挂 Ombre MCP**（07-31 从「不挂」回退过来，见下面 mcp_servers 那段）。
     默认 False，网页端的行为一个字没变。
 
     source 只用来给用量账本分「网页 / TG」，不要拿 lean 当它的代理——
-    那是两件事，以后会分开。"""
+    那是两件事，以后会分开。
+
+    carry 只有 TG 短窗口换会话之后的第一条消息会传：最近两轮的原文，拼在用户
+    消息侧（见 build_user_prompt）。**不碰 system_prompt**——碰了就等于每换一次
+    窗口把她那份前缀缓存也一起打掉，而这一单本来就是来省钱的。"""
     model_config = next(
         (item for item in available_models() if item["id"] == model),
         None,
@@ -390,7 +408,7 @@ async def stream_chat(
     thinking, selected_effort = thinking_options(model_config, effort, extended)
 
     system_prompt = build_system_prompt(model, lean=lean)
-    prompt = await build_user_prompt(message, conv_id)
+    prompt = await build_user_prompt(message, conv_id, carry=carry)
 
     # lean 以前同时管两件事：精简 prompt + 不挂 MCP。07-31 把这两件拆开——
     # 精简 prompt 保留，MCP 恢复。
