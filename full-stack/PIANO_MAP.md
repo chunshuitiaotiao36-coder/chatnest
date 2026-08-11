@@ -1,8 +1,12 @@
 # 琴房代码地图
 
 > 开工前先读这一份，别再重摸一遍。
-> 行号是 `claude/piano-real` @ `1b4c495` 时的位置，改完代码顺手更新。
+> 行号是 `claude/piano-real` @ **第 3 项做完时**的位置，改完代码顺手更新。
 > 路径除注明外都相对 `full-stack/`。
+>
+> ⚠️ 第三节「chatnest 前端」里那张老函数表的行号，在 DJ（第 1 项）和
+> 歌词页（第 3 项）之后**整体下移了六十行左右**。下面「第 3 项之后新增」
+> 那一段是重新 grep 过的，以它为准；老表只当索引用，别照着数行。
 
 ---
 
@@ -173,6 +177,50 @@
 | 1932-1935 | 雪青的浅底深字特例 |
 | 1962 | `ctrl-spacer` |
 | 1994-1998 | `.piano-sheet` 是不透明 `var(--ls-panel)`，不走 `.glass` |
+
+### 第 1 / 3 项之后新增的（行号重新 grep 过，以这张为准）
+
+**DJ（第 1 项）**
+
+| 行 | 是什么 |
+|---|---|
+| `index.html:2254` | SSE 帧解析里的 `piano_act` 分支；同一行还加了 `_replyAcc` 累加和 `options.onDone` 回调 |
+| `index.html:1295` | `_buildUserRow` 里认引用包装、渲染成 `.piano-bq` 引用块（翻历史也走这儿） |
+| `index.html:3738` | `pianoNowPlaying()` —— 现在还带 `lists` / `listSongs`，**没在放歌也返回对象** |
+| `index.html:4187` | `pianoActor` 署名 |
+| `index.html:4193/4201/4207` | `pianoSearch` / `pianoReplaceQueue` / `pianoQueueAppend` |
+| `index.html:4213` | `pianoRunAct()` —— 八个动作 |
+| `app/piano.py` | `ActStripper` / `_split_hold` / `_library_lines`；`post()` 加了 `params` |
+| `app/claude.py` | `PIANO_DJ_PROMPT` 常量 + `build_system_prompt()` 末尾无条件拼上 |
+| `app/main.py` | delta 分支剥标记、done 分支 flush、`_piano_post()`、16 条新路由 |
+| `test_piano_act.py` | 19 条断言，`python test_piano_act.py` 直接跑 |
+
+**歌词页（第 3 项）**
+
+| 行 | 是什么 |
+|---|---|
+| `index.html:3766-3769` | `PIANO_LYR_ANCHOR=0.30` / `HOLD=3000` / `SNAP=240` / `LONGPRESS=550` |
+| `index.html:3771` | `pianoLyr` 运行时状态（rows/cur/sel/hold/auto/snapT/lpT/lpFired） |
+| `index.html:3773/3779` | `PIANO_LYR_FONTS` 四款 / `PIANO_LYR_SIZES` 四档 |
+| `index.html:3787` | `pianoParseTLrc()` —— 译文按**整秒**建表跟原文对齐 |
+| `index.html:3801` | `pianoRenderLyrics()` —— 整页渲染，顺带判「作词：X」不可点 |
+| `index.html:3832/3845/3858` | `pianoLyrSyncActive` / `pianoLyrScrollTo` / `pianoLyrNearest` |
+| `index.html:3870` | `pianoLyrOnScroll()` —— hold 3 秒 + 240ms 后瞬时贴线 |
+| `index.html:3900` | `pianoLyrGoSel()` —— 从选中那句开始放 |
+| `index.html:4087` | `pianoLyrBind()` —— 点/长按共用一个 pointerdown |
+| `index.html:4120/4129/4136` | `pianoSetQuote` / `pianoClearQuote` / `pianoAskLine` |
+| `index.html:4145` | **`pianoSaySend()` —— 琴房说话的唯一出口**，输入框和点歌词都走它 |
+| `index.html:4168` | `pianoLogNote()` —— 在场记录 POST 到 Duetto |
+| `index.html:4271/4278/4286` | `pianoSetPage` / `pianoOnPage` / `pianoPagerBind`（CSS scroll-snap，不自己写手势） |
+| `index.html:4294` | `pianoRenderFontSheet()` |
+| `design-system.css:2013-2159` | 歌词页整段 CSS |
+
+**新增的 localStorage 键**：`piano_lyric_font` / `piano_lyric_size` / `piano_lyric_trans`
+（原有两个：`piano_skin` / `piano_collapsed`）
+
+**两个数改一个要改两处**：锚点 30% 同时写在 `index.html` 的 `PIANO_LYR_ANCHOR`
+和 `design-system.css` 的 `.piano-lyr-anchor{top:30%}`。对不上会「选中的是这句、
+贴上去的是另一句」。
 
 ### 已有但前端还没用的东西
 

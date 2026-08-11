@@ -704,6 +704,9 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
     </div>
 
     <div class="piano-stage" id="pianoStage">
+      <!-- 封面 ↔ 歌词 双页横滑。进度条和控制条留在外面，两页共用一套。 -->
+      <div class="piano-pager" id="pianoPager">
+      <div class="piano-pane">
       <div class="ls-vinyl-wrap" id="pianoVinylWrap">
         <div class="ls-vinyl" id="pianoVinyl">
           <div class="grooves"></div>
@@ -719,6 +722,33 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
                   transform="rotate(-36 41.5 63.5)" fill="currentColor"/>
           </svg>
         </div>
+      </div>
+      </div>
+
+      <!-- 歌词整页。点一句起一轮，长按一句引用，上下滑选句松手贴线。 -->
+      <div class="piano-pane piano-lyrpane">
+        <div class="piano-lyr-tools">
+          <button type="button" id="pianoLyrTrans" class="piano-lyr-tool" hidden
+                  aria-pressed="false" title="译文">译</button>
+          <button type="button" id="pianoLyrFont" class="piano-lyr-tool"
+                  title="字体字号">Aa</button>
+        </div>
+        <div class="piano-lyr-scroll" id="pianoLyrScroll">
+          <div class="piano-lyr-list" id="pianoLyrList"></div>
+        </div>
+        <!-- 贴线时才出现的三件：中线 / 时间戳 / 从这句开始放 -->
+        <div class="piano-lyr-anchor" id="pianoLyrAnchor" hidden aria-hidden="true">
+          <span class="rule"></span>
+          <span class="ts" id="pianoLyrTs">0:00</span>
+          <button type="button" class="go" id="pianoLyrGo" aria-label="从这句开始放">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+        </div>
+      </div>
+      </div>
+
+      <div class="piano-pagedots" id="pianoPageDots" aria-hidden="true">
+        <span class="on"></span><span></span>
       </div>
       <div class="piano-song">
         <div class="piano-song-t" id="pianoNowTitle">还没放歌</div>
@@ -773,6 +803,14 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
 
     <!-- 说一句：走小窝本来那条线（同一个梁忱、同一条 Ombre），
          只是把「现在在放什么」挂在用户消息侧带过去。回复留在琴房，不弹走。 -->
+    <!-- 引用条：长按歌词之后浮在输入框上方，× 取消。
+         发出去之后这句会记进这首歌的档案（POST /api/piano/song-note）。 -->
+    <div class="piano-quote" id="pianoQuote" hidden>
+      <span class="qm">❝</span>
+      <span class="qt" id="pianoQuoteText"></span>
+      <button type="button" class="qx" id="pianoQuoteX" aria-label="取消引用">×</button>
+    </div>
+
     <form class="piano-say" id="pianoSayForm">
       <input id="pianoSay" type="text" maxlength="500" autocomplete="off" placeholder="跟他说说这首歌…">
       <button type="submit" aria-label="说">
@@ -793,6 +831,16 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
       </header>
       <div class="sheet-content"><div class="piano-list" id="pianoList"></div></div>
     </section>
+
+    <!-- 歌词字体 / 字号。借皮肤面板那套壳，样式统一。 -->
+    <div class="ls-skinsheet-mask" id="pianoFontMask" hidden>
+      <div class="ls-skinsheet">
+        <h3>歌词的字</h3>
+        <div class="sub">LYRIC</div>
+        <div class="piano-fontgrid" id="pianoFontGrid"></div>
+        <div class="piano-sizerow" id="pianoSizeRow"></div>
+      </div>
+    </div>
 
     <!-- 皮肤选择面板 -->
     <div class="ls-skinsheet-mask" id="pianoSkinMask" hidden>
@@ -1249,7 +1297,15 @@ function _buildUserRow(text,timestamp='',attachments=[],messageId=''){const row=
   if(imgs.length){const wrap=document.createElement('div');wrap.className='user-images';imgs.forEach(a=>{const img=document.createElement('img');img.className='user-image';img.alt=a.name||'';if(a.preview){img.src=a.preview}else{img._lazyAtt=a;lazyImgObserver.observe(img)}wrap.append(img)});row.append(wrap)}
   const b=document.createElement('div');b.className='bubble';
   if(files.length){const fc=document.createElement('div');fc.className='message-attachments';files.forEach(item=>fc.append(attachmentCard(item)));b.append(fc)}
-  if(text){const content=document.createElement('div');content.dataset.messageText='1';content.textContent=text;b.append(content)}
+  /* 琴房长按歌词引用：把开头那段包装渲染成引用块（微信那种）。
+     认的是正文本身的形状，不是藏一个看不见的标记——那样连模型都会读到。
+     翻历史时走的也是这个函数，所以刷新之后引用块还在。 */
+  let body=text,quoted='';
+  if(text){const qm=text.match(/^（指着正在放的这句歌词跟你说：「([\s\S]*?)」）\n?/);
+    if(qm){quoted=qm[1];body=text.slice(qm[0].length)}}
+  if(quoted){const bq=document.createElement('div');bq.className='piano-bq';
+    bq.textContent=quoted;b.append(bq)}
+  if(body){const content=document.createElement('div');content.dataset.messageText='1';content.textContent=body;b.append(content)}
   if(text||files.length)row.append(b);return row}
 function addUser(text,timestamp='',attachments=[],messageId=''){const row=_buildUserRow(text,timestamp,attachments,messageId);streamInner.append(row);row.scrollIntoView({block:'end'});return row}
 function plainConversation(){return[...streamInner.children].map(x=>x.classList.contains('msg-user')?`You: ${x.dataset.raw}`:x.classList.contains('msg-claude')?`助手: ${x.dataset.raw||''}`:'').filter(Boolean).join('\n\n')}
@@ -2250,8 +2306,11 @@ async function sendMessage(text,showUser=true,files=[],existingAttachments=[],op
     const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${state.token}`},body:JSON.stringify(body),signal:controller.signal});
     if(runId!==_chatRunId)return;
     if(r.status===401){showGate();throw Error('登录已失效')}if(!r.ok||!r.body){const detail=await r.json().catch(()=>({}));throw Error(detail.detail||'请求失败')}
-    const reader=r.body.getReader(),decoder=new TextDecoder();let buffer='',finished=false;
-    const frame=f=>{if(runId!==_chatRunId)return;let event='',data='';f.split('\n').forEach(line=>{if(line.startsWith('event:'))event=line.slice(6).trim();if(line.startsWith('data:'))data+=line.slice(5).trim()});if(!event||!data)return;const d=JSON.parse(data);if(event==='conversation'){state.convId=d.conversation_id;state.legacySessionId=null;localStorage.setItem('chat_conversation',state.convId);localStorage.removeItem('chat_session');if(d.user_message_id&&userRow)userRow.dataset.msgId=d.user_message_id}if(event==='model')setActualModel(d.id);if(event==='thinking')msg.thinking(d.text||'');if(event==='delta')msg.text(d.text||'');if(event==='tool_use')msg.toolUse(d);if(event==='tool_result')msg.toolResult(d);if(event==='trace_summary')msg.traceSummary(d.text||'');if(event==='piano_act')pianoRunAct(d);if(event==='done'){state.convId=d.conversation_id||state.convId;localStorage.setItem('chat_conversation',state.convId);msg.finish();if(d.assistant_message_id&&msg?.row)msg.row.dataset.msgId=d.assistant_message_id;finished=true}if(event==='error'){msg.fail(d.message);finished=true}};
+    const reader=r.body.getReader(),decoder=new TextDecoder();let buffer='',finished=false,_replyAcc='';
+    const frame=f=>{if(runId!==_chatRunId)return;let event='',data='';f.split('\n').forEach(line=>{if(line.startsWith('event:'))event=line.slice(6).trim();if(line.startsWith('data:'))data+=line.slice(5).trim()});if(!event||!data)return;const d=JSON.parse(data);if(event==='conversation'){state.convId=d.conversation_id;state.legacySessionId=null;localStorage.setItem('chat_conversation',state.convId);localStorage.removeItem('chat_session');if(d.user_message_id&&userRow)userRow.dataset.msgId=d.user_message_id}if(event==='model')setActualModel(d.id);if(event==='thinking')msg.thinking(d.text||'');if(event==='delta'){_replyAcc+=d.text||'';msg.text(d.text||'')}if(event==='tool_use')msg.toolUse(d);if(event==='tool_result')msg.toolResult(d);if(event==='trace_summary')msg.traceSummary(d.text||'');if(event==='piano_act')pianoRunAct(d);if(event==='done'){state.convId=d.conversation_id||state.convId;localStorage.setItem('chat_conversation',state.convId);msg.finish();if(d.assistant_message_id&&msg?.row)msg.row.dataset.msgId=d.assistant_message_id;finished=true;
+      /* 回完之后的钩子。琴房用它把这一轮记进这首歌的档案；
+         🔴 绝不能让它抛出来打断这条流。 */
+      if(options.onDone){try{options.onDone(_replyAcc)}catch(err){console.warn('onDone failed',err)}}}if(event==='error'){msg.fail(d.message);finished=true}};
     while(true){if(runId!==_chatRunId)return;const{value,done}=await reader.read();buffer+=decoder.decode(value||new Uint8Array(),{stream:!done});const parts=buffer.split(/\r?\n\r?\n/);buffer=parts.pop()||'';parts.forEach(frame);if(done)break}
     if(runId!==_chatRunId)return;
     if(buffer.trim())frame(buffer);if(!finished)await recoverAfterBreak(msg,state.convId,'连接意外结束，请重试。',()=>runId===_chatRunId)
@@ -3628,7 +3687,10 @@ function renderReadingCounter(){
    Duetto 只当引擎：网易云登录态、整首音频喂 Gemini、按歌缓存。
    界面在这儿原生做，**对话走小窝本来那条线**——同一个梁忱、同一条 Ombre。
    前端从头到尾看不见 Duetto 的 token，只跟 /api/piano/* 说话。 */
-var piano={view:'lists',lists:[],songs:[],idx:-1,lyrics:[],listName:'',loaded:false,collapsed:false};
+var piano={view:'lists',lists:[],songs:[],idx:-1,lyrics:[],listName:'',loaded:false,collapsed:false,
+           tlyrics:{},          /* 整秒 → 译文。网易云的 tlyric 时间戳跟原文对得上 */
+           page:0,              /* 0 封面 1 歌词 */
+           quote:null};         /* 长按选中的那句 {line, id, title, artist} */
 var pianoAudio=null;
 
 /* 五套皮肤 + 自定义。名字是中国传统色，不许改名、不许精简。
@@ -3693,6 +3755,156 @@ function pianoNowPlaying(){
                   titles:piano.songs.map(x=>x.title||'').filter(Boolean)};
   }
   return Object.keys(np).length?np:null;
+}
+
+/* ══ 歌词整页 ══════════════════════════════════════════════════════════════
+   施工单 §1.1 的五条：点一句问 Ta、长按一句引用、滑动选句贴线、译文、字体字号。
+
+   🔴 锚点固定在容器高度的 30%（不是居中）。原版注释写的是 41%，但代码里是
+      0.3——照代码，不照注释。选中判定、贴线、自动跟随三处必须用同一个数，
+      不然选中的和贴上去的会差一行。 */
+var PIANO_LYR_ANCHOR=0.30;
+var PIANO_LYR_HOLD=3000;      /* 手动滚过之后，暂停自动跟随多久 */
+var PIANO_LYR_SNAP=240;       /* 停手多久之后贴线 */
+var PIANO_LYR_LONGPRESS=550;
+
+var pianoLyr={rows:[],cur:-1,sel:-1,hold:0,auto:false,snapT:0,lpT:0,lpFired:false};
+
+var PIANO_LYR_FONTS=[
+  {id:'serif',name:'宋体',css:'var(--ls-serif-d)'},
+  {id:'kai',  name:'楷体',css:'Kaiti SC,KaiTi,STKaiti,楷体,serif'},
+  {id:'hei',  name:'黑体',css:'PingFang SC,Microsoft YaHei,sans-serif'},
+  {id:'round',name:'圆体',css:'Yuanti SC,YouYuan,幼圆,PingFang SC,sans-serif'}
+];
+var PIANO_LYR_SIZES=[{id:'s',name:'小'},{id:'m',name:'中'},{id:'l',name:'大'},{id:'xl',name:'特大'}];
+
+function pianoLyrFont(){return localStorage.getItem('piano_lyric_font')||'serif'}
+function pianoLyrSize(){return localStorage.getItem('piano_lyric_size')||'m'}
+function pianoLyrTransOn(){return localStorage.getItem('piano_lyric_trans')==='1'}
+
+/* tlyric 跟原文是两条独立的 LRC，按**整秒**对齐——网易云的译文时间戳
+   跟原文一致，秒以下的零头对不齐会整行错位。 */
+function pianoParseTLrc(text){
+  const map={};
+  pianoParseLrc(text).forEach(l=>{map[Math.round(l.t)]=l.text});
+  return map;
+}
+
+function pianoApplyLyrStyle(){
+  const f=PIANO_LYR_FONTS.find(x=>x.id===pianoLyrFont())||PIANO_LYR_FONTS[0];
+  const box=$('pianoLyrList');
+  if(!box)return;
+  box.style.fontFamily=f.css;
+  box.className='piano-lyr-list lz-'+pianoLyrSize();
+}
+
+function pianoRenderLyrics(){
+  const box=$('pianoLyrList');if(!box)return;
+  box.innerHTML='';pianoLyr.rows=[];pianoLyr.cur=-1;pianoLyr.sel=-1;
+  const trans=pianoLyrTransOn();
+  const tbtn=$('pianoLyrTrans');
+  const hasT=Object.keys(piano.tlyrics).length>0;
+  tbtn.hidden=!hasT;                      /* 没有译文就不摆这个按钮 */
+  tbtn.setAttribute('aria-pressed',trans?'true':'false');
+  tbtn.classList.toggle('on',trans);
+  if(!piano.lyrics.length){
+    box.innerHTML='<div class="piano-lyr-none">这首没有歌词</div>';
+    return;
+  }
+  piano.lyrics.forEach((l,i)=>{
+    const row=document.createElement('div');
+    row.className='piano-lyr-row';row.dataset.i=String(i);
+    row.innerHTML='<span class="ly"></span><span class="tr"></span>';
+    row.querySelector('.ly').textContent=l.text;
+    const tr=row.querySelector('.tr');
+    const t=trans?(piano.tlyrics[Math.round(l.t)]||''):'';
+    if(t)tr.textContent=t;else tr.remove();
+    /* 「作词：X」这种版权行不给点，点了没意义 */
+    if(!/^[^:：]{1,12}[:：]/.test(l.text))row.classList.add('askable');
+    pianoLyr.rows.push(row);
+    box.appendChild(row);
+  });
+  pianoApplyLyrStyle();
+  pianoLyrSyncActive(true);
+}
+
+/* 跟着播放走。手动滚过之后 hold 住 3 秒不抢她的滚动条。 */
+function pianoLyrSyncActive(force){
+  if(!pianoLyr.rows.length)return;
+  const t=pianoAudio?(pianoAudio.currentTime||0):0;
+  let i=-1;
+  for(let k=0;k<piano.lyrics.length;k++){if(piano.lyrics[k].t<=t)i=k;else break}
+  if(i===pianoLyr.cur&&!force)return;
+  if(pianoLyr.cur>=0&&pianoLyr.rows[pianoLyr.cur])pianoLyr.rows[pianoLyr.cur].classList.remove('on');
+  pianoLyr.cur=i;
+  if(i>=0&&pianoLyr.rows[i])pianoLyr.rows[i].classList.add('on');
+  if(Date.now()<pianoLyr.hold)return;      /* 她正在自己滚，别抢 */
+  pianoLyrScrollTo(i,true);
+}
+
+function pianoLyrScrollTo(i,smooth){
+  const sc=$('pianoLyrScroll'),row=pianoLyr.rows[i];
+  if(!sc||!row)return;
+  const top=row.offsetTop-sc.clientHeight*PIANO_LYR_ANCHOR+row.offsetHeight/2;
+  pianoLyr.auto=true;
+  /* 🔴 贴线那一下必须是瞬时的。iOS 的惯性滚动会跟 smooth 打架，
+     表现是松手之后来回弹两下才停。跟随可以 smooth，贴线不行。 */
+  if(smooth&&sc.scrollTo)sc.scrollTo({top,behavior:'smooth'});
+  else sc.scrollTop=top;
+  setTimeout(()=>{pianoLyr.auto=false},smooth?420:60);
+}
+
+/* 离锚点最近的那一行 */
+function pianoLyrNearest(){
+  const sc=$('pianoLyrScroll');if(!sc)return -1;
+  const line=sc.getBoundingClientRect().top+sc.clientHeight*PIANO_LYR_ANCHOR;
+  let best=-1,bd=1e9;
+  pianoLyr.rows.forEach((r,i)=>{
+    const b=r.getBoundingClientRect();
+    const d=Math.abs(b.top+b.height/2-line);
+    if(d<bd){bd=d;best=i}
+  });
+  return best;
+}
+
+function pianoLyrOnScroll(){
+  if(pianoLyr.auto)return;                 /* 自己滚的不算她滚的 */
+  pianoLyr.hold=Date.now()+PIANO_LYR_HOLD;
+  const i=pianoLyrNearest();
+  if(i<0)return;
+  pianoLyrSetSel(i);
+  clearTimeout(pianoLyr.snapT);
+  pianoLyr.snapT=setTimeout(()=>{
+    const k=pianoLyrNearest();
+    if(k>=0){pianoLyrSetSel(k);pianoLyrScrollTo(k,false)}   /* 瞬时贴线 */
+  },PIANO_LYR_SNAP);
+}
+
+function pianoLyrSetSel(i){
+  if(pianoLyr.sel===i)return;
+  if(pianoLyr.sel>=0&&pianoLyr.rows[pianoLyr.sel])pianoLyr.rows[pianoLyr.sel].classList.remove('sel');
+  pianoLyr.sel=i;
+  const row=pianoLyr.rows[i],l=piano.lyrics[i];
+  if(row)row.classList.add('sel');
+  const a=$('pianoLyrAnchor');
+  if(a&&l){a.hidden=false;$('pianoLyrTs').textContent=pianoFmt(l.t)}
+}
+
+function pianoLyrClearSel(){
+  if(pianoLyr.sel>=0&&pianoLyr.rows[pianoLyr.sel])pianoLyr.rows[pianoLyr.sel].classList.remove('sel');
+  pianoLyr.sel=-1;
+  const a=$('pianoLyrAnchor');if(a)a.hidden=true;
+}
+
+/* 从选中那句开始放 */
+function pianoLyrGoSel(){
+  const l=piano.lyrics[pianoLyr.sel];
+  if(!l||!pianoAudio)return;
+  pianoAudio.currentTime=l.t;
+  pianoAudio.play().catch(()=>{});
+  pianoLyr.hold=0;                          /* 立刻恢复自动跟随 */
+  pianoLyrClearSel();
+  pianoLyrSyncActive(true);
 }
 
 function pianoCurrentLyric(){
@@ -3784,7 +3996,7 @@ function pianoRenderSongs(){
 
 async function pianoPlay(i){
   if(i<0||i>=piano.songs.length)return;
-  const s=piano.songs[i];piano.idx=i;piano.lyrics=[];
+  const s=piano.songs[i];piano.idx=i;piano.lyrics=[];piano.tlyrics={};
   $('pianoNowTitle').textContent=s.title||'';
   $('pianoNowArtist').textContent=s.artist||'';
   $('pianoMiniTitle').textContent=s.title||'';
@@ -3805,6 +4017,9 @@ async function pianoPlay(i){
   if(piano.idx!==i)return;                      /* 期间又换歌了，丢掉这一轮 */
   /* 歌词是锦上添花，拿不到就静音降级，不挡播放 */
   piano.lyrics=lrcRes.status==='fulfilled'?pianoParseLrc(lrcRes.value.lyric||''):[];
+  /* 译文。后端一直在返 tlyric（index.mjs:355），以前前端扔了没用。 */
+  piano.tlyrics=lrcRes.status==='fulfilled'?pianoParseTLrc(lrcRes.value.tlyric||''):{};
+  pianoRenderLyrics();
   if(urlRes.status!=='fulfilled'){toast('播放失败');return}
   const url=urlRes.value.url;
   if(!url){toast('这首拿不到播放地址（可能是 VIP 或已下架）');return}
@@ -3864,6 +4079,103 @@ function pianoNext(step){
   if(i<0)i=piano.songs.length-1;
   if(i>=piano.songs.length)i=0;
   pianoPlay(i);
+}
+
+/* ── 点一句 → 问 Ta；长按一句 → 引用 ────────────────────────────────────
+   两个手势共用一个 pointerdown：550ms 到了就是长按（引用），没到就是点
+   （起一轮）。move 一超阈值两个都取消——她在滑歌词，不是在点。 */
+function pianoLyrBind(){
+  const box=$('pianoLyrList');if(!box)return;
+  let sx=0,sy=0,moved=false;
+  box.addEventListener('pointerdown',e=>{
+    const row=e.target.closest('.piano-lyr-row');
+    if(!row||!row.classList.contains('askable'))return;
+    sx=e.clientX;sy=e.clientY;moved=false;pianoLyr.lpFired=false;
+    clearTimeout(pianoLyr.lpT);
+    pianoLyr.lpT=setTimeout(()=>{
+      if(moved)return;
+      pianoLyr.lpFired=true;
+      if(navigator.vibrate)navigator.vibrate(12);
+      pianoSetQuote(piano.lyrics[Number(row.dataset.i)].text);
+    },PIANO_LYR_LONGPRESS);
+  });
+  box.addEventListener('pointermove',e=>{
+    if(Math.abs(e.clientX-sx)+Math.abs(e.clientY-sy)>8){
+      moved=true;clearTimeout(pianoLyr.lpT);
+    }
+  });
+  const cancel=()=>{clearTimeout(pianoLyr.lpT)};
+  box.addEventListener('pointerup',cancel);
+  box.addEventListener('pointercancel',cancel);
+  box.addEventListener('pointerleave',cancel);
+  box.addEventListener('click',e=>{
+    const row=e.target.closest('.piano-lyr-row');
+    if(!row||!row.classList.contains('askable'))return;
+    if(pianoLyr.lpFired||moved){pianoLyr.lpFired=false;return}  /* 长按之后别再当点击 */
+    pianoAskLine(piano.lyrics[Number(row.dataset.i)].text);
+  });
+}
+
+/* 长按选中：引用条浮出来，等她自己写要说什么 */
+function pianoSetQuote(line){
+  const s=piano.songs[piano.idx];
+  piano.quote={line:String(line||'').slice(0,120),
+               id:s?String(s.id):'',title:s?(s.title||''):'',artist:s?(s.artist||''):''};
+  $('pianoQuoteText').textContent=piano.quote.line;
+  $('pianoQuote').hidden=false;
+  const el=$('pianoSay');if(el)el.focus();
+}
+
+function pianoClearQuote(){
+  piano.quote=null;
+  $('pianoQuote').hidden=true;
+  $('pianoQuoteText').textContent='';
+}
+
+/* 点一句：直接起一轮，不用她再打字 */
+function pianoAskLine(line){
+  if(state.busy){toast('上一条还在回');return}
+  pianoSetQuote(line);
+  pianoSaySend('');
+}
+
+/* 琴房说话的唯一出口：输入框和点歌词都走这儿。
+   走的还是小窝那条线（同一个梁忱、同一条会话、同一条 Ombre），
+   只是把「正在放什么」和引用挂在用户消息侧带过去。 */
+function pianoSaySend(text){
+  const body=String(text||'').trim();
+  const q=piano.quote;
+  if(!body&&!q)return;
+  if(state.busy){toast('上一条还在回');return}
+  const np=pianoNowPlaying();
+  if(np&&np.wantImage)_pianoImgSent.add(np.id);
+  /* 引用的包法照 Duetto：先指着那一句，再说她的话。
+     这段形状 _buildUserRow 认得，会渲染成引用块。 */
+  const prompt=q?('（指着正在放的这句歌词跟你说：「'+q.line+'」）'+(body?('\n'+body):''))
+               :body;
+  /* 施工单 §1.1：长按引用发出去之后，**这句要记进这首歌的档案**。 */
+  const note=(q&&q.id)?{id:q.id,title:q.title,artist:q.artist,
+                        passage:q.line,thought:body}:null;
+  pianoClearQuote();
+  $('pianoBlank').hidden=true;
+  sendMessage(prompt,true,[],[],{piano:np,
+    onDone:reply=>{if(note)pianoLogNote(note,reply)}});
+}
+
+/* 在场记录落到 Duetto 的 song_notes 表。
+   🔴 不 await、失败只在控制台留一句：档案是锦上添花，
+   不能因为它没写成就让她觉得这一轮出了错。 */
+function pianoLogNote(note,reply){
+  const txt=String(reply||'').trim();
+  if(!note||!note.id||!txt)return;
+  api('/api/piano/song-note',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({id:note.id,title:note.title||'',artist:note.artist||'',
+                         passage:(note.passage||'').slice(0,200),
+                         thought:(note.thought||'').slice(0,1000),
+                         reply:txt.slice(0,2000)})})
+    .then(r=>{if(!r.ok)console.warn('song-note 没写成',r.status)})
+    .catch(e=>console.warn('song-note 没写成',e));
 }
 
 /* ══ DJ：他说放歌就真的放 ══════════════════════════════════════════════
@@ -3950,6 +4262,59 @@ async function pianoRunAct(act){
     /* 🔴 不许静默。他嘴上说放了、结果没动，比报错难查十倍。 */
     toast('这一下没做成：'+((e&&e.message)?String(e.message).slice(0,40):'未知错误'));
   }
+}
+
+/* ── 封面 ↔ 歌词 横滑 ────────────────────────────────────────────────────
+   用 CSS scroll-snap，不自己写手势。原版那套 pointer 位移判定要处理
+   「水平要比垂直大多少才算翻页」，而歌词页本身还要上下滚——两个手势打架。
+   交给浏览器：横滑吸附、惯性、回弹全是原生的，还省一堆代码。 */
+function pianoSetPage(p){
+  const pg=$('pianoPager');if(!pg)return;
+  p=p?1:0;
+  pg.scrollTo({left:p*pg.clientWidth,behavior:'smooth'});
+  pianoOnPage(p);
+}
+
+function pianoOnPage(p){
+  if(p===piano.page)return;
+  piano.page=p;
+  const dots=$('pianoPageDots');
+  if(dots)[...dots.children].forEach((d,i)=>d.classList.toggle('on',i===p));
+  if(p===1){pianoLyr.hold=0;pianoLyrSyncActive(true)}   /* 翻过去先对准当前句 */
+}
+
+function pianoPagerBind(){
+  const pg=$('pianoPager');if(!pg)return;
+  pg.addEventListener('scroll',()=>{
+    pianoOnPage(pg.scrollLeft>pg.clientWidth/2?1:0);
+  },{passive:true});
+}
+
+/* ── 歌词的字：四种字体 + 四档字号 ────────────────────────────────────── */
+function pianoRenderFontSheet(){
+  const grid=$('pianoFontGrid');if(!grid)return;
+  grid.innerHTML='';
+  const cur=pianoLyrFont();
+  PIANO_LYR_FONTS.forEach(f=>{
+    const b=document.createElement('button');
+    b.type='button';b.className='piano-fontcard'+(f.id===cur?' on':'');
+    b.style.fontFamily=f.css;
+    b.innerHTML='<span class="fn"></span><span class="fs">歌以咏志</span>';
+    b.querySelector('.fn').textContent=f.name;
+    b.onclick=()=>{localStorage.setItem('piano_lyric_font',f.id);
+                   pianoApplyLyrStyle();pianoRenderFontSheet()};
+    grid.appendChild(b);
+  });
+  const row=$('pianoSizeRow');row.innerHTML='';
+  const cs=pianoLyrSize();
+  PIANO_LYR_SIZES.forEach(s=>{
+    const b=document.createElement('button');
+    b.type='button';b.className='piano-sizebtn'+(s.id===cs?' on':'');
+    b.textContent=s.name;
+    b.onclick=()=>{localStorage.setItem('piano_lyric_size',s.id);
+                   pianoApplyLyrStyle();pianoRenderFontSheet()};
+    row.appendChild(b);
+  });
 }
 
 function pianoSetPlayIcon(playing){
@@ -4074,6 +4439,7 @@ function pianoInit(){
     if(!seeking&&d)seek.value=String(Math.round(pianoAudio.currentTime/d*1000));
     const l=pianoCurrentLyric();
     if(l!==$('pianoLyric').textContent)$('pianoLyric').textContent=l;
+    if(piano.page===1)pianoLyrSyncActive(false);   /* 翻在歌词页才跟随 */
   });
   pianoAudio.addEventListener('play',()=>pianoSetPlayIcon(true));
   pianoAudio.addEventListener('pause',()=>pianoSetPlayIcon(false));
@@ -4091,8 +4457,13 @@ function pianoInit(){
   $('pianoNext').onclick=e=>{e.stopPropagation();pianoNext(1)};
   $('pianoBack').onclick=()=>pianoRenderLists();
   /* 点唱片区折叠成迷你条，点迷你条展开。控制键上已经 stopPropagation，
-     所以点播放键不会误触折叠。 */
-  $('pianoStage').onclick=()=>pianoSetCollapsed(true);
+     所以点播放键不会误触折叠。
+     🔴 歌词那一页也在 stage 里面，点一句是「问 Ta」不是「折叠」——
+     从歌词页冒上来的点击一律不收。 */
+  $('pianoStage').onclick=e=>{
+    if(e.target.closest('.piano-lyrpane'))return;
+    pianoSetCollapsed(true);
+  };
   $('pianoMini').onclick=()=>pianoSetCollapsed(false);
   $('pianoListBtn').onclick=e=>{e.stopPropagation();pianoDrawer(true)};
   $('pianoQrAgain').onclick=()=>pianoQrNew();
@@ -4100,21 +4471,36 @@ function pianoInit(){
   initSheetDrag($('pianoDrawer'),'#pianoBack',()=>{});
   $('pianoSkinBtn').onclick=()=>{pianoRenderSkinGrid();$('pianoSkinMask').hidden=false};
   $('pianoSkinMask').onclick=e=>{if(e.target===$('pianoSkinMask'))$('pianoSkinMask').hidden=true};
+
+  /* ── 歌词页 ── */
+  pianoPagerBind();
+  pianoLyrBind();
+  $('pianoLyrScroll').addEventListener('scroll',pianoLyrOnScroll,{passive:true});
+  $('pianoLyrGo').onclick=e=>{e.stopPropagation();pianoLyrGoSel()};
+  $('pianoLyrTrans').onclick=e=>{
+    e.stopPropagation();
+    localStorage.setItem('piano_lyric_trans',pianoLyrTransOn()?'':'1');
+    pianoRenderLyrics();
+  };
+  $('pianoLyrFont').onclick=e=>{
+    e.stopPropagation();pianoRenderFontSheet();$('pianoFontMask').hidden=false;
+  };
+  /* AGENTS.md 那条：关闭态靠 hidden 收，不留透明层压 z-index */
+  $('pianoFontMask').onclick=e=>{if(e.target===$('pianoFontMask'))$('pianoFontMask').hidden=true};
+  $('pianoQuoteX').onclick=()=>pianoClearQuote();
+  pianoApplyLyrStyle();
+
   pianoApplySkin(pianoSkin());
   pianoSetCollapsed(localStorage.getItem('piano_collapsed')==='1');
-  $('pianoSayForm').addEventListener('submit',async e=>{
+  $('pianoSayForm').addEventListener('submit',e=>{
     e.preventDefault();
     const el=$('pianoSay'),text=el.value.trim();
-    if(!text)return;
+    /* 只有引用条挂着、一个字没打，也算数——「就想指着这句给你看」 */
+    if(!text&&!piano.quote)return;
     if(state.busy){toast('上一条还在回');return}
     el.value='';
-    /* 走同一条线（同一个梁忱、同一条会话、同一条 Ombre），
-       只是把「正在放什么」挂在用户消息侧带过去。
-       回复就渲染在下面那条流里——**不弹去 Chat**，人得留在这儿。 */
-    const np=pianoNowPlaying();
-    if(np&&np.wantImage)_pianoImgSent.add(np.id);   /* 这一轮送了，之后不再送 */
-    sendMessage(text,true,[],[],{piano:np});
-    $('pianoBlank').hidden=true;      /* 一说话就不再是空会话 */
+    /* 回复就渲染在下面那条流里——**不弹去 Chat**，人得留在这儿。 */
+    pianoSaySend(text);
   });
 }
 
