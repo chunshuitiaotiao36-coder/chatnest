@@ -17,7 +17,10 @@ from dotenv import load_dotenv
 ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(ROOT / ".env")
 
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, Request, UploadFile
+from fastapi import (
+    Depends, FastAPI, File, Form, Header, HTTPException, Query, Request,
+    UploadFile, WebSocket, WebSocketDisconnect,
+)
 from fastapi.responses import FileResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 from typing import Any
@@ -1305,6 +1308,71 @@ async def piano_listen_log(body: PianoListenBody) -> dict:
 @app.get("/api/piano/listen-stats", dependencies=[Depends(require_auth)])
 async def piano_listen_stats() -> dict:
     return await _piano("/api/listen-stats")
+
+
+# ── 房间实时同步：/ws 的代理 ────────────────────────────────────────────
+# 前端连这条，小窝拿着 DUETTO_TOKEN 去连 Duetto 的 /ws。两条腿对拷字节。
+#
+# 🔴 鉴权必须自己写，两个原因，缺一个都是敞着门：
+#   一、`Depends(require_auth)` 是个 Header 参数（main.py 上面那个），
+#      WebSocket 路由上根本不生效。
+#   二、AUTH_MODE=both 时那层 Basic Auth 是 `@app.middleware("http")`，
+#      **WebSocket 不经过它**。所以这条路由是唯一一扇外层拦不住的门。
+#
+# 🔴 token 走 subprotocol，不走 query。浏览器的 new WebSocket() 不能设 header，
+#   一般做法是塞 query，但小窝的 token 是 HMAC(CHAT_SECRET) 的**恒定值**
+#   （auth.py:12），没有过期，进了反向代理的访问日志就是永久泄露。
+#   subprotocol 在握手头里，日志不记。
+
+@app.websocket("/ws/piano")
+async def piano_ws(ws: WebSocket) -> None:
+    raw = ws.headers.get("sec-websocket-protocol") or ""
+    protos = [p.strip() for p in raw.split(",") if p.strip()]
+    token = protos[1] if len(protos) >= 2 and protos[0] == "bearer" else ""
+    if not token or not auth.verify_token(token):
+        await ws.close(code=1008)          # policy violation
+        return
+    if not piano.configured():
+        await ws.accept(subprotocol="bearer")
+        await ws.close(code=1011, reason="piano not configured")
+        return
+
+    room = (ws.query_params.get("room") or "main")[:64]
+    await ws.accept(subprotocol="bearer")
+
+    try:
+        async with piano.ws_connect(room) as up:
+            logger.info("[琴房] 房间 %s 接上了", room)
+
+            async def down_to_up() -> None:
+                while True:
+                    await up.send(await ws.receive_text())
+
+            async def up_to_down() -> None:
+                while True:
+                    msg = await up.recv()
+                    await ws.send_text(msg if isinstance(msg, str) else msg.decode())
+
+            done, pending = await asyncio.wait(
+                [asyncio.create_task(down_to_up()), asyncio.create_task(up_to_down())],
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            # 一头断了另一头就没意义了，别把任务漏在后台
+            for t in pending:
+                t.cancel()
+            for t in done:
+                exc = t.exception()
+                if exc and not isinstance(exc, (WebSocketDisconnect, asyncio.CancelledError)):
+                    logger.info("[琴房] 房间 %s 断开：%s", room, exc)
+    except piano.PianoError as exc:
+        logger.warning("[琴房] WS 代理起不来：%s", exc)
+    except Exception as exc:      # 上游连不上、握手被拒……都不该把小窝带崩
+        logger.warning("[琴房] WS 上游连不上：%s: %s", exc.__class__.__name__, exc)
+    finally:
+        try:
+            await ws.close()
+        except RuntimeError:
+            pass                  # 已经关了
 
 
 @app.get("/api/piano/room/events", dependencies=[Depends(require_auth)])

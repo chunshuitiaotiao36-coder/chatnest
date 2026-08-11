@@ -16,6 +16,7 @@ import logging
 import os
 import re
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -128,6 +129,40 @@ async def call(path: str, params: dict[str, Any] | None = None,
         return resp.json()
     except ValueError as exc:
         raise PianoError("琴房引擎返回的不是 JSON") from exc
+
+
+# ── 房间实时同步：/ws 的服务端代理 ─────────────────────────────────────────
+# 🔴 前端连小窝，小窝连 Duetto。Duetto 的 /ws 也要 token（index.mjs:415，
+# 从 query 取），跟 /api/* 是同一把钥匙——下发到浏览器就等于挂在公网上。
+# 所以这条腿只能在后端拼。
+
+def ws_url(room: str) -> str:
+    """拼上游 /ws 的地址。token 在这里挂上，不出这一层。"""
+    base = BASE_URL
+    if base.startswith("https://"):
+        base = "wss://" + base[len("https://"):]
+    elif base.startswith("http://"):
+        base = "ws://" + base[len("http://"):]
+    return f"{base}/ws?room={quote(room)}&token={quote(TOKEN)}"
+
+
+def ws_connect(room: str):
+    """连上游。返回 websockets 的 async context manager。
+
+    🔴 websockets 只在这个函数里 import。它本身很轻，但保持
+    「重依赖不进模块顶部」的习惯——piano_analysis 那条红线是同一个道理。
+    """
+    import websockets
+
+    if not TOKEN:
+        raise PianoError("琴房引擎未配置（缺 DUETTO_TOKEN）", status=503)
+    return websockets.connect(
+        ws_url(room),
+        open_timeout=10,
+        ping_interval=20,      # 反向代理常在 60s 静默后掐连接，自己先喘气
+        ping_timeout=20,
+        max_size=512 * 1024,   # 跟 Duetto 的 maxPayload 对齐（index.mjs:412）
+    )
 
 
 # ── DJ 指令：从流式回复里剥出 <<ACT>>{...}<<>> ──────────────────────────────

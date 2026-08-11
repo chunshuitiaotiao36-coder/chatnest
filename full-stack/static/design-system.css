@@ -2269,3 +2269,49 @@ body.tab-away #chat {
 .piano-cmt { margin: 9px 2px; padding-bottom: 8px; border-bottom: 1px solid var(--ls-line-soft) }
 .piano-cmt .u { font-family: var(--ls-meta); font-size: 10px; color: var(--ls-ink-faint); margin-bottom: 3px }
 .piano-cmt .t { font-size: 12.5px; line-height: 1.6; color: var(--ls-ink-dim) }
+
+/* ══════════════ 琴房 · 房间（状态卡 / 分享卡）══════════════════════════
+   卡片塞在 #stream 里，但不是消息——它们不进小窝的库、不进模型上下文，
+   退出琴房时会被摘掉（pianoStripCards）。 */
+
+.piano-topbtn {
+  border: 0; background: transparent; cursor: pointer;
+  padding: 4px; color: var(--ls-ink-faint); line-height: 0;
+}
+.piano-topbtn svg { width: 17px; height: 17px }
+.piano-topbtn:active { color: var(--ls-gold) }
+
+.piano-card { margin: 8px auto; max-width: 82% }
+
+/* 状态卡：居中一行小字，不抢戏 */
+.piano-evtcard {
+  width: fit-content; padding: 3px 10px; border-radius: 10px;
+  background: var(--ls-panel2); color: var(--ls-ink-faint);
+  font-family: var(--ls-meta); font-size: 10.5px; text-align: center;
+}
+
+/* 分享卡：点卡即播 */
+.piano-sharecard {
+  display: flex; align-items: center; gap: 9px; cursor: pointer;
+  padding: 7px 10px; border-radius: 11px;
+  background: var(--ls-panel); border: 1px solid var(--ls-line-soft);
+  box-shadow: 0 2px 10px var(--ls-shadow);
+}
+.piano-sharecard .cv {
+  flex: 0 0 auto; width: 38px; height: 38px; border-radius: 7px;
+  overflow: hidden; background: var(--ls-panel2);
+}
+.piano-sharecard .cv img { width: 100%; height: 100%; object-fit: cover; display: block }
+.piano-sharecard .mt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px }
+.piano-sharecard b {
+  font-size: 13px; font-weight: 600; color: var(--ls-ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.piano-sharecard i {
+  font-style: normal; font-size: 11px; color: var(--ls-ink-faint);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.piano-sharecard .go { flex: 0 0 auto; color: var(--ls-gold); font-size: 13px }
+
+/* 琴房只露最近几轮，但卡片不该被那条规则连坐藏掉 */
+.stream-inner.piano-trim .piano-card { display: block }

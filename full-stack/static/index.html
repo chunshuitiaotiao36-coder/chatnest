@@ -689,6 +689,9 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
         <div class="piano-kicker">正在一起听</div>
         <div class="piano-h" id="pianoRoomName">此刻</div>
       </div>
+      <button type="button" class="piano-topbtn" id="pianoShareBtn" aria-label="把这首分享进对话">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
+      </button>
       <button type="button" class="ls-skinbtn" id="pianoSkinBtn">
         <span class="sw"></span><span id="pianoSkinName">凝脂</span>
       </button>
@@ -3758,6 +3761,9 @@ var piano={view:'lists',lists:[],queue:[],browse:[],idx:-1,lyrics:[],listName:''
            curPl:null,          /* 正开着的那个歌单（删除要用它的 pid） */
            sel:null,            /* 多选集合；null = 不在多选态 */
            healed:false,        /* 这一首是否已经自愈过一次地址，防重试打转 */
+           wantPlaying:false,   /* 🔴 她**想不想**在放。audio 的 pause 事件分不出
+                                   是她按的还是锁屏/来电按的——这个标记能。
+                                   还想放却收到 pause = 系统干的，不广播不发卡。 */
            fmBusy:false};
 var pianoAudio=null;
 
@@ -4246,6 +4252,8 @@ async function pianoBatchFav(songs){
                           +'&id='+encodeURIComponent(ids.join(',')),{method:'POST'});
         if(!r.ok)throw Error('收藏没成（'+r.status+'）');
         toast('收进「'+(pl.name||'')+'」了');
+        pianoActor={who:'user',t:Date.now()};
+        pianoRoomEvent('把 '+ids.length+' 首收进了「'+(pl.name||'')+'」');
         pianoExitMulti();pianoRenderSongs();
       }catch(e){toast(String(e&&e.message||'收藏没成'))}
     };
@@ -4778,6 +4786,222 @@ function pianoLogNote(note,reply){
     .catch(e=>console.warn('song-note 没写成',e));
 }
 
+/* ══ 房间：实时同步 / 状态卡 / 分享卡 ══════════════════════════════════
+   前端只连小窝的 /ws/piano，小窝拿着 DUETTO_TOKEN 去连 Duetto。
+   token 走 subprotocol 不走 query——小窝的 token 是恒定值，进访问日志
+   就是永久泄露。 */
+var pianoSync={ws:null,applying:false,lastRemote:null,ready:false,timer:0,tries:0};
+/* 三个时间戳，专治「系统行为不该刷屏」。
+   锁屏暂停、来电、切后台都会触发 audio 的 pause 事件——那不是她按的，
+   不该广播，也不该在房间里留一张「暂停了」的卡。 */
+var pianoSys={pause:0,evt:0,remote:0};
+var PIANO_DRIFT=2;            /* 进度差超过这么多秒才纠偏，不然两台会互相拉扯 */
+
+function pianoRoom(){
+  try{
+    const q=new URLSearchParams(location.search).get('room');
+    if(q){localStorage.setItem('piano_room',q);return q}
+  }catch(e){}
+  return localStorage.getItem('piano_room')||'main';
+}
+
+function pianoSyncConnect(){
+  if(pianoSync.ws||!state.token)return;
+  const proto=location.protocol==='https:'?'wss:':'ws:';
+  const url=proto+'//'+location.host+'/ws/piano?room='+encodeURIComponent(pianoRoom());
+  let ws;
+  try{ws=new WebSocket(url,['bearer',state.token])}catch(e){pianoSyncRetry();return}
+  pianoSync.ws=ws;
+  ws.onopen=()=>{
+    pianoSync.tries=0;
+    /* 🔴 刚连上先别广播。首次挂载时本地是 paused，广播出去会把
+       对面正在放的歌停掉。等她真的动一下再说。 */
+    pianoSync.ready=false;
+    setTimeout(()=>{pianoSync.ready=true},1200);
+  };
+  ws.onmessage=ev=>{
+    let m;try{m=JSON.parse(ev.data)}catch(e){return}
+    if(!m)return;
+    /* 🔴 应用远端消息期间发出去的任何东西都要丢掉，否则两台机器
+       会就着同一个动作互相回声，越弹越快。这是回声抑制第一层。 */
+    pianoSync.applying=true;
+    try{
+      if(m.t==='chat'&&m.msg)pianoCardIn(m.msg);
+      else pianoApplyRemote(m);
+    }finally{pianoSync.applying=false}
+  };
+  ws.onclose=()=>{pianoSync.ws=null;pianoSyncRetry()};
+  ws.onerror=()=>{try{ws.close()}catch(e){}};
+}
+
+function pianoSyncRetry(){
+  clearTimeout(pianoSync.timer);
+  /* 退避到 30 秒封顶。琴房关着的时候不该每 3 秒敲一次门。 */
+  const wait=Math.min(30000,3000*Math.pow(1.6,Math.min(pianoSync.tries++,6)));
+  pianoSync.timer=setTimeout(()=>{if(currentTab==='music')pianoSyncConnect()},wait);
+}
+
+function pianoSyncClose(){
+  clearTimeout(pianoSync.timer);
+  const ws=pianoSync.ws;pianoSync.ws=null;pianoSync.ready=false;
+  if(ws){try{ws.onclose=null;ws.close()}catch(e){}}
+}
+
+function pianoSend(m){
+  if(pianoSync.applying)return;                 /* 回声抑制第一层 */
+  const ws=pianoSync.ws;
+  if(!ws||ws.readyState!==1)return;
+  try{ws.send(JSON.stringify(m))}catch(e){}
+}
+
+/* 广播「我在放/暂停这一首，放到第几秒」。
+   🔴 按**歌的 id** 同步，不按下标。原版发的是 idx，可两台机器的队列
+   根本不是同一串，下标对不上——所以原版实际只同步了播放/暂停，
+   切歌得靠对面手动点分享卡。我们把歌本身带过去。 */
+function pianoBroadcast(playing){
+  if(!pianoSync.ready)return;
+  const s=piano.queue[piano.idx];
+  if(!s)return;
+  /* 系统行为不广播：锁屏/来电触发的 pause 在 1.5 秒内不算数 */
+  if(!playing&&(Date.now()-pianoSys.pause<1500))return;
+  const r=pianoSync.lastRemote;
+  if(r&&r.action===(playing?'play':'pause')&&String(r.id)===String(s.id)){
+    pianoSync.lastRemote=null;                  /* 回声抑制第二层：一次性消费 */
+    return;
+  }
+  pianoSend({action:playing?'play':'pause',
+             id:String(s.id),title:s.title||'',artist:s.artist||'',cover:s.cover||'',
+             time:Math.floor(pianoAudio?pianoAudio.currentTime||0:0)});
+}
+
+function pianoApplyRemote(m){
+  if(!m.action||!pianoAudio)return;
+  pianoSync.lastRemote={action:m.action,id:m.id};
+  pianoSys.remote=Date.now();
+  if(m.action==='seek'){
+    if(m.time!=null)pianoAudio.currentTime=Number(m.time)||0;
+    return;
+  }
+  const cur=piano.queue[piano.idx];
+  const same=cur&&String(cur.id)===String(m.id||'');
+  if(!same&&m.id){
+    /* 对面换歌了。队列里有就跳过去，没有就接到队尾。 */
+    let at=piano.queue.findIndex(x=>String(x.id)===String(m.id));
+    if(at<0){
+      piano.queue.push({id:m.id,title:m.title||'',artist:m.artist||'',cover:m.cover||'',dur:0});
+      at=piano.queue.length-1;
+    }
+    pianoPlay(at).then(()=>{
+      if(m.time!=null&&pianoAudio)pianoAudio.currentTime=Number(m.time)||0;
+      if(m.action==='pause')pianoAudio.pause();
+    });
+    return;
+  }
+  /* 同一首：只对进度和播放态。差得不多就不动，两台不停互相拉扯很难受。 */
+  if(m.time!=null&&Math.abs((pianoAudio.currentTime||0)-Number(m.time))>PIANO_DRIFT){
+    pianoAudio.currentTime=Number(m.time)||0;
+  }
+  if(m.action==='play')pianoAudio.play().catch(()=>{});
+  else pianoAudio.pause();
+}
+
+/* ── 状态卡 ────────────────────────────────────────────────────────────
+   谁播放了 / 暂停了 / 红心了 / 收藏了什么，居中一张小卡。
+   🔴 锁屏、来电、切后台这类系统行为不算，不刷屏。 */
+var pianoCardSeen={};          /* 文本 → 上次出现的时间，30 秒内不重复 */
+
+function pianoWho(){
+  return (pianoActor.who==='ai'&&Date.now()-pianoActor.t<4000)?'梁忱':'小朵';
+}
+
+function pianoRoomEvent(tail){
+  const quiet=(Date.now()-pianoSys.evt<3000)||(Date.now()-pianoSys.remote<3000);
+  if(quiet)return;                              /* 系统行为或远端引发的，不发卡 */
+  const t=pianoWho()+' '+tail;
+  const now=Date.now();
+  if(pianoCardSeen[t]&&now-pianoCardSeen[t]<30000)return;   /* 30 秒去重 */
+  pianoCardSeen[t]=now;
+  const msg={who:'sys',sys:true,t,ts:now};
+  pianoCardIn(msg);
+  pianoSend({t:'chat',msg});                    /* 广播出去，同时落 Duetto 的 room_events */
+}
+
+function pianoShare(s){
+  const song=s||piano.queue[piano.idx];
+  if(!song){toast('现在没在放歌');return}
+  const msg={who:'me',ts:Date.now(),
+             share:{id:String(song.id),title:song.title||'',artist:song.artist||'',
+                    cover:song.cover||'',url:song.url||''}};
+  pianoCardIn(msg);
+  pianoSend({t:'chat',msg});
+}
+
+/* 卡片是**独立 DOM 节点**，塞进 #stream 但不进小窝的 messages 表，
+   也不进模型上下文。落库在 Duetto 的 room_events，进琴房时补回来。
+   🔴 退出琴房时必须摘干净，否则 Chat tab 会串味——见 pianoUnmountStream。 */
+function pianoCardEl(msg){
+  const d=document.createElement('div');
+  d.dataset.pianoTs=String(msg.ts||Date.now());
+  if(msg.share){
+    d.className='piano-card piano-sharecard';
+    d.innerHTML='<span class="cv"></span><span class="mt"><b></b><i></i></span>'
+               +'<span class="go">▶</span>';
+    const cv=d.querySelector('.cv');
+    if(msg.share.cover){const im=new Image();im.src=msg.share.cover;im.alt='';cv.appendChild(im)}
+    d.querySelector('b').textContent=msg.share.title||'';
+    d.querySelector('i').textContent=msg.share.artist||'';
+    d.onclick=()=>{                              /* 点卡即播 */
+      const sg=msg.share;
+      let at=piano.queue.findIndex(x=>String(x.id)===String(sg.id));
+      if(at<0){piano.queue.push({...sg,dur:0});at=piano.queue.length-1}
+      pianoActor={who:'user',t:Date.now()};
+      pianoPlay(at);
+    };
+  }else{
+    d.className='piano-card piano-evtcard';
+    d.textContent=msg.t||'';
+  }
+  return d;
+}
+
+function pianoCardIn(msg){
+  if(!msg)return;
+  const el=pianoCardEl(msg);
+  const box=streamInner;
+  if(!box)return;
+  box.appendChild(el);
+  /* 新卡片出现时如果她本来就在底部，跟着滚下去 */
+  const sc=stream;
+  if(sc&&sc.scrollHeight-sc.scrollTop-sc.clientHeight<160)sc.scrollTop=sc.scrollHeight;
+}
+
+/* 进琴房时把房间时间线补回来，按时间插到消息之间 */
+async function pianoHydrateCards(){
+  if(!streamInner)return;
+  try{
+    const r=await api('/api/piano/room/events?room='+encodeURIComponent(pianoRoom())+'&limit=120');
+    if(!r.ok)return;
+    const evs=((await r.json()).events||[]);
+    const rows=[...streamInner.children].filter(x=>!x.dataset.pianoTs);
+    evs.forEach(msg=>{
+      if(!msg||(!msg.t&&!msg.share))return;
+      const el=pianoCardEl(msg),ts=Number(msg.ts||0);
+      /* 找第一条比它新的消息，插在前面；找不到就贴到最后 */
+      const after=rows.find(x=>{
+        const d=Date.parse(x.dataset.timestamp||'');
+        return d&&d>ts;
+      });
+      if(after)streamInner.insertBefore(el,after);
+      else streamInner.appendChild(el);
+    });
+  }catch(e){/* 补不回来就算了，不挡她说话 */}
+}
+
+function pianoStripCards(){
+  if(!streamInner)return;
+  streamInner.querySelectorAll('[data-piano-ts]').forEach(el=>el.remove());
+}
+
 /* ══ DJ：他说放歌就真的放 ══════════════════════════════════════════════
    标记已经在后端剥干净了（piano.py 的 ActStripper），到这儿只剩动作本身。
    施工单 §2.1 那张表，八个 type 一个不少。
@@ -4818,8 +5042,8 @@ async function pianoRunAct(act){
   }
   pianoActor={who:'ai',t:Date.now()};
   try{
-    if(type==='pause'){pianoAudio&&pianoAudio.pause();return}
-    if(type==='resume'){pianoAudio&&pianoAudio.play().catch(()=>{});return}
+    if(type==='pause'){piano.wantPlaying=false;pianoAudio&&pianoAudio.pause();return}
+    if(type==='resume'){piano.wantPlaying=true;pianoAudio&&pianoAudio.play().catch(()=>{});return}
     if(type==='next'||type==='prev'){
       if(!piano.queue.length){toast('还没有队列，先挑个歌单');return}
       pianoNext(type==='next'?1:-1);return;
@@ -4831,6 +5055,7 @@ async function pianoRunAct(act){
                         {method:'POST'});
       if(!r.ok)throw Error('红心没成（'+r.status+'）');
       toast('红心了《'+(s.title||'')+'》');
+      pianoRoomEvent('红心了《'+(s.title||'')+'》');
       return;
     }
     /* 下面三个都要先搜到歌 */
@@ -5041,8 +5266,32 @@ function pianoInit(){
     if(l!==$('pianoLyric').textContent)$('pianoLyric').textContent=l;
     if(piano.page===1)pianoLyrSyncActive(false);   /* 翻在歌词页才跟随 */
   });
-  pianoAudio.addEventListener('play',()=>pianoSetPlayIcon(true));
-  pianoAudio.addEventListener('pause',()=>pianoSetPlayIcon(false));
+  pianoAudio.addEventListener('play',()=>{
+    pianoSetPlayIcon(true);
+    piano.wantPlaying=true;
+    pianoBroadcast(true);
+    const s=piano.queue[piano.idx];
+    if(s)pianoRoomEvent('放了《'+(s.title||'')+'》');
+  });
+  pianoAudio.addEventListener('pause',()=>{
+    pianoSetPlayIcon(false);
+    /* 🔴 她还想放却收到 pause —— 锁屏、来电、切后台干的。
+       不广播（不然会把对面也停掉），也不留卡片（不然一晚上刷一屏）。 */
+    if(piano.wantPlaying){
+      pianoSys.pause=Date.now();pianoSys.evt=Date.now();
+      return;
+    }
+    pianoBroadcast(false);
+    const s=piano.queue[piano.idx];
+    if(s)pianoRoomEvent('暂停了《'+(s.title||'')+'》');
+  });
+  /* 切回前台时，如果她本来想放而音频停了，接着放 */
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState!=='visible')return;
+    if(currentTab!=='music'||!piano.wantPlaying||!pianoAudio.paused)return;
+    pianoSys.evt=Date.now();
+    pianoAudio.play().catch(()=>{});
+  });
   pianoAudio.addEventListener('ended',pianoEnded);
   /* 地址过期自愈。一首只做一次，见 pianoHealUrl。 */
   pianoAudio.addEventListener('error',pianoHealUrl);
@@ -5053,7 +5302,13 @@ function pianoInit(){
     if(d)pianoAudio.currentTime=Number(seek.value)/1000*d;
     seeking=false;
   });
-  const toggle=e=>{if(e)e.stopPropagation();if(pianoAudio.paused)pianoAudio.play().catch(()=>{});else pianoAudio.pause()};
+  /* 🔴 先落 wantPlaying 再动 audio。pause 事件靠它区分是她按的还是系统按的。 */
+  const toggle=e=>{
+    if(e)e.stopPropagation();
+    pianoActor={who:'user',t:Date.now()};
+    if(pianoAudio.paused){piano.wantPlaying=true;pianoAudio.play().catch(()=>{})}
+    else{piano.wantPlaying=false;pianoAudio.pause()}
+  };
   $('pianoPlay').onclick=toggle;
   $('pianoMiniPlay').onclick=toggle;
   $('pianoPrev').onclick=e=>{e.stopPropagation();pianoNext(-1)};
@@ -5072,6 +5327,11 @@ function pianoInit(){
   $('pianoQrAgain').onclick=()=>pianoQrNew();
   /* 复用 Chat 那套 sheet 拖拽（08-05 修过阈值的那个），不新写 */
   initSheetDrag($('pianoDrawer'),'#pianoBack',()=>{});
+  $('pianoShareBtn').onclick=e=>{
+    e.stopPropagation();
+    pianoActor={who:'user',t:Date.now()};
+    pianoShare();
+  };
   $('pianoSkinBtn').onclick=()=>{pianoRenderSkinGrid();$('pianoSkinMask').hidden=false};
   $('pianoSkinMask').onclick=e=>{if(e.target===$('pianoSkinMask'))$('pianoSkinMask').hidden=true};
 
@@ -5136,6 +5396,8 @@ function pianoInit(){
                         {method:'POST'});
       if(!r.ok)throw Error('红心没成（'+r.status+'）');
       toast('红心了');
+      pianoActor={who:'user',t:Date.now()};
+      pianoRoomEvent('红心了《'+(pianoSongCur.title||'')+'》');
     }catch(e){toast(String(e&&e.message||'红心没成'))}
   };
   $('pianoSongAsk').onclick=()=>{
@@ -5193,11 +5455,15 @@ function pianoMountStream(){
   if(!host||stream.parentElement===host)return;
   host.appendChild(stream);
   streamInner.classList.add('piano-trim');       /* 只露最近 8 轮 */
+  pianoHydrateCards();      /* 把房间时间线补回来，按时间插在消息之间 */
   stream.scrollTop=stream.scrollHeight;
   pianoSyncBlank();
 }
 function pianoUnmountStream(){
   if(stream.parentElement===chat)return;
+  /* 🔴 状态卡和分享卡是琴房的东西，塞在 #stream 里但不属于这条会话。
+     搬回 Chat 之前必须摘干净，不然 Chat tab 会串味。 */
+  pianoStripCards();
   streamInner.classList.remove('piano-trim');
   chat.insertBefore(stream,chat.querySelector('.composer-wrap'));
   stream.scrollTop=stream.scrollHeight;
@@ -5224,9 +5490,9 @@ function switchTab(name){
   /* 琴房：进来才拉歌单，别在开屏时白打一次。音频元素挂在 tab 里，
      切走时 tab 是 display:none——不影响 <audio> 继续放。
      #stream 跟着 tab 走：进琴房搬进来，离开搬回 #chat。 */
-  if(name==='music'){pianoInit();pianoMountStream();pianoSetAnimating(true);pianoCheckLogin()}
+  if(name==='music'){pianoInit();pianoMountStream();pianoSetAnimating(true);pianoCheckLogin();pianoSyncConnect()}
   /* 走的时候必须停轮询，否则她切去别的 tab，二维码还在后台每 2 秒打一次 */
-  else{pianoUnmountStream();pianoQrStop();if(pianoAudio)pianoSetAnimating(false)}
+  else{pianoUnmountStream();pianoQrStop();pianoSyncClose();if(pianoAudio)pianoSetAnimating(false)}
   if(name==='reading'){renderReadingCounter();if(!starmapCollapsed())openStarmap();
     /* 日记那块要是记着上次是展开的，进书房就把数据补上 */
     if(!$('studyDiary')?.classList.contains('is-collapsed'))loadDiary();}
