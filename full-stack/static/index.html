@@ -5156,7 +5156,14 @@ function pianoSetPlayIcon(playing){
 
 /* 折叠：唱片区 ↔ 迷你条。她真聊起来的时候屏幕要给对话。 */
 function pianoSetCollapsed(v){
-  piano.collapsed=!!v;
+  /* 🔴 没歌的时候不许折叠。
+     折叠态唯一的展开入口是迷你条，而迷你条在没歌时也是藏着的
+     （下面那行 piano.idx<0）——两个一起藏就是一整片空白，
+     而且**点不回来**：控制条、歌单键、唱片全在 stage 里，一起没了。
+     piano_collapsed 又存在 localStorage 里，刷新也救不回来。
+     08-11 她手机上就卡在这个状态。这一行同时是存量的自愈：
+     下次进来 idx<0，折叠态自动作废。 */
+  piano.collapsed=!!v&&piano.idx>=0;
   $('pianoStage').hidden=piano.collapsed;
   $('pianoMini').hidden=!piano.collapsed||piano.idx<0;
   localStorage.setItem('piano_collapsed',piano.collapsed?'1':'');
