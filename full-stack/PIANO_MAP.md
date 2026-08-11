@@ -215,7 +215,40 @@
 | `index.html:4294` | `pianoRenderFontSheet()` |
 | `design-system.css:2013-2159` | 歌词页整段 CSS |
 
-**新增的 localStorage 键**：`piano_lyric_font` / `piano_lyric_size` / `piano_lyric_trans`
+**播放器与曲库（第 3.5 项）**
+
+🔴 **最重要的一条：`piano.queue` 和 `piano.browse` 分家了。**
+以前一个 `piano.songs` 同时当「正在放的队列」和「抽屉里正在看的列表」，
+于是「加入待播」是个假按钮（列表本身就是队列，加了等于复制一遍），
+悬浮球的「待播」页签也没东西可显示。现在：
+
+- `piano.queue` —— 正在放的那一串，`piano.idx` 指着它。
+  上一首/下一首/预取/随机计划/FM 续歌**只看它**。
+- `piano.browse` —— 抽屉里正在看的那一串，`piano.browseKind` 是它的性质。
+  多选、批量删、`listSongs` 注入**只看它**。
+- 桥是 `pianoPlayBrowse(i)`（`index.html:4409`）：把 browse 整串接管成 queue
+  再从第 i 首放，跟 Duetto 的 `__lsPlayNcm(song,list,i)` 一个语义。
+- **列表高亮按歌的 id 比，不能比下标**——两套坐标系，比下标会高亮到不相干的行。
+
+| 行 | 是什么 |
+|---|---|
+| `index.html:4478/4488/4503` | `pianoPlanPush` / `pianoUpcoming` / `pianoPlanAhead` —— 预取接下来三首 |
+| `index.html:4541/4558` | `pianoSetMedia`（锁屏卡片）/ `pianoLogListen`（听歌流水） |
+| `index.html:4626/4635/4643/4674` | `PIANO_MODES` / `pianoApplyMode` / `pianoCycleMode` / `pianoEnded` |
+| `index.html:4063/4072/4085` | `PIANO_SRCS` 六个来源 / `pianoRenderSrcs` / `pianoShowSongs` |
+| `index.html:4148/4154` | 本地歌（`piano_local`，粘直链） |
+| `index.html:4199` | `pianoEnterMulti` —— 长按行进多选 |
+| `index.html:4275/4278` | 歌曲详情三个标签页 |
+| `test_piano_queue.js` | 23 条断言，`node test_piano_queue.js` |
+
+**预取的触发点是「这一首开播之后」，不是快放完的时候**——iOS 把页面切后台会掐
+fetch，等尾窗再拉来不及，锁屏连播就断在那儿。
+
+**红心（likelist）故意不做浏览页**：它只返 id 不返歌名，真正的用处是把心点亮；
+「我喜欢的音乐」本来就在歌单列表里。
+
+**新增的 localStorage 键**：`piano_lyric_font` / `piano_lyric_size` /
+`piano_lyric_trans` / `piano_playmode` / `piano_local`
 （原有两个：`piano_skin` / `piano_collapsed`）
 
 **两个数改一个要改两处**：锚点 30% 同时写在 `index.html` 的 `PIANO_LYR_ANCHOR`

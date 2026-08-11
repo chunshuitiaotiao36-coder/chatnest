@@ -759,9 +759,9 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
         <div class="piano-times"><span id="pianoPos">0:00</span><span id="pianoDur">0:00</span></div>
       </div>
       <!-- 照 Duetto 原版的控制条：循环 / 上一首 / 播放 / 下一首 / 播放列表。
-           循环第一期不做，左边留一个等宽占位保持对称。 -->
+           左边那个位子原本是等宽占位，现在放播放模式（列表/单曲/随机）。 -->
       <div class="ls-ctrl piano-ctrl">
-        <span class="ctrl-spacer" aria-hidden="true"></span>
+        <button type="button" id="pianoMode" aria-label="播放模式"></button>
         <button type="button" id="pianoPrev" aria-label="上一首">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zm3.5 7L18 5v14z"/></svg>
         </button>
@@ -829,8 +829,59 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
         <h2 class="sheet-title" id="pianoTitle">歌单</h2>
         <span class="piano-sub" id="pianoSub"></span>
       </header>
+      <!-- 曲库来源。§3 把这些接口全代理了，不做入口等于没代理。 -->
+      <div class="piano-srcs" id="pianoSrcs"></div>
+      <!-- 本地歌：粘一条音频直链就能放，不走网易云 -->
+      <form class="piano-localadd" id="pianoLocalAdd" hidden>
+        <input id="pianoLocalUrl" type="url" placeholder="粘一条音频直链…" autocomplete="off">
+        <button type="submit">加</button>
+      </form>
+      <!-- 歌单/歌手/日推这类「一串歌」的通用动作 -->
+      <div class="piano-listacts" id="pianoListActs" hidden>
+        <button type="button" id="pianoPlayAll">播放全部</button>
+        <button type="button" id="pianoQueueAll">加入待播</button>
+        <button type="button" id="pianoMulti">多选</button>
+      </div>
       <div class="sheet-content"><div class="piano-list" id="pianoList"></div></div>
+      <!-- 多选之后浮出来的批量操作条 -->
+      <div class="piano-batch" id="pianoBatch" hidden>
+        <span class="n" id="pianoBatchN">已选 0 首</span>
+        <button type="button" id="pianoBatchPlay">播放</button>
+        <button type="button" id="pianoBatchQueue">待播</button>
+        <button type="button" id="pianoBatchFav">收藏</button>
+        <button type="button" id="pianoBatchDel" hidden>删除</button>
+        <button type="button" id="pianoBatchX" aria-label="退出多选">×</button>
+      </div>
     </section>
+
+    <!-- 歌曲详情：在场记录 / 歌曲分析 / 网易评论 -->
+    <section class="sheet piano-sheet piano-songsheet" id="pianoSongSheet" aria-hidden="true" inert>
+      <div class="sheet-handle"></div>
+      <header class="sheet-head">
+        <button class="icon-button" id="pianoSongBack" aria-label="关闭">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <h2 class="sheet-title" id="pianoSongTitle">歌曲</h2>
+        <span class="piano-sub" id="pianoSongArtist"></span>
+      </header>
+      <div class="piano-songacts">
+        <button type="button" id="pianoSongPlay">播放</button>
+        <button type="button" id="pianoSongQueue">加入待播</button>
+        <button type="button" id="pianoSongLike">红心</button>
+        <button type="button" id="pianoSongAsk">问 Ta</button>
+      </div>
+      <div class="piano-songtabs" id="pianoSongTabs"></div>
+      <div class="sheet-content"><div class="piano-songbody" id="pianoSongBody"></div></div>
+    </section>
+
+    <!-- 收藏到哪个歌单 -->
+    <div class="ls-skinsheet-mask" id="pianoFavMask" hidden>
+      <div class="ls-skinsheet">
+        <h3>收进哪个歌单</h3>
+        <div class="sub">PLAYLIST</div>
+        <div class="piano-favlist" id="pianoFavList"></div>
+      </div>
+    </div>
 
     <!-- 歌词字体 / 字号。借皮肤面板那套壳，样式统一。 -->
     <div class="ls-skinsheet-mask" id="pianoFontMask" hidden>
@@ -3687,10 +3738,27 @@ function renderReadingCounter(){
    Duetto 只当引擎：网易云登录态、整首音频喂 Gemini、按歌缓存。
    界面在这儿原生做，**对话走小窝本来那条线**——同一个梁忱、同一条 Ombre。
    前端从头到尾看不见 Duetto 的 token，只跟 /api/piano/* 说话。 */
-var piano={view:'lists',lists:[],songs:[],idx:-1,lyrics:[],listName:'',loaded:false,collapsed:false,
+/* 🔴 queue 和 browse 是两件事，别再合成一个。
+   queue  = 真正在放的那一串，idx 指着它；上一首/下一首/预取/随机只看它。
+   browse = 抽屉里正在看的那一串（某个歌单、日推、歌手页…）。
+   合成一个的时候「加入待播」是个假按钮——列表本身就是队列，加了等于复制一遍。
+   悬浮球的「待播」页签（第 4 项）也要靠这条分家才有东西可显示。 */
+var piano={view:'lists',lists:[],queue:[],browse:[],idx:-1,lyrics:[],listName:'',loaded:false,collapsed:false,
            tlyrics:{},          /* 整秒 → 译文。网易云的 tlyric 时间戳跟原文对得上 */
            page:0,              /* 0 封面 1 歌词 */
-           quote:null};         /* 长按选中的那句 {line, id, title, artist} */
+           quote:null,          /* 长按选中的那句 {line, id, title, artist} */
+           mode:'loop',         /* loop 列表循环 / one 单曲 / shuffle 随机 */
+           plan:[],             /* 🔴 随机模式的计划，**只有这一个**。原版有两个
+                                   （__lsAdv.plan 和 __lsShufflePlan）各走各的，
+                                   结果预取的经常不是真正下一首。 */
+           prefetch:{},         /* id → 播放地址。开播就备好接下来三首 */
+           kind:'',             /* '' 普通队列 / 'fm' 私人 FM（放到底要续，不绕回） */
+           src:'lists',         /* 曲库当前来源 */
+           browseKind:'',       /* browse 这一串的性质，接管成队列时带过去（'fm'…） */
+           curPl:null,          /* 正开着的那个歌单（删除要用它的 pid） */
+           sel:null,            /* 多选集合；null = 不在多选态 */
+           healed:false,        /* 这一首是否已经自愈过一次地址，防重试打转 */
+           fmBusy:false};
 var pianoAudio=null;
 
 /* 五套皮肤 + 自定义。名字是中国传统色，不许改名、不许精简。
@@ -3737,7 +3805,7 @@ function pianoFmt(s){s=Math.max(0,Math.floor(s||0));return Math.floor(s/60)+':'+
    没在放的时候说的，那一刻他更需要知道她有什么。什么都没有才返回 null。 */
 function pianoNowPlaying(){
   const np={};
-  const s=piano.songs[piano.idx];
+  const s=piano.queue[piano.idx];
   if(s&&pianoAudio){
     np.id=String(s.id);np.title=s.title||'';np.artist=s.artist||'';
     np.pos=Math.floor(pianoAudio.currentTime||0);
@@ -3750,9 +3818,9 @@ function pianoNowPlaying(){
   /* 施工单 §2.4：让他从她真有的东西里点，不是凭空报一个歌名。
      只送名字，不送每个歌单的全部曲目——正开着的那个才送曲目。 */
   if(piano.lists.length)np.lists=piano.lists.map(pl=>pl.name||'').filter(Boolean);
-  if(piano.view==='songs'&&piano.songs.length){
+  if(piano.view==='songs'&&piano.browse.length){
     np.listSongs={name:piano.listName||'',
-                  titles:piano.songs.map(x=>x.title||'').filter(Boolean)};
+                  titles:piano.browse.map(x=>x.title||'').filter(Boolean)};
   }
   return Object.keys(np).length?np:null;
 }
@@ -3951,7 +4019,10 @@ async function pianoLoadLists(force){
 }
 
 function pianoRenderLists(){
-  piano.view='lists';$('pianoBack').hidden=true;$('pianoTitle').textContent='琴房';
+  piano.view='lists';piano.src='lists';piano.curPl=null;
+  pianoExitMulti();pianoRenderSrcs();
+  $('pianoLocalAdd').hidden=true;$('pianoListActs').hidden=true;
+  $('pianoBack').hidden=true;$('pianoTitle').textContent='琴房';
   $('pianoSub').textContent=piano.lists.length+' 个歌单';
   const list=$('pianoList');list.innerHTML='';
   piano.lists.forEach(pl=>{
@@ -3968,12 +4039,16 @@ async function pianoOpenList(pl){
   const list=$('pianoList'),sub=$('pianoSub');
   piano.view='songs';piano.listName=pl.name||'';
   $('pianoBack').hidden=false;$('pianoTitle').textContent=piano.listName||'歌单';
-  sub.textContent='读取中…';list.innerHTML='';
+  sub.textContent='读取中…';list.innerHTML='';$('pianoListActs').hidden=true;
   try{
     const r=await api('/api/piano/playlist?id='+encodeURIComponent(pl.id));
     const d=await r.json();
-    piano.songs=d.songs||[];
-    sub.textContent=piano.songs.length+' 首';
+    /* 队列换了，随机计划和预取表一起作废 */
+    piano.browse=d.songs||[];piano.browseKind='';
+    piano.curPl=pl;                          /* 批量删除要拿它的 pid，还要判是不是她自己的 */
+    pianoExitMulti();
+    sub.textContent=piano.browse.length+' 首';
+    $('pianoListActs').hidden=!piano.browse.length;
     pianoRenderSongs();
   }catch(e){
     sub.textContent='';
@@ -3981,22 +4056,367 @@ async function pianoOpenList(pl){
   }
 }
 
+/* ══ 曲库 ══════════════════════════════════════════════════════════════
+   §3 把 Duetto 的接口全代理了，这里给它们做入口。
+   红心那条（likelist）不做浏览页——它只返 id 不返歌名，真正的用处是
+   把心点亮；「我喜欢的音乐」本来就在歌单列表里。 */
+var PIANO_SRCS=[
+  {id:'lists', name:'歌单'},
+  {id:'daily', name:'日推'},
+  {id:'top',   name:'排行'},
+  {id:'recent',name:'最近'},
+  {id:'fm',    name:'私人FM'},
+  {id:'local', name:'本地'}
+];
+
+function pianoRenderSrcs(){
+  const box=$('pianoSrcs');if(!box)return;
+  box.innerHTML='';
+  PIANO_SRCS.forEach(s=>{
+    const b=document.createElement('button');
+    b.type='button';b.className='piano-src'+(s.id===piano.src?' on':'');
+    b.textContent=s.name;
+    b.onclick=()=>pianoOpenSrc(s.id);
+    box.appendChild(b);
+  });
+}
+
+/* 把一串歌灌进列表视图 */
+function pianoShowSongs(songs,title,kind){
+  piano.browse=songs||[];piano.browseKind=kind||'';piano.listName=title||'';
+  piano.view='songs';piano.curPl=null;
+  pianoExitMulti();
+  $('pianoBack').hidden=false;
+  $('pianoTitle').textContent=title||'歌';
+  $('pianoSub').textContent=piano.browse.length+' 首';
+  $('pianoListActs').hidden=!piano.browse.length;
+  pianoRenderSongs();
+}
+
+async function pianoOpenSrc(id){
+  piano.src=id;pianoRenderSrcs();
+  $('pianoLocalAdd').hidden=(id!=='local');
+  const list=$('pianoList'),sub=$('pianoSub');
+  const fail=m=>{sub.textContent='';list.innerHTML='';
+    const d=document.createElement('div');d.className='piano-empty';d.textContent=m;
+    list.appendChild(d)};
+  if(id==='lists'){pianoLoadLists(true);return}
+  if(id==='local'){pianoShowSongs(pianoLocalSongs(),'本地','');return}
+  piano.view='songs';$('pianoBack').hidden=false;
+  $('pianoTitle').textContent=(PIANO_SRCS.find(x=>x.id===id)||{}).name||'';
+  sub.textContent='读取中…';list.innerHTML='';$('pianoListActs').hidden=true;
+  try{
+    if(id==='top'){
+      const r=await api('/api/piano/ncm/toplist');
+      if(!r.ok)throw Error('排行拿不到（'+r.status+'）');
+      const d=await r.json();
+      const lists=(d.lists||[]).map(x=>({id:x.id,name:x.name,count:0}));
+      sub.textContent=lists.length+' 个榜';
+      list.innerHTML='';
+      lists.forEach(pl=>{
+        const b=document.createElement('button');b.type='button';b.className='piano-row';
+        b.innerHTML='<span class="piano-row-main"><span class="piano-row-title"></span><span class="piano-row-sub"></span></span>';
+        b.querySelector('.piano-row-title').textContent=pl.name||'';
+        b.onclick=()=>pianoOpenTop(pl);
+        list.appendChild(b);
+      });
+      return;
+    }
+    const path=id==='daily'?'/api/piano/ncm/recommend'
+              :id==='recent'?'/api/piano/ncm/record'
+              :'/api/piano/ncm/personal-fm';
+    const r=await api(path);
+    if(!r.ok)throw Error('拿不到（'+r.status+'）');
+    const d=await r.json();
+    if(d.logged===false){fail('琴房引擎还没登录网易云。');return}
+    pianoShowSongs(d.songs||[],(PIANO_SRCS.find(x=>x.id===id)||{}).name||'',
+                   id==='fm'?'fm':'');
+  }catch(e){fail(String(e&&e.message||'没拿到'))}
+}
+
+async function pianoOpenTop(pl){
+  const sub=$('pianoSub');sub.textContent='读取中…';
+  try{
+    const r=await api('/api/piano/ncm/toplist?id='+encodeURIComponent(pl.id));
+    if(!r.ok)throw Error('这个榜打不开');
+    const d=await r.json();
+    pianoShowSongs(d.songs||[],pl.name||'排行','');
+  }catch(e){sub.textContent='';toast(String(e&&e.message||'打不开'))}
+}
+
+/* ── 本地歌：粘一条音频直链 ─────────────────────────────────────────── */
+function pianoLocalSongs(){
+  try{return JSON.parse(localStorage.getItem('piano_local')||'[]')}catch(e){return []}
+}
+function pianoLocalSave(arr){
+  localStorage.setItem('piano_local',JSON.stringify(arr.slice(0,200)));
+}
+function pianoLocalAdd(url){
+  const u=String(url||'').trim();
+  if(!/^https?:\/\//.test(u)){toast('要一条 http(s) 开头的直链');return}
+  /* 歌名从链接末尾猜一个，去掉扩展名。猜不出就叫「本地歌」。 */
+  let name='本地歌';
+  try{
+    const last=decodeURIComponent(u.split('?')[0].split('/').pop()||'');
+    if(last)name=last.replace(/\.[a-z0-9]{2,5}$/i,'')||name;
+  }catch(e){}
+  const arr=pianoLocalSongs();
+  arr.unshift({id:'loc_'+Date.now(),url:u,title:name,artist:'本地',cover:'',dur:0});
+  pianoLocalSave(arr);
+  pianoShowSongs(pianoLocalSongs(),'本地','');
+  toast('加好了');
+}
+
+/* ── 歌手主页：热门 50 ──────────────────────────────────────────────── */
+async function pianoOpenArtist(name){
+  const nm=String(name||'').split('/')[0].trim();      /* 「A / B」取第一个 */
+  if(!nm)return;
+  pianoDrawer(true);
+  piano.view='songs';$('pianoBack').hidden=false;
+  $('pianoTitle').textContent=nm;$('pianoSub').textContent='读取中…';
+  $('pianoList').innerHTML='';$('pianoListActs').hidden=true;
+  try{
+    const r=await api('/api/piano/ncm/search-artist?kw='+encodeURIComponent(nm));
+    if(!r.ok)throw Error('搜不到这个歌手');
+    const a=((await r.json()).artists||[])[0];
+    if(!a)throw Error('搜不到「'+nm+'」');
+    /* 🔴 期间她可能又点了别的。响应回来先核对一下标题还是不是当初那个，
+       不然两次点击的结果会互相盖。 */
+    if($('pianoTitle').textContent!==nm)return;
+    const r2=await api('/api/piano/ncm/artist-songs?id='+encodeURIComponent(a.id));
+    if(!r2.ok)throw Error('这个歌手的歌拿不到');
+    if($('pianoTitle').textContent!==nm)return;
+    pianoShowSongs(((await r2.json()).songs||[]),a.name||nm,'');
+  }catch(e){
+    $('pianoSub').textContent='';
+    const d=document.createElement('div');d.className='piano-empty';
+    d.textContent=String(e&&e.message||'没找到');
+    $('pianoList').innerHTML='';$('pianoList').appendChild(d);
+  }
+}
+
+/* ── 多选与批量操作 ────────────────────────────────────────────────── */
+function pianoEnterMulti(i){
+  piano.sel=new Set();
+  if(i!=null)piano.sel.add(i);
+  $('pianoBatch').hidden=false;
+  $('pianoListActs').hidden=true;
+  $('pianoBatchDel').hidden=!(piano.curPl&&piano.curPl.mine);
+  pianoSyncBatch();
+  pianoRenderSongs();
+}
+function pianoExitMulti(){
+  piano.sel=null;
+  const b=$('pianoBatch');if(b)b.hidden=true;
+  const a=$('pianoListActs');
+  if(a)a.hidden=!(piano.view==='songs'&&piano.browse.length);
+}
+function pianoSyncBatch(){
+  if(!piano.sel)return;
+  $('pianoBatchN').textContent='已选 '+piano.sel.size+' 首';
+}
+function pianoSelected(){
+  if(!piano.sel)return [];
+  return [...piano.sel].sort((a,b)=>a-b).map(i=>piano.browse[i]).filter(Boolean);
+}
+
+async function pianoBatchFav(songs){
+  const ids=songs.map(s=>s.id).filter(id=>/^\d+$/.test(String(id)));
+  if(!ids.length){toast('本地歌收不进网易云歌单');return}
+  /* 先把歌单列表拿出来让她挑 */
+  if(!piano.lists.length){
+    try{
+      const r=await api('/api/piano/playlists');
+      if(r.ok)piano.lists=((await r.json()).playlists||[]);
+    }catch(e){}
+  }
+  const mine=piano.lists.filter(pl=>pl.mine);
+  if(!mine.length){toast('没有你自己建的歌单');return}
+  const box=$('pianoFavList');box.innerHTML='';
+  mine.forEach(pl=>{
+    const b=document.createElement('button');
+    b.type='button';b.className='piano-favrow';
+    b.innerHTML='<span class="n"></span><span class="c"></span>';
+    b.querySelector('.n').textContent=pl.name||'未命名';
+    b.querySelector('.c').textContent=(pl.count||0)+' 首';
+    b.onclick=async()=>{
+      $('pianoFavMask').hidden=true;
+      try{
+        const r=await api('/api/piano/ncm/playlist-add?pid='+encodeURIComponent(pl.id)
+                          +'&id='+encodeURIComponent(ids.join(',')),{method:'POST'});
+        if(!r.ok)throw Error('收藏没成（'+r.status+'）');
+        toast('收进「'+(pl.name||'')+'」了');
+        pianoExitMulti();pianoRenderSongs();
+      }catch(e){toast(String(e&&e.message||'收藏没成'))}
+    };
+    box.appendChild(b);
+  });
+  $('pianoFavMask').hidden=false;
+}
+
+async function pianoBatchDel(songs){
+  const pl=piano.curPl;
+  if(!pl||!pl.mine){toast('只能从你自己的歌单里删');return}
+  const ids=songs.map(s=>s.id).filter(id=>/^\d+$/.test(String(id)));
+  if(!ids.length)return;
+  try{
+    const r=await api('/api/piano/ncm/playlist-del?pid='+encodeURIComponent(pl.id)
+                      +'&id='+encodeURIComponent(ids.join(',')),{method:'POST'});
+    if(!r.ok)throw Error('删除没成（'+r.status+'）');
+    const gone=new Set(ids.map(String));
+    piano.browse=piano.browse.filter(s=>!gone.has(String(s.id)));
+    pianoExitMulti();pianoRenderSongs();
+    $('pianoSub').textContent=piano.browse.length+' 首';
+    toast('删掉 '+ids.length+' 首');
+  }catch(e){toast(String(e&&e.message||'删除没成'))}
+}
+
+/* ── 歌曲详情 ──────────────────────────────────────────────────────── */
+var PIANO_SONG_TABS=[{id:'notes',name:'在场记录'},{id:'vibe',name:'歌曲分析'},{id:'ncm',name:'网易评论'}];
+var pianoSongCur=null,pianoSongTab='notes';
+
+function pianoOpenSong(s){
+  if(!s)return;
+  pianoSongCur=s;pianoSongTab='notes';
+  $('pianoSongTitle').textContent=s.title||'';
+  $('pianoSongArtist').textContent=s.artist||'';
+  pianoRenderSongTabs();
+  const sh=$('pianoSongSheet');
+  sh.classList.add('open');sh.removeAttribute('inert');sh.setAttribute('aria-hidden','false');
+  pianoLoadSongTab();
+}
+function pianoCloseSong(){
+  const sh=$('pianoSongSheet');
+  sh.classList.remove('open');sh.setAttribute('inert','');sh.setAttribute('aria-hidden','true');
+}
+function pianoRenderSongTabs(){
+  const box=$('pianoSongTabs');box.innerHTML='';
+  PIANO_SONG_TABS.forEach(t=>{
+    const b=document.createElement('button');
+    b.type='button';b.className='piano-songtab'+(t.id===pianoSongTab?' on':'');
+    b.textContent=t.name;
+    b.onclick=()=>{pianoSongTab=t.id;pianoRenderSongTabs();pianoLoadSongTab()};
+    box.appendChild(b);
+  });
+}
+async function pianoLoadSongTab(){
+  const body=$('pianoSongBody'),s=pianoSongCur;
+  if(!s)return;
+  body.innerHTML='';
+  const say=t=>{const d=document.createElement('div');d.className='piano-empty';d.textContent=t;body.appendChild(d)};
+  say('读取中…');
+  const id=encodeURIComponent(s.id);
+  try{
+    if(pianoSongTab==='notes'){
+      const r=await api('/api/piano/notes?id='+id+'&limit=60');
+      if(!r.ok)throw Error('在场记录拿不到');
+      const notes=((await r.json()).notes||[]);
+      body.innerHTML='';
+      if(!notes.length){say('还没有一起听这首时说过的话。');return}
+      notes.slice().reverse().forEach(n=>body.appendChild(pianoNoteCard(n)));
+    }else if(pianoSongTab==='vibe'){
+      const r=await api('/api/piano/analysis?id='+id);
+      if(!r.ok)throw Error('分析拿不到');
+      const d=await r.json();
+      body.innerHTML='';
+      if(d.impression)body.appendChild(pianoSongBlock('这首歌的回忆',d.impression));
+      if(d.text)body.appendChild(pianoSongBlock('听感分析',d.text));
+      if(!d.impression&&!d.text)say('还没有分析。多听几次，多聊几句。');
+    }else{
+      const r=await api('/api/piano/ncm/comments?id='+id);
+      if(!r.ok)throw Error('评论拿不到');
+      const cs=((await r.json()).comments||[]);
+      body.innerHTML='';
+      if(!cs.length){say('没有评论。');return}
+      cs.forEach(c=>{
+        const d=document.createElement('div');d.className='piano-cmt';
+        d.innerHTML='<div class="u"></div><div class="t"></div>';
+        d.querySelector('.u').textContent=(c.u||'')+(c.z?('  ♡'+c.z):'');
+        d.querySelector('.t').textContent=c.t||'';
+        body.appendChild(d);
+      });
+    }
+  }catch(e){body.innerHTML='';say(String(e&&e.message||'没拿到'))}
+}
+function pianoSongBlock(head,text){
+  const d=document.createElement('div');d.className='piano-songblock';
+  d.innerHTML='<div class="h"></div><div class="b"></div>';
+  d.querySelector('.h').textContent=head;
+  d.querySelector('.b').textContent=text;
+  return d;
+}
+function pianoNoteCard(n){
+  const d=document.createElement('div');d.className='piano-note';
+  d.innerHTML='<div class="p"></div><div class="q"></div><div class="a"></div>';
+  const p=d.querySelector('.p');
+  if(n.passage)p.textContent='「'+n.passage+'」';else p.remove();
+  const q=d.querySelector('.q');
+  if(n.thought)q.textContent=n.thought;else q.remove();
+  const a=d.querySelector('.a');
+  if(n.reply)a.textContent=n.reply;else a.remove();
+  return d;
+}
+
 function pianoRenderSongs(){
   const list=$('pianoList');list.innerHTML='';
-  piano.songs.forEach((s,i)=>{
-    const b=document.createElement('button');b.type='button';
-    b.className='piano-row'+(i===piano.idx?' is-playing':'');
-    b.innerHTML='<span class="piano-row-main"><span class="piano-row-title"></span><span class="piano-row-sub"></span></span>';
+  const multi=!!piano.sel;
+  /* 🔴 高亮按**歌的 id**比，不能比下标——browse 和 queue 分家之后
+     下标是两套坐标系，比下标会高亮到不相干的一行。 */
+  const cur=piano.queue[piano.idx];
+  const curId=cur?String(cur.id):'';
+  piano.browse.forEach((s,i)=>{
+    const b=document.createElement('div');
+    b.className='piano-row'+((curId&&String(s.id)===curId)?' is-playing':'')
+               +(multi?' multi':'')+(multi&&piano.sel.has(i)?' picked':'');
+    b.innerHTML='<span class="piano-tick"></span>'
+      +'<span class="piano-row-main"><span class="piano-row-title"></span><span class="piano-row-sub"></span></span>'
+      +'<button type="button" class="piano-row-more" aria-label="歌曲详情">⋯</button>';
     b.querySelector('.piano-row-title').textContent=s.title||'';
     b.querySelector('.piano-row-sub').textContent=s.artist||'';
-    b.onclick=()=>pianoPlay(i);
+    b.querySelector('.piano-row-more').onclick=e=>{e.stopPropagation();pianoOpenSong(s)};
+    b.onclick=()=>{
+      if(piano.sel){
+        if(piano.sel.has(i))piano.sel.delete(i);else piano.sel.add(i);
+        b.classList.toggle('picked',piano.sel.has(i));
+        pianoSyncBatch();
+        return;
+      }
+      pianoPlayBrowse(i);
+    };
+    /* 长按进多选，跟大部分播放器一个手势 */
+    let lp=0,moved=false,sx=0,sy=0;
+    b.addEventListener('pointerdown',e=>{
+      if(e.target.closest('.piano-row-more'))return;
+      sx=e.clientX;sy=e.clientY;moved=false;
+      lp=setTimeout(()=>{
+        if(moved||piano.sel)return;
+        if(navigator.vibrate)navigator.vibrate(12);
+        pianoEnterMulti(i);
+      },550);
+    });
+    b.addEventListener('pointermove',e=>{
+      if(Math.abs(e.clientX-sx)+Math.abs(e.clientY-sy)>8){moved=true;clearTimeout(lp)}
+    });
+    ['pointerup','pointercancel','pointerleave'].forEach(ev=>
+      b.addEventListener(ev,()=>clearTimeout(lp)));
     list.appendChild(b);
   });
 }
 
+/* 从抽屉里点一首：把正在看的这一串**整个接管**成队列，从这首开始放。
+   跟 Duetto 的 __lsPlayNcm(song, list, i) 一个语义——点歌单里第三首，
+   接下来自然是第四首第五首，而不是只放这一首。 */
+function pianoPlayBrowse(i){
+  if(i<0||i>=piano.browse.length)return;
+  piano.queue=piano.browse.slice();
+  piano.idx=-1;piano.plan=[];piano.prefetch={};
+  piano.kind=piano.browseKind||'';
+  pianoPlay(i);
+}
+
 async function pianoPlay(i){
-  if(i<0||i>=piano.songs.length)return;
-  const s=piano.songs[i];piano.idx=i;piano.lyrics=[];piano.tlyrics={};
+  if(i<0||i>=piano.queue.length)return;
+  const s=piano.queue[i];piano.idx=i;piano.lyrics=[];piano.tlyrics={};
   $('pianoNowTitle').textContent=s.title||'';
   $('pianoNowArtist').textContent=s.artist||'';
   $('pianoMiniTitle').textContent=s.title||'';
@@ -4008,28 +4428,157 @@ async function pianoPlay(i){
   if(s.cover){const img=new Image();img.src=s.cover;img.alt='';img.onerror=()=>{label.innerHTML=''};label.appendChild(img)}
   if(piano.collapsed)$('pianoMini').hidden=false;
   pianoDrawer(false);                              /* 选完收回抽屉 */
+  piano.healed=false;
   if(piano.view==='songs')pianoRenderSongs();
-  /* 播放地址和歌词并行拉，谁也不等谁 */
-  const [urlRes,lrcRes]=await Promise.allSettled([
-    api('/api/piano/song-url?id='+encodeURIComponent(s.id)).then(r=>r.json()),
-    api('/api/piano/lyric?id='+encodeURIComponent(s.id)).then(r=>r.json())
-  ]);
-  if(piano.idx!==i)return;                      /* 期间又换歌了，丢掉这一轮 */
+  pianoSetMedia(s);                                /* 锁屏卡片先立起来 */
+
+  /* 歌词并行去拉，不挡声音 */
+  const lrcP=api('/api/piano/lyric?id='+encodeURIComponent(s.id))
+             .then(r=>r.ok?r.json():null).catch(()=>null);
+
+  /* 播放地址三条路：本地直链直接用 / 预取命中零请求 / 都没有才现拉 */
+  let url=(s.url&&/^https?:/.test(s.url))?String(s.url):(piano.prefetch[String(s.id)]||'');
+  if(!url){
+    try{
+      const r=await api('/api/piano/song-url?id='+encodeURIComponent(s.id));
+      url=r.ok?((await r.json()).url||''):'';
+    }catch(e){url=''}
+    if(piano.idx!==i)return;                    /* 期间又换歌了，丢掉这一轮 */
+  }
+  if(url){
+    pianoAudio.src=url;
+    /* 🔴 不许 await 这个 play()。音频加载不出来时（VIP / 下架 / 链接过期，
+       网易云上很常见）它既不 resolve 也不 reject，会一直挂着——
+       await 了就等于把后面所有逻辑焊死在这儿，而且一声不吭。 */
+    pianoAudio.play().catch(()=>{});
+    pianoLogListen(s);           /* 听歌档案的流水，以前一条都没写过 */
+  }else{
+    toast('这首拿不到播放地址（可能是 VIP 或已下架）');
+  }
+
   /* 歌词是锦上添花，拿不到就静音降级，不挡播放 */
-  piano.lyrics=lrcRes.status==='fulfilled'?pianoParseLrc(lrcRes.value.lyric||''):[];
+  const lrc=await lrcP;
+  if(piano.idx!==i)return;
+  piano.lyrics=lrc?pianoParseLrc(lrc.lyric||''):[];
   /* 译文。后端一直在返 tlyric（index.mjs:355），以前前端扔了没用。 */
-  piano.tlyrics=lrcRes.status==='fulfilled'?pianoParseTLrc(lrcRes.value.tlyric||''):{};
+  piano.tlyrics=lrc?pianoParseTLrc(lrc.tlyric||''):{};
   pianoRenderLyrics();
-  if(urlRes.status!=='fulfilled'){toast('播放失败');return}
-  const url=urlRes.value.url;
-  if(!url){toast('这首拿不到播放地址（可能是 VIP 或已下架）');return}
-  pianoAudio.src=url;
-  /* 🔴 不许 await 这个 play()。音频加载不出来时（VIP / 下架 / 链接过期，
-     网易云上很常见）它既不 resolve 也不 reject，会一直挂着——
-     await 了就等于把后面所有逻辑焊死在这儿，而且一声不吭。 */
-  pianoAudio.play().catch(()=>{});
+
   pianoEnsureAnalysis(s);        /* 切歌后按一下开关，不 await */
   pianoEnsureSpectrum(s);        /* 本地频谱，同样不 await */
+  pianoPlanAhead();              /* 备好接下来三首 */
+  /* 私人 FM 快到底了就提前续上，别等放完才发请求 */
+  if(piano.kind==='fm'&&piano.queue.length-piano.idx<=1)pianoFmMore(false);
+}
+
+/* ── 预取接下来三首 ─────────────────────────────────────────────────────
+   🔴 触发点是「这一首开播之后」，不是快放完的时候。iOS 把页面切到后台会掐
+      fetch，等到尾窗再拉根本来不及——锁屏连播就断在这儿。
+   施工单 §1.1：「锁屏、后台连续切歌不需要网络」，靠的就是这张表。 */
+function pianoPlanPush(){
+  const n=piano.queue.length;
+  if(n<=1){piano.plan.push(0);return}
+  for(let t=0;t<12;t++){
+    const r=Math.floor(Math.random()*n);
+    if(r!==piano.idx&&piano.plan.indexOf(r)<0){piano.plan.push(r);return}
+  }
+  piano.plan.push(Math.floor(Math.random()*n));   /* 抽 12 次还撞，就认了 */
+}
+
+function pianoUpcoming(n){
+  const out=[],len=piano.queue.length;
+  if(!len||piano.mode==='one')return out;          /* 单曲循环不用预取 */
+  if(piano.mode==='shuffle'){
+    while(piano.plan.length<n)pianoPlanPush();
+    return piano.plan.slice(0,n);
+  }
+  for(let k=1;k<=n;k++){
+    const i=piano.idx+k;
+    if(i<len)out.push(i);
+    else if(piano.kind!=='fm')out.push(i%len);     /* 列表循环绕回去；FM 不绕 */
+  }
+  return out;
+}
+
+function pianoPlanAhead(){
+  const ids=new Set();
+  pianoUpcoming(3).forEach(i=>{
+    const s=piano.queue[i];if(!s)return;
+    const id=String(s.id);ids.add(id);
+    if(piano.prefetch[id])return;
+    if(s.url&&/^https?:/.test(s.url)){piano.prefetch[id]=s.url;return}   /* 本地歌不用取 */
+    if(!/^\d+$/.test(id))return;
+    api('/api/piano/song-url?id='+encodeURIComponent(id))
+      .then(r=>r.ok?r.json():null)
+      .then(d=>{if(d&&d.url)piano.prefetch[id]=d.url})
+      .catch(()=>{});
+  });
+  /* 计划外的清掉，这张表不许无限长 */
+  Object.keys(piano.prefetch).forEach(k=>{if(!ids.has(k))delete piano.prefetch[k]});
+}
+
+/* 网易云的播放地址会过期。放着放着报错就重取一次，把进度接回去。
+   🔴 一首只自愈一次（piano.healed）——VIP/下架的歌每次都报错，
+      不设闸就是无限重试。 */
+async function pianoHealUrl(){
+  const s=piano.queue[piano.idx];
+  if(!s||piano.healed||s.url)return;              /* 本地直链坏了不是过期 */
+  if(!/^\d+$/.test(String(s.id)))return;
+  piano.healed=true;
+  const at=pianoAudio.currentTime||0;
+  try{
+    const r=await api('/api/piano/song-url?id='+encodeURIComponent(s.id));
+    const d=r.ok?await r.json():null;
+    if(d&&d.url){
+      pianoAudio.src=d.url;
+      pianoAudio.currentTime=at;
+      pianoAudio.play().catch(()=>{});
+    }
+  }catch(e){/* 自愈失败就让它停着，别再折腾 */}
+}
+
+/* 锁屏 / 耳机键 / 车机。封面按网易云的规矩加 param 拿大图。 */
+function pianoSetMedia(s){
+  if(!('mediaSession' in navigator)||typeof MediaMetadata==='undefined')return;
+  try{
+    const cov=String(s.cover||'').replace(/^http:/,'https:');
+    navigator.mediaSession.metadata=new MediaMetadata({
+      title:s.title||'',artist:s.artist||'',album:'一起听',
+      artwork:cov?[{src:cov+'?param=512y512',sizes:'512x512',type:'image/jpeg'}]:[]
+    });
+    const H=(a,f)=>{try{navigator.mediaSession.setActionHandler(a,f)}catch(e){}};
+    H('play',()=>pianoAudio.play().catch(()=>{}));
+    H('pause',()=>pianoAudio.pause());
+    H('nexttrack',()=>pianoNext(1));
+    H('previoustrack',()=>pianoNext(-1));
+    H('seekto',d=>{if(d&&d.seekTime!=null)pianoAudio.currentTime=d.seekTime});
+  }catch(e){}
+}
+
+function pianoLogListen(s){
+  api('/api/piano/listen-log',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({id:String(s.id||''),title:s.title||'',artist:s.artist||'',
+                         cover:s.cover||'',dur:Math.floor(s.dur||0)})}).catch(()=>{});
+}
+
+/* 私人 FM：快放完自动请求新歌接上 */
+async function pianoFmMore(playAfter){
+  if(piano.fmBusy)return;
+  piano.fmBusy=true;
+  try{
+    const r=await api('/api/piano/ncm/personal-fm');
+    if(!r.ok)throw Error('私人 FM 拿不到（'+r.status+'）');
+    const d=await r.json();
+    const have=new Set(piano.queue.map(x=>String(x.id)));
+    const add=(d.songs||[]).filter(x=>!have.has(String(x.id)));
+    if(!add.length){if(playAfter)toast('私人 FM 没有新歌了');return}
+    const at=piano.queue.length;
+    piano.queue=piano.queue.concat(add);
+    if(playAfter)pianoPlay(at);
+  }catch(e){
+    toast(String(e&&e.message||'私人 FM 接不上'));
+  }finally{piano.fmBusy=false}
 }
 
 /* 切歌之后按一下分析的开关。Duetto 的分析是惰性的：读的那条只查库，
@@ -4073,12 +4622,63 @@ function pianoEnsureAnalysis(s){
   })();
 }
 
+/* ── 播放模式：列表循环 / 单曲循环 / 随机 ─────────────────────────────── */
+var PIANO_MODES=[
+  {id:'loop',   name:'列表循环',
+   svg:'<path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>'},
+  {id:'one',    name:'单曲循环',
+   svg:'<path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/><text x="12" y="15.5" text-anchor="middle" font-size="9" fill="currentColor" stroke="none">1</text>'},
+  {id:'shuffle',name:'随机播放',
+   svg:'<path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/>'}
+];
+
+function pianoApplyMode(){
+  const m=PIANO_MODES.find(x=>x.id===piano.mode)||PIANO_MODES[0];
+  const b=$('pianoMode');if(!b)return;
+  b.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+m.svg+'</svg>';
+  b.setAttribute('aria-label',m.name);
+  b.classList.toggle('on',piano.mode!=='loop');
+}
+
+function pianoCycleMode(){
+  const i=PIANO_MODES.findIndex(x=>x.id===piano.mode);
+  piano.mode=PIANO_MODES[(i+1)%PIANO_MODES.length].id;
+  localStorage.setItem('piano_playmode',piano.mode);
+  piano.plan=[];                       /* 换模式，旧计划作废 */
+  pianoApplyMode();
+  pianoPlanAhead();
+  toast('切到'+(PIANO_MODES.find(x=>x.id===piano.mode).name));
+}
+
+/* 手动上一首/下一首。
+   单曲循环只影响「自然放完」，手动点还是该走到下一首——
+   不然点了没反应，像坏了。 */
 function pianoNext(step){
-  if(!piano.songs.length)return;
+  const n=piano.queue.length;
+  if(!n)return;
+  if(piano.mode==='shuffle'&&step>0){
+    if(!piano.plan.length)pianoPlanPush();
+    pianoPlay(piano.plan.shift());
+    return;
+  }
   let i=piano.idx+step;
-  if(i<0)i=piano.songs.length-1;
-  if(i>=piano.songs.length)i=0;
+  if(i<0)i=n-1;
+  if(i>=n){
+    if(piano.kind==='fm'){pianoFmMore(true);return}   /* FM 放到底是续，不是绕回 */
+    i=0;
+  }
   pianoPlay(i);
+}
+
+/* 自然放完 */
+function pianoEnded(){
+  if(piano.mode==='one'&&pianoAudio){
+    pianoAudio.currentTime=0;
+    pianoAudio.play().catch(()=>{});
+    return;
+  }
+  if(piano.kind==='fm'&&piano.idx>=piano.queue.length-1){pianoFmMore(true);return}
+  pianoNext(1);
 }
 
 /* ── 点一句 → 问 Ta；长按一句 → 引用 ────────────────────────────────────
@@ -4118,7 +4718,7 @@ function pianoLyrBind(){
 
 /* 长按选中：引用条浮出来，等她自己写要说什么 */
 function pianoSetQuote(line){
-  const s=piano.songs[piano.idx];
+  const s=piano.queue[piano.idx];
   piano.quote={line:String(line||'').slice(0,120),
                id:s?String(s.id):'',title:s?(s.title||''):'',artist:s?(s.artist||''):''};
   $('pianoQuoteText').textContent=piano.quote.line;
@@ -4199,15 +4799,15 @@ async function pianoSearch(q){
 
 /* 用一批歌换掉当前队列并从第 i 首开始放 */
 function pianoReplaceQueue(songs,i){
-  piano.songs=songs;piano.idx=-1;
-  if(piano.view==='songs')pianoRenderSongs();
+  piano.queue=songs||[];piano.idx=-1;
+  piano.plan=[];piano.prefetch={};piano.kind='';   /* 队列换了，旧计划和预取作废 */
   pianoPlay(i||0);
 }
 
 function pianoQueueAppend(s){
   if(!s)return;
-  piano.songs.push(s);
-  if(piano.view==='songs')pianoRenderSongs();
+  piano.queue.push(s);
+  pianoPlanAhead();          /* 队尾多了一首，预取窗口跟着往前挪 */
 }
 
 async function pianoRunAct(act){
@@ -4221,11 +4821,11 @@ async function pianoRunAct(act){
     if(type==='pause'){pianoAudio&&pianoAudio.pause();return}
     if(type==='resume'){pianoAudio&&pianoAudio.play().catch(()=>{});return}
     if(type==='next'||type==='prev'){
-      if(!piano.songs.length){toast('还没有队列，先挑个歌单');return}
+      if(!piano.queue.length){toast('还没有队列，先挑个歌单');return}
       pianoNext(type==='next'?1:-1);return;
     }
     if(type==='like'){
-      const s=piano.songs[piano.idx];
+      const s=piano.queue[piano.idx];
       if(!s||!/^\d+$/.test(String(s.id))){toast('现在没在放歌，红心不了');return}
       const r=await api('/api/piano/ncm/like?id='+encodeURIComponent(s.id)+'&like=true',
                         {method:'POST'});
@@ -4250,12 +4850,12 @@ async function pianoRunAct(act){
     }
     if(type==='share'){
       /* 不带 query 就是分享正在放的这首 */
-      const s=q?(await pianoSearch(q))[0]:piano.songs[piano.idx];
+      const s=q?(await pianoSearch(q))[0]:piano.queue[piano.idx];
       if(!s){toast(q?('没搜到《'+q+'》'):'现在没在放歌，分享不了');return}
       /* 分享卡是房间那一单（第 4 项）的东西，这一单先落到「加进队列并播」，
          行为跟原版 share 带 query 时一致（index.mjs 那边也会切过去）。 */
       pianoQueueAppend(s);
-      pianoPlay(piano.songs.length-1);
+      pianoPlay(piano.queue.length-1);
       return;
     }
   }catch(e){
@@ -4443,7 +5043,10 @@ function pianoInit(){
   });
   pianoAudio.addEventListener('play',()=>pianoSetPlayIcon(true));
   pianoAudio.addEventListener('pause',()=>pianoSetPlayIcon(false));
-  pianoAudio.addEventListener('ended',()=>pianoNext(1));
+  pianoAudio.addEventListener('ended',pianoEnded);
+  /* 地址过期自愈。一首只做一次，见 pianoHealUrl。 */
+  pianoAudio.addEventListener('error',pianoHealUrl);
+  pianoAudio.addEventListener('stalled',pianoHealUrl);
   seek.addEventListener('input',()=>{seeking=true});
   seek.addEventListener('change',()=>{
     const d=pianoAudio.duration||0;
@@ -4471,6 +5074,86 @@ function pianoInit(){
   initSheetDrag($('pianoDrawer'),'#pianoBack',()=>{});
   $('pianoSkinBtn').onclick=()=>{pianoRenderSkinGrid();$('pianoSkinMask').hidden=false};
   $('pianoSkinMask').onclick=e=>{if(e.target===$('pianoSkinMask'))$('pianoSkinMask').hidden=true};
+
+  /* ── 播放模式 ── */
+  piano.mode=localStorage.getItem('piano_playmode')||'loop';
+  if(!PIANO_MODES.some(m=>m.id===piano.mode))piano.mode='loop';
+  pianoApplyMode();
+  $('pianoMode').onclick=e=>{e.stopPropagation();pianoCycleMode()};
+
+  /* ── 曲库：来源、本地歌、整批动作、多选 ── */
+  pianoRenderSrcs();
+  $('pianoLocalAdd').addEventListener('submit',e=>{
+    e.preventDefault();
+    const el=$('pianoLocalUrl');pianoLocalAdd(el.value);el.value='';
+  });
+  $('pianoPlayAll').onclick=()=>pianoPlayBrowse(0);
+  $('pianoQueueAll').onclick=()=>{
+    if(!piano.browse.length)return;
+    piano.browse.forEach(s=>pianoQueueAppend(s));
+    toast('加了 '+piano.browse.length+' 首进待播');
+  };
+  $('pianoMulti').onclick=()=>pianoEnterMulti(null);
+  $('pianoBatchX').onclick=()=>{pianoExitMulti();pianoRenderSongs()};
+  $('pianoBatchPlay').onclick=()=>{
+    const sel=pianoSelected();if(!sel.length){toast('一首都没选');return}
+    const at=piano.browse.indexOf(sel[0]);
+    pianoExitMulti();pianoRenderSongs();pianoPlayBrowse(at<0?0:at);
+  };
+  $('pianoBatchQueue').onclick=()=>{
+    const sel=pianoSelected();if(!sel.length){toast('一首都没选');return}
+    sel.forEach(s=>pianoQueueAppend(s));
+    toast('加了 '+sel.length+' 首进待播');
+    pianoExitMulti();pianoRenderSongs();
+  };
+  $('pianoBatchFav').onclick=()=>{
+    const sel=pianoSelected();if(!sel.length){toast('一首都没选');return}
+    pianoBatchFav(sel);
+  };
+  $('pianoBatchDel').onclick=()=>{
+    const sel=pianoSelected();if(!sel.length){toast('一首都没选');return}
+    pianoBatchDel(sel);
+  };
+  $('pianoFavMask').onclick=e=>{if(e.target===$('pianoFavMask'))$('pianoFavMask').hidden=true};
+
+  /* ── 歌曲详情 / 歌手主页 ── */
+  $('pianoSongBack').onclick=()=>pianoCloseSong();
+  $('pianoSongPlay').onclick=()=>{
+    if(!pianoSongCur)return;
+    const at=piano.queue.findIndex(x=>String(x.id)===String(pianoSongCur.id));
+    if(at>=0)pianoPlay(at);
+    else{pianoQueueAppend(pianoSongCur);pianoPlay(piano.queue.length-1)}
+    pianoCloseSong();
+  };
+  $('pianoSongQueue').onclick=()=>{
+    if(!pianoSongCur)return;
+    pianoQueueAppend(pianoSongCur);toast('加进待播了');
+  };
+  $('pianoSongLike').onclick=async()=>{
+    if(!pianoSongCur||!/^\d+$/.test(String(pianoSongCur.id))){toast('这首红心不了');return}
+    try{
+      const r=await api('/api/piano/ncm/like?id='+encodeURIComponent(pianoSongCur.id)+'&like=true',
+                        {method:'POST'});
+      if(!r.ok)throw Error('红心没成（'+r.status+'）');
+      toast('红心了');
+    }catch(e){toast(String(e&&e.message||'红心没成'))}
+  };
+  $('pianoSongAsk').onclick=()=>{
+    if(!pianoSongCur)return;
+    pianoCloseSong();pianoDrawer(false);
+    $('pianoSay').focus();
+    toast('说说这首《'+(pianoSongCur.title||'')+'》');
+  };
+  /* 点歌名 → 歌曲详情；点歌手名 → 歌手主页。
+     🔴 两个都要 stopPropagation：它们在 stage 里面，不拦会顺手把唱片折叠了。 */
+  $('pianoNowTitle').onclick=e=>{
+    e.stopPropagation();
+    const s=piano.queue[piano.idx];if(s)pianoOpenSong(s);
+  };
+  $('pianoNowArtist').onclick=e=>{
+    e.stopPropagation();
+    const s=piano.queue[piano.idx];if(s&&s.artist)pianoOpenArtist(s.artist);
+  };
 
   /* ── 歌词页 ── */
   pianoPagerBind();
