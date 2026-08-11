@@ -2315,3 +2315,15 @@ body.tab-away #chat {
 
 /* 琴房只露最近几轮，但卡片不该被那条规则连坐藏掉 */
 .stream-inner.piano-trim .piano-card { display: block }
+
+/* 抽屉遮罩。点空白处关掉——列表层里没有「上一层」可回，拖拽又曾经因为
+   sheet() 猜名字失败而整个抛掉，所以必须有一个看得见的出口。
+   z-index 24：压住琴房内容，但在 .sheet(41) 下面，别把抽屉自己盖了。
+   它是 .piano-room 里的 absolute，跟抽屉同一个层叠上下文，比得过。
+   🔴 关闭态是 display:none，不是留一层透明的靠 z-index 压下去
+   （AGENTS.md）。加完用元素选择器验过：关着的时候点不到它。 */
+.piano-mask {
+  position: absolute; inset: 0; z-index: 24;
+  background: rgba(10,8,7,.28);
+}
+.piano-mask[hidden] { display: none }

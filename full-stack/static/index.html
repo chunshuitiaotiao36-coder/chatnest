@@ -821,6 +821,11 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
       </button>
     </form>
 
+    <!-- 抽屉遮罩：点空白处关掉。
+         🔴 关闭态靠 hidden（display:none）收干净，不是留一层透明的靠
+         z-index 压下去——AGENTS.md 那条规矩，加完要用元素选择器验一次。 -->
+    <div class="piano-mask" id="pianoMask" hidden></div>
+
     <!-- 歌单抽屉：走 .sheet 那套（复用 initSheetDrag，不新写拖拽）。
          皮肤变量靠 DOM 继承拿到，外观在 CSS 里按琴房覆盖。 -->
     <section class="sheet piano-sheet" id="pianoDrawer" aria-hidden="true" inert>
@@ -1340,8 +1345,13 @@ function _renderEffortPage(root){const m=currentModel(),s=modelSetting(m);
 function _renderMorePage(root){const g=document.createElement('div');g.className='model-group';
   _moreModels().forEach(m=>{const b=document.createElement('button');b.className='model-group-item';b.innerHTML=`<span class="model-name">${m.label}</span>${m.id===state.model?'<span class="model-check">✓</span>':''}`;b.onclick=()=>_selectModel(m.id);g.append(b)});
   root.append(g)}
-function setLayerState(element,open){element.classList.toggle('show',open);element.setAttribute('aria-hidden',String(!open));element.toggleAttribute('inert',!open)}
-function sheet(name,open){const s=$(`${name}Sheet`);if(open){s.classList.remove('expanded');s.style.transform=''}setLayerState($(`${name}Overlay`),open);setLayerState(s,open)}
+function setLayerState(element,open){if(!element)return;element.classList.toggle('show',open);element.setAttribute('aria-hidden',String(!open));element.toggleAttribute('inert',!open)}
+/* 🔴 initSheetDrag 收尾时用 el.id.replace('Sheet','') 猜名字调这儿。
+   琴房抽屉的 id 是 pianoDrawer，里面没有 "Sheet" 这个词，于是它来找
+   pianoDrawerSheet / pianoDrawerOverlay——两个都不存在，以前会当场抛，
+   抛在 remove('show') 之后、面板真正关掉之前，结果就是**拖不下去也关不掉**。
+   猜不中就安静返回，让调用方自己的 onClose 负责关。 */
+function sheet(name,open){const s=$(`${name}Sheet`);if(!s)return;if(open){s.classList.remove('expanded');s.style.transform=''}setLayerState($(`${name}Overlay`),open);setLayerState(s,open)}
 /* 原来挂在顶栏按钮上的那个处理函数，现在归胶囊，行为一模一样 */
 function openModelSheet(){_modelPage='main';renderModelSheet();sheet('model',true)}
 $('modelCapsule').onclick=openModelSheet;$('modelOverlay').onclick=()=>{_modelPage='main';sheet('model',false)};
@@ -5178,6 +5188,7 @@ function pianoSetAnimating(on){
 
 function pianoDrawer(open){
   const el=$('pianoDrawer');
+  $('pianoMask').hidden=!open;
   el.classList.toggle('show',open);
   el.classList.toggle('expanded',open);
   el.setAttribute('aria-hidden',open?'false':'true');
@@ -5320,7 +5331,11 @@ function pianoInit(){
   $('pianoMiniPlay').onclick=toggle;
   $('pianoPrev').onclick=e=>{e.stopPropagation();pianoNext(-1)};
   $('pianoNext').onclick=e=>{e.stopPropagation();pianoNext(1)};
-  $('pianoBack').onclick=()=>pianoRenderLists();
+  $('pianoBack').onclick=()=>{
+    /* 歌单列表已经是最外层了，没有上一层可回——这时候 < 就是「关掉」。
+       她手机上卡住过：列表层里拖不下去、点空白也没用、一个出口都没有。 */
+    if(piano.view==='lists')pianoDrawer(false);else pianoRenderLists();
+  };
   /* 点唱片区折叠成迷你条，点迷你条展开。控制键上已经 stopPropagation，
      所以点播放键不会误触折叠。
      🔴 歌词那一页也在 stage 里面，点一句是「问 Ta」不是「折叠」——
@@ -5331,9 +5346,10 @@ function pianoInit(){
   };
   $('pianoMini').onclick=()=>pianoSetCollapsed(false);
   $('pianoListBtn').onclick=e=>{e.stopPropagation();pianoDrawer(true)};
+  $('pianoMask').onclick=()=>pianoDrawer(false);
   $('pianoQrAgain').onclick=()=>pianoQrNew();
   /* 复用 Chat 那套 sheet 拖拽（08-05 修过阈值的那个），不新写 */
-  initSheetDrag($('pianoDrawer'),'#pianoBack',()=>{});
+  initSheetDrag($('pianoDrawer'),'#pianoBack',()=>pianoDrawer(false));
   $('pianoShareBtn').onclick=e=>{
     e.stopPropagation();
     pianoActor={who:'user',t:Date.now()};
@@ -5499,7 +5515,8 @@ function switchTab(name){
      #stream 跟着 tab 走：进琴房搬进来，离开搬回 #chat。 */
   if(name==='music'){pianoInit();pianoMountStream();pianoSetAnimating(true);pianoCheckLogin();pianoSyncConnect()}
   /* 走的时候必须停轮询，否则她切去别的 tab，二维码还在后台每 2 秒打一次 */
-  else{pianoUnmountStream();pianoQrStop();pianoSyncClose();if(pianoAudio)pianoSetAnimating(false)}
+  else{pianoUnmountStream();pianoQrStop();pianoSyncClose();
+       if(pianoAudio){pianoDrawer(false);pianoSetAnimating(false)}}
   if(name==='reading'){renderReadingCounter();if(!starmapCollapsed())openStarmap();
     /* 日记那块要是记着上次是展开的，进书房就把数据补上 */
     if(!$('studyDiary')?.classList.contains('is-collapsed'))loadDiary();}
