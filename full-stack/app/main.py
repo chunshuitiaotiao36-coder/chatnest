@@ -1050,6 +1050,15 @@ async def _piano(path: str, params: dict[str, Any] | None = None) -> dict:
         raise HTTPException(status_code=exc.status, detail=str(exc)) from exc
 
 
+async def _piano_post(path: str, body: dict[str, Any] | None = None,
+                      params: dict[str, Any] | None = None) -> dict:
+    """POST 那半边。Duetto 有一批 POST 从 query 读参数，所以 params 也要能传。"""
+    try:
+        return await piano.post(path, body, params=params)
+    except piano.PianoError as exc:
+        raise HTTPException(status_code=exc.status, detail=str(exc)) from exc
+
+
 @app.get("/api/piano/playlists", dependencies=[Depends(require_auth)])
 async def piano_playlists() -> dict:
     return await _piano("/api/ncm/playlists")
@@ -1183,6 +1192,128 @@ async def piano_ncm_check(key: str = Query(max_length=256)) -> dict:
 @app.get("/api/piano/ncm/status", dependencies=[Depends(require_auth)])
 async def piano_ncm_status() -> dict:
     return await _piano("/api/ncm/status")
+
+
+@app.post("/api/piano/ncm/logout", dependencies=[Depends(require_auth)])
+async def piano_ncm_logout() -> dict:
+    return await _piano_post("/api/ncm/logout")
+
+
+# ── 曲库：日推 / 排行 / 最近 / 红心 / 私人FM / 歌手 / 评论 ──────────────────
+# 施工单 §3：把 index.mjs 的 /api/ncm/* 全部代理过来，一条不落。
+# 这一节没有前端，是给后面三项（歌词页 / 房间 / 听歌档案）铺路。
+
+@app.get("/api/piano/ncm/recommend", dependencies=[Depends(require_auth)])
+async def piano_ncm_recommend() -> dict:
+    return await _piano("/api/ncm/recommend")
+
+
+@app.get("/api/piano/ncm/toplist", dependencies=[Depends(require_auth)])
+async def piano_ncm_toplist(id: str = Query(default="", max_length=64)) -> dict:
+    # 不带 id 返榜单列表，带 id 返那个榜的曲目（index.mjs:358 一条路由两种用法）
+    return await _piano("/api/ncm/toplist", {"id": id})
+
+
+@app.get("/api/piano/ncm/record", dependencies=[Depends(require_auth)])
+async def piano_ncm_record() -> dict:
+    return await _piano("/api/ncm/record")
+
+
+@app.get("/api/piano/ncm/likelist", dependencies=[Depends(require_auth)])
+async def piano_ncm_likelist() -> dict:
+    return await _piano("/api/ncm/likelist")
+
+
+@app.get("/api/piano/ncm/personal-fm", dependencies=[Depends(require_auth)])
+async def piano_ncm_personal_fm() -> dict:
+    return await _piano("/api/ncm/personal-fm")
+
+
+@app.post("/api/piano/ncm/fm-trash", dependencies=[Depends(require_auth)])
+async def piano_ncm_fm_trash(id: str = Query(max_length=64)) -> dict:
+    return await _piano_post("/api/ncm/fm-trash", params={"id": id})
+
+
+@app.get("/api/piano/ncm/search-artist", dependencies=[Depends(require_auth)])
+async def piano_ncm_search_artist(kw: str = Query(max_length=200)) -> dict:
+    return await _piano("/api/ncm/search-artist", {"kw": kw})
+
+
+@app.get("/api/piano/ncm/artist-songs", dependencies=[Depends(require_auth)])
+async def piano_ncm_artist_songs(id: str = Query(max_length=64)) -> dict:
+    return await _piano("/api/ncm/artist-songs", {"id": id})
+
+
+@app.get("/api/piano/ncm/comments", dependencies=[Depends(require_auth)])
+async def piano_ncm_comments(id: str = Query(max_length=64)) -> dict:
+    return await _piano("/api/ncm/comments", {"id": id})
+
+
+# 歌单写操作。tracks 是逗号分隔的一串 id（批量操作靠它），
+# 上限跟 Duetto 一次拉 300 首对齐，别让一条 URL 无限长。
+@app.post("/api/piano/ncm/playlist-add", dependencies=[Depends(require_auth)])
+async def piano_ncm_playlist_add(
+    pid: str = Query(max_length=64),
+    id: str = Query(max_length=4096),
+) -> dict:
+    return await _piano_post("/api/ncm/playlist-add", params={"pid": pid, "id": id})
+
+
+@app.post("/api/piano/ncm/playlist-del", dependencies=[Depends(require_auth)])
+async def piano_ncm_playlist_del(
+    pid: str = Query(max_length=64),
+    id: str = Query(max_length=4096),
+) -> dict:
+    return await _piano_post("/api/ncm/playlist-del", params={"pid": pid, "id": id})
+
+
+# ── 档案：在场记录 / 听歌流水 / 房间时间线 ──────────────────────────────────
+# 🔴 在场记录照旧存 Duetto（song_notes 表），但「每满 6 条揉成回忆」那一步
+# 不走它的 maybeImpress——那段第一人称是 Duetto 自带的 DJ 写的，不是梁忱写的。
+# 所以 Duetto 的 data/settings.json 里 ai.api_key 保持空着，maybeImpress
+# 永远 return。回忆由小窝这条线揉，见施工单 §1.5（第 5 项要做的事）。
+
+class PianoNoteBody(BaseModel):
+    id: str = Field(default="", max_length=64)
+    title: str = Field(default="", max_length=200)
+    artist: str = Field(default="", max_length=200)
+    cover: str = Field(default="", max_length=500)
+    passage: str = Field(default="", max_length=200)     # 引用的那句歌词
+    thought: str = Field(default="", max_length=1000)    # 她说的
+    reply: str = Field(default="", max_length=2000)      # 他回的
+
+
+@app.post("/api/piano/song-note", dependencies=[Depends(require_auth)])
+async def piano_song_note(body: PianoNoteBody) -> dict:
+    return await _piano_post("/api/song-note", body.model_dump())
+
+
+class PianoListenBody(BaseModel):
+    id: str = Field(default="", max_length=64)
+    title: str = Field(default="", max_length=200)
+    artist: str = Field(default="", max_length=200)
+    cover: str = Field(default="", max_length=500)
+    dur: int = 0
+
+
+@app.post("/api/piano/listen-log", dependencies=[Depends(require_auth)])
+async def piano_listen_log(body: PianoListenBody) -> dict:
+    # 听歌档案的数据来源。以前一条都没写过，所以 listen-stats 一直是空的。
+    return await _piano_post("/api/listen-log", body.model_dump())
+
+
+@app.get("/api/piano/listen-stats", dependencies=[Depends(require_auth)])
+async def piano_listen_stats() -> dict:
+    return await _piano("/api/listen-stats")
+
+
+@app.get("/api/piano/room/events", dependencies=[Depends(require_auth)])
+async def piano_room_events(
+    room: str = Query(default="main", max_length=64),
+    limit: int = 120,
+) -> dict:
+    return await _piano("/api/room/events",
+                        {"room": room, "limit": max(1, min(300, limit))})
 
 
 @app.get("/api/background", dependencies=[Depends(require_auth)])
