@@ -2251,7 +2251,7 @@ async function sendMessage(text,showUser=true,files=[],existingAttachments=[],op
     if(runId!==_chatRunId)return;
     if(r.status===401){showGate();throw Error('登录已失效')}if(!r.ok||!r.body){const detail=await r.json().catch(()=>({}));throw Error(detail.detail||'请求失败')}
     const reader=r.body.getReader(),decoder=new TextDecoder();let buffer='',finished=false;
-    const frame=f=>{if(runId!==_chatRunId)return;let event='',data='';f.split('\n').forEach(line=>{if(line.startsWith('event:'))event=line.slice(6).trim();if(line.startsWith('data:'))data+=line.slice(5).trim()});if(!event||!data)return;const d=JSON.parse(data);if(event==='conversation'){state.convId=d.conversation_id;state.legacySessionId=null;localStorage.setItem('chat_conversation',state.convId);localStorage.removeItem('chat_session');if(d.user_message_id&&userRow)userRow.dataset.msgId=d.user_message_id}if(event==='model')setActualModel(d.id);if(event==='thinking')msg.thinking(d.text||'');if(event==='delta')msg.text(d.text||'');if(event==='tool_use')msg.toolUse(d);if(event==='tool_result')msg.toolResult(d);if(event==='trace_summary')msg.traceSummary(d.text||'');if(event==='done'){state.convId=d.conversation_id||state.convId;localStorage.setItem('chat_conversation',state.convId);msg.finish();if(d.assistant_message_id&&msg?.row)msg.row.dataset.msgId=d.assistant_message_id;finished=true}if(event==='error'){msg.fail(d.message);finished=true}};
+    const frame=f=>{if(runId!==_chatRunId)return;let event='',data='';f.split('\n').forEach(line=>{if(line.startsWith('event:'))event=line.slice(6).trim();if(line.startsWith('data:'))data+=line.slice(5).trim()});if(!event||!data)return;const d=JSON.parse(data);if(event==='conversation'){state.convId=d.conversation_id;state.legacySessionId=null;localStorage.setItem('chat_conversation',state.convId);localStorage.removeItem('chat_session');if(d.user_message_id&&userRow)userRow.dataset.msgId=d.user_message_id}if(event==='model')setActualModel(d.id);if(event==='thinking')msg.thinking(d.text||'');if(event==='delta')msg.text(d.text||'');if(event==='tool_use')msg.toolUse(d);if(event==='tool_result')msg.toolResult(d);if(event==='trace_summary')msg.traceSummary(d.text||'');if(event==='piano_act')pianoRunAct(d);if(event==='done'){state.convId=d.conversation_id||state.convId;localStorage.setItem('chat_conversation',state.convId);msg.finish();if(d.assistant_message_id&&msg?.row)msg.row.dataset.msgId=d.assistant_message_id;finished=true}if(event==='error'){msg.fail(d.message);finished=true}};
     while(true){if(runId!==_chatRunId)return;const{value,done}=await reader.read();buffer+=decoder.decode(value||new Uint8Array(),{stream:!done});const parts=buffer.split(/\r?\n\r?\n/);buffer=parts.pop()||'';parts.forEach(frame);if(done)break}
     if(runId!==_chatRunId)return;
     if(buffer.trim())frame(buffer);if(!finished)await recoverAfterBreak(msg,state.convId,'连接意外结束，请重试。',()=>runId===_chatRunId)
@@ -3670,17 +3670,29 @@ function pianoRenderSkinGrid(){
 
 function pianoFmt(s){s=Math.max(0,Math.floor(s||0));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}
 
-/* 现在在放什么。送给后端挂在用户消息侧用；没在放歌就返回 null。 */
+/* 现在在放什么 + 她真有哪些歌。送给后端挂在用户消息侧用。
+   🔴 没在放歌也要送：歌单名单照样带过去——「随便放一首」正好是
+   没在放的时候说的，那一刻他更需要知道她有什么。什么都没有才返回 null。 */
 function pianoNowPlaying(){
+  const np={};
   const s=piano.songs[piano.idx];
-  if(!s||!pianoAudio)return null;
-  return {id:String(s.id),title:s.title||'',artist:s.artist||'',
-          pos:Math.floor(pianoAudio.currentTime||0),
-          dur:Math.floor(pianoAudio.duration||s.dur||0),
-          lyric:pianoCurrentLyric(),
-          /* 频谱图只在换歌之后的第一次对话送一次——图吃 token，
-             而且送一次他就记住了。发完就把这首标记掉。 */
-          wantImage:!_pianoImgSent.has(String(s.id))};
+  if(s&&pianoAudio){
+    np.id=String(s.id);np.title=s.title||'';np.artist=s.artist||'';
+    np.pos=Math.floor(pianoAudio.currentTime||0);
+    np.dur=Math.floor(pianoAudio.duration||s.dur||0);
+    np.lyric=pianoCurrentLyric();
+    /* 频谱图只在换歌之后的第一次对话送一次——图吃 token，
+       而且送一次他就记住了。发完就把这首标记掉。 */
+    np.wantImage=!_pianoImgSent.has(String(s.id));
+  }
+  /* 施工单 §2.4：让他从她真有的东西里点，不是凭空报一个歌名。
+     只送名字，不送每个歌单的全部曲目——正开着的那个才送曲目。 */
+  if(piano.lists.length)np.lists=piano.lists.map(pl=>pl.name||'').filter(Boolean);
+  if(piano.view==='songs'&&piano.songs.length){
+    np.listSongs={name:piano.listName||'',
+                  titles:piano.songs.map(x=>x.title||'').filter(Boolean)};
+  }
+  return Object.keys(np).length?np:null;
 }
 
 function pianoCurrentLyric(){
@@ -3852,6 +3864,92 @@ function pianoNext(step){
   if(i<0)i=piano.songs.length-1;
   if(i>=piano.songs.length)i=0;
   pianoPlay(i);
+}
+
+/* ══ DJ：他说放歌就真的放 ══════════════════════════════════════════════
+   标记已经在后端剥干净了（piano.py 的 ActStripper），到这儿只剩动作本身。
+   施工单 §2.1 那张表，八个 type 一个不少。
+   🔴 不管在哪个 tab 都执行：<audio> 挂在 .piano-room 外面（本文件 806 行），
+   在 Chat 里说「放首歌」他也该真的放。但**一定要出声**——
+   界面在别处时她看不见唱片转起来，只有 toast 能告诉她发生了什么。 */
+var pianoActor={who:'',t:0};      /* 状态卡署名用：这一下是他做的还是她做的 */
+
+/* api() 只在 401 抛，别的状态码原样返回——所以每处都要自己看 r.ok，
+   否则引擎 502 会被当成「没搜到」，查起来要命。 */
+async function pianoSearch(q){
+  const kw=String(q||'').trim();
+  if(!kw)return [];
+  const r=await api('/api/piano/search?kw='+encodeURIComponent(kw));
+  if(!r.ok)throw Error('琴房引擎没响应（'+r.status+'）');
+  const d=await r.json();
+  return d.songs||[];
+}
+
+/* 用一批歌换掉当前队列并从第 i 首开始放 */
+function pianoReplaceQueue(songs,i){
+  piano.songs=songs;piano.idx=-1;
+  if(piano.view==='songs')pianoRenderSongs();
+  pianoPlay(i||0);
+}
+
+function pianoQueueAppend(s){
+  if(!s)return;
+  piano.songs.push(s);
+  if(piano.view==='songs')pianoRenderSongs();
+}
+
+async function pianoRunAct(act){
+  const type=String(act&&act.type||'');
+  const q=String(act&&act.query||'');
+  if(['play','next','prev','pause','resume','like','queue','share'].indexOf(type)<0){
+    return;                                   /* 不认识的 type 一律不动 */
+  }
+  pianoActor={who:'ai',t:Date.now()};
+  try{
+    if(type==='pause'){pianoAudio&&pianoAudio.pause();return}
+    if(type==='resume'){pianoAudio&&pianoAudio.play().catch(()=>{});return}
+    if(type==='next'||type==='prev'){
+      if(!piano.songs.length){toast('还没有队列，先挑个歌单');return}
+      pianoNext(type==='next'?1:-1);return;
+    }
+    if(type==='like'){
+      const s=piano.songs[piano.idx];
+      if(!s||!/^\d+$/.test(String(s.id))){toast('现在没在放歌，红心不了');return}
+      const r=await api('/api/piano/ncm/like?id='+encodeURIComponent(s.id)+'&like=true',
+                        {method:'POST'});
+      if(!r.ok)throw Error('红心没成（'+r.status+'）');
+      toast('红心了《'+(s.title||'')+'》');
+      return;
+    }
+    /* 下面三个都要先搜到歌 */
+    if(type==='play'){
+      if(!q){toast('他没说放哪首');return}
+      const songs=await pianoSearch(q);
+      if(!songs.length){toast('没搜到《'+q+'》');return}
+      pianoReplaceQueue(songs,0);
+      return;
+    }
+    if(type==='queue'){
+      const s=(await pianoSearch(q))[0];
+      if(!s){toast('没搜到《'+q+'》，加不进待播');return}
+      pianoQueueAppend(s);
+      toast('《'+(s.title||'')+'》加进待播了');
+      return;
+    }
+    if(type==='share'){
+      /* 不带 query 就是分享正在放的这首 */
+      const s=q?(await pianoSearch(q))[0]:piano.songs[piano.idx];
+      if(!s){toast(q?('没搜到《'+q+'》'):'现在没在放歌，分享不了');return}
+      /* 分享卡是房间那一单（第 4 项）的东西，这一单先落到「加进队列并播」，
+         行为跟原版 share 带 query 时一致（index.mjs 那边也会切过去）。 */
+      pianoQueueAppend(s);
+      pianoPlay(piano.songs.length-1);
+      return;
+    }
+  }catch(e){
+    /* 🔴 不许静默。他嘴上说放了、结果没动，比报错难查十倍。 */
+    toast('这一下没做成：'+((e&&e.message)?String(e.message).slice(0,40):'未知错误'));
+  }
 }
 
 function pianoSetPlayIcon(playing){

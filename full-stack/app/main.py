@@ -493,6 +493,7 @@ async def chat(body: ChatBody) -> StreamingResponse:
         response_text = ""
         response_thinking = ""
         response_traces: list[dict] = []
+        act_stripper = piano.ActStripper()      # 一轮一个，见 piano.py
         try:
             await get_registry().assert_available()
             display_message = body.message.strip()
@@ -631,7 +632,19 @@ async def chat(body: ChatBody) -> StreamingResponse:
                     continue
 
                 if chunk["event"] == "delta":
-                    response_text += chunk.get("text", "")
+                    # 琴房 DJ：把 <<ACT>>{...}<<>> 剥出来单独发一帧，
+                    # 剩下的才是她该看见的正文。剥干净的文本才进 response_text，
+                    # 所以下面 tool_use 的 text_offset 和落库的都是干净的。
+                    clean, acts = act_stripper.feed(chunk.get("text", ""))
+                    for act in acts:
+                        logger.info("[琴房] DJ 动作 conv=%s act=%s", conv_id, act)
+                        act_data = json.dumps(act, ensure_ascii=False)
+                        yield f"event: piano_act\ndata: {act_data}\n\n"
+                    if not clean:
+                        # 整块都被扣住了（标记正拆在几帧里），这一帧不发
+                        continue
+                    chunk["text"] = clean
+                    response_text += clean
                 elif chunk["event"] == "thinking":
                     response_thinking += chunk.get("text", "")
                 elif chunk["event"] == "tool_use":
@@ -650,6 +663,12 @@ async def chat(body: ChatBody) -> StreamingResponse:
                         "is_error": chunk.get("is_error", False),
                     })
                 elif chunk["event"] == "done":
+                    # 扣在缓冲里的尾巴还回去，一个字都不能吞在这儿
+                    tail = act_stripper.flush()
+                    if tail:
+                        response_text += tail
+                        tail_data = json.dumps({"text": tail}, ensure_ascii=False)
+                        yield f"event: delta\ndata: {tail_data}\n\n"
                     logger.info(
                         "claude_raw_response request_id=%s conv_id=%s raw=%r",
                         request_id,
@@ -1134,6 +1153,18 @@ async def piano_spectrum(body: PianoAnalyzeBody) -> dict:
 @app.get("/api/piano/notes", dependencies=[Depends(require_auth)])
 async def piano_notes(id: str = Query(max_length=64), limit: int = 60) -> dict:
     return await _piano("/api/song-notes", {"id": id, "limit": max(1, min(200, limit))})
+
+
+# 红心。DJ 的 {"type":"like"} 要它，验收第 2 条点名要「真的执行了」。
+# Duetto 那条 POST 从 query 读参数（index.mjs:361），所以走 params 不走 body。
+@app.post("/api/piano/ncm/like", dependencies=[Depends(require_auth)])
+async def piano_ncm_like(id: str = Query(max_length=64), like: bool = True) -> dict:
+    try:
+        return await piano.post(
+            "/api/ncm/like", params={"id": id, "like": "1" if like else "0"}
+        )
+    except piano.PianoError as exc:
+        raise HTTPException(status_code=exc.status, detail=str(exc)) from exc
 
 
 # 网易云扫码登录。登录入口做在琴房里，不让她为了扫个码绕出去。
