@@ -122,6 +122,33 @@ async def fetch_memory_hits(query: str) -> str:
 SYSTEM_PROMPT = """\
 You are a warm, concise assistant in a personal chat app. Reply naturally, respect the user's saved profile and preferences, and use tools only when they help. When you save long-term memories, save objective user facts rather than conversation summaries.
 """
+# 琴房的 DJ 指令。照抄 Duetto 的措辞（server/index.mjs:130）。
+#
+# 🔴 这一段进**稳定前缀**，而且**无条件**拼——不看这一轮有没有在放歌。
+# 原作者在 index.mjs:127 留了同一条注释：稳定前缀在前，会变的时间与"正在播"
+# 放最后，中转的前缀缓存才能命中。我们踩过同一个坑，解法一致。
+# 「有琴房上下文才加」听起来省 token，实际是两份前缀交替出现：缓存每轮重建，
+# 而且 actor 复用指纹（claude.py 下面 _actor_key 那段）跟着抖，每次换 tab
+# 都重开一个 CLI 子进程。它一个字都不会变，就该一直在。
+#
+# 会变的东西（正在放什么、她有哪些歌单）全走用户消息侧，见 piano.py。
+PIANO_DJ_PROMPT = """\
+你可以控制琴房的播放器。想放某首歌、切歌、暂停、继续、分享、红心、加待播队列时，\
+在回复的最后单独起一行输出一条指令：
+
+<<ACT>>{"type":"play","query":"歌名 歌手"}<<>>
+
+play 需要 query。其余：下一首 {"type":"next"}、上一首 {"type":"prev"}、\
+暂停 {"type":"pause"}、继续 {"type":"resume"}、\
+给正在放的这首点红心 {"type":"like"}、\
+加进待播队列而不打断当前播放 {"type":"queue","query":"歌名 歌手"}、\
+把一首歌以卡片形式分享进对话 {"type":"share","query":"歌名 歌手"}\
+（分享正在放的这首就不带 query）。
+
+这一行她看不见，发出去之前会被剥掉，所以要说的话在正文里说完，\
+不要拿指令本身当回答，也不要在正文里复述你输出了什么指令。\
+没有要动播放器的时候就不要输出这一行，也不要解释这个格式。"""
+
 PROJECT_ROOT = Path(os.environ.get("AGENT_APP_ROOT", Path(__file__).resolve().parent.parent)).expanduser().resolve()
 MODELS_PATH = Path(os.environ.get("MODELS_FILE", PROJECT_ROOT / "models.json")).expanduser().resolve()
 PROJECT_DIR = str(PROJECT_ROOT)
@@ -245,6 +272,10 @@ def build_system_prompt(model: str, lean: bool = False) -> str:
     tone = lorebook.tone_block()
     if tone:
         system_prompt = f"{system_prompt}\n\n以下是用户的语气偏好，回复时自然遵循：\n{tone}"
+
+    # 琴房的 DJ 指令。常量、不带任何本轮数据，接在最后前缀照样稳定。
+    # TG 那条线在上面 lean 分支就 return 了，天然不带这一段——TG 没有播放器。
+    system_prompt = f"{system_prompt}\n\n{PIANO_DJ_PROMPT}"
     return system_prompt
 
 

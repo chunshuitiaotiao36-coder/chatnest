@@ -2009,3 +2009,309 @@ body.tab-away #chat {
   font-family: var(--ls-meta); font-size: 10px; color: var(--ls-ink-faint);
 }
 .piano-sheet .sheet-content { padding: 4px 12px 24px }
+
+/* ══════════════ 琴房 · 歌词页 ═══════════════════════════════════════════
+   封面 ↔ 歌词双页横滑，点一句问 Ta，长按一句引用，滑动选句松手贴线。
+   所有颜色照旧只用 --ls-* 令牌，跟着皮肤走，不进 :root。 */
+
+.piano-pager {
+  width: 100%; display: flex;
+  overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none; -ms-overflow-style: none;
+  overscroll-behavior-x: contain;      /* 别把整页往旁边拽 */
+}
+.piano-pager::-webkit-scrollbar { display: none }
+.piano-pane {
+  flex: 0 0 100%; scroll-snap-align: start;
+  display: flex; flex-direction: column; align-items: center;
+  min-width: 0;                        /* 不加这条 flex 子项不肯收缩 */
+}
+
+/* 页码点 */
+.piano-pagedots { display: flex; gap: 5px; margin: 6px 0 2px }
+.piano-pagedots span {
+  width: 4px; height: 4px; border-radius: 50%;
+  background: var(--ls-line); transition: background .2s, width .2s;
+}
+.piano-pagedots span.on { width: 12px; border-radius: 2px; background: var(--ls-gold) }
+
+/* ── 歌词那一页 ── */
+.piano-lyrpane { position: relative; height: 202px; width: 100%; cursor: default }
+.piano-lyr-scroll {
+  height: 100%; width: 100%; overflow-y: auto;
+  scrollbar-width: none; -ms-overflow-style: none;
+  overscroll-behavior-y: contain;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 14%, #000 82%, transparent 100%);
+          mask-image: linear-gradient(180deg, transparent 0, #000 14%, #000 82%, transparent 100%);
+}
+.piano-lyr-scroll::-webkit-scrollbar { display: none }
+/* 上下各留一屏的空，第一句和最后一句也能滑到锚点上 */
+.piano-lyr-list { padding: 60px 26px 140px; text-align: center }
+.piano-lyr-row {
+  padding: 7px 2px; line-height: 1.5;
+  color: var(--ls-ink-faint);
+  transition: color .25s, opacity .25s;
+  -webkit-user-select: none; user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.piano-lyr-row.askable { cursor: pointer }
+.piano-lyr-row .tr {
+  display: block; margin-top: 2px;
+  font-size: .82em; color: var(--ls-ink-faint); opacity: .75;
+}
+.piano-lyr-row.on { color: var(--ls-ink); font-weight: 600 }
+.piano-lyr-row.on .tr { color: var(--ls-ink-dim); opacity: 1 }
+.piano-lyr-row.sel { color: var(--ls-ink-dim) }
+.piano-lyr-none {
+  padding: 70px 0; text-align: center;
+  font-family: var(--ls-meta); font-size: 12px; color: var(--ls-ink-faint);
+}
+/* 四档字号。译文跟着按比例走（用的是 em）。 */
+.piano-lyr-list.lz-s  { font-size: 13px }
+.piano-lyr-list.lz-m  { font-size: 15px }
+.piano-lyr-list.lz-l  { font-size: 17px }
+.piano-lyr-list.lz-xl { font-size: 19px }
+
+/* 贴线时浮出来的三件：中线 / 时间戳 / 从这句开始放。
+   锚点 30%，跟 PIANO_LYR_ANCHOR 是同一个数，改一个要改两个。 */
+.piano-lyr-anchor {
+  position: absolute; left: 0; right: 0; top: 30%;
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 10px; pointer-events: none;
+}
+.piano-lyr-anchor[hidden] { display: none }
+.piano-lyr-anchor .rule {
+  flex: 1; height: 1px; background: var(--ls-line);
+}
+.piano-lyr-anchor .ts {
+  font-family: var(--ls-meta); font-size: 10px; color: var(--ls-ink-faint);
+}
+.piano-lyr-anchor .go {
+  pointer-events: auto;
+  width: 26px; height: 26px; border: 0; border-radius: 50%; padding: 0;
+  display: grid; place-items: center; cursor: pointer;
+  background: var(--ls-panel); color: var(--ls-gold);
+  box-shadow: 0 2px 8px var(--ls-shadow);
+}
+.piano-lyr-anchor .go svg { width: 13px; height: 13px; margin-left: 1px }
+
+/* 译 / Aa 两个小按钮 */
+.piano-lyr-tools {
+  position: absolute; top: 2px; right: 10px; z-index: 2;
+  display: flex; gap: 6px;
+}
+.piano-lyr-tool {
+  min-width: 24px; height: 22px; padding: 0 6px;
+  border: 1px solid var(--ls-line-soft); border-radius: 11px;
+  background: transparent; color: var(--ls-ink-faint);
+  font-family: var(--ls-meta); font-size: 11px; line-height: 1; cursor: pointer;
+}
+.piano-lyr-tool[hidden] { display: none }
+.piano-lyr-tool.on { color: var(--ls-gold); border-color: var(--ls-gold) }
+
+/* ── 引用条（输入框上方）和气泡里的引用块 ── */
+.piano-quote {
+  flex-shrink: 0;
+  display: flex; align-items: center; gap: 6px;
+  margin: 0 12px 4px; padding: 6px 8px;
+  border-left: 2px solid var(--ls-gold); border-radius: 0 6px 6px 0;
+  background: var(--ls-panel2);
+}
+.piano-quote[hidden] { display: none }
+.piano-quote .qm { color: var(--ls-gold); font-size: 12px; line-height: 1 }
+.piano-quote .qt {
+  flex: 1; min-width: 0;
+  font-size: 12px; color: var(--ls-ink-dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.piano-quote .qx {
+  border: 0; background: transparent; cursor: pointer; padding: 0 2px;
+  font-size: 15px; line-height: 1; color: var(--ls-ink-faint);
+}
+/* 气泡里的引用块。挂在 .msg-user 上，Chat 里翻到这条也是这个样子——
+   引用是消息内容的一部分，不是琴房的皮肤。 */
+.msg-user .piano-bq {
+  margin-bottom: 5px; padding: 4px 8px;
+  border-left: 2px solid currentColor; border-radius: 0 5px 5px 0;
+  font-size: 12px; line-height: 1.45; opacity: .72;
+}
+
+/* ── 字体字号面板（借皮肤面板的壳）── */
+.piano-fontgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px }
+.piano-fontcard {
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 9px 10px; cursor: pointer; text-align: left;
+  border: 1px solid var(--ls-line-soft); border-radius: 10px;
+  background: var(--ls-panel2); color: var(--ls-ink-dim);
+}
+.piano-fontcard.on { border-color: var(--ls-gold); color: var(--ls-ink) }
+.piano-fontcard .fn { font-family: var(--ls-meta); font-size: 10px; color: var(--ls-ink-faint) }
+.piano-fontcard .fs { font-size: 15px }
+.piano-fontcard.on .fn { color: var(--ls-gold) }
+.piano-sizerow { display: flex; gap: 6px; margin-top: 10px }
+.piano-sizebtn {
+  flex: 1; padding: 7px 0; cursor: pointer;
+  border: 1px solid var(--ls-line-soft); border-radius: 8px;
+  background: transparent; color: var(--ls-ink-dim);
+  font-family: var(--ls-cn); font-size: 12px;
+}
+.piano-sizebtn.on { border-color: var(--ls-gold); color: var(--ls-gold) }
+
+/* ══════════════ 琴房 · 曲库 / 批量 / 歌曲详情 ═══════════════════════════ */
+
+/* 播放模式键。列表循环是默认态，不点亮；单曲和随机点亮。 */
+.piano-ctrl #pianoMode.on { color: var(--ls-gold) }
+
+/* 来源页签 */
+.piano-srcs {
+  display: flex; gap: 6px; padding: 2px 12px 6px;
+  overflow-x: auto; scrollbar-width: none;
+}
+.piano-srcs::-webkit-scrollbar { display: none }
+.piano-src {
+  flex: 0 0 auto; padding: 4px 10px; cursor: pointer;
+  border: 1px solid var(--ls-line-soft); border-radius: 12px;
+  background: transparent; color: var(--ls-ink-faint);
+  font-family: var(--ls-cn); font-size: 12px; white-space: nowrap;
+}
+.piano-src.on { color: var(--ls-gold); border-color: var(--ls-gold) }
+
+/* 本地歌：粘直链 */
+.piano-localadd { display: flex; gap: 6px; padding: 0 12px 6px }
+.piano-localadd[hidden] { display: none }
+.piano-localadd input {
+  flex: 1; min-width: 0; padding: 6px 9px;
+  border: 1px solid var(--ls-line-soft); border-radius: 8px;
+  background: var(--ls-panel2); color: var(--ls-ink); font-size: 12px;
+}
+.piano-localadd button {
+  padding: 0 12px; cursor: pointer;
+  border: 1px solid var(--ls-gold); border-radius: 8px;
+  background: transparent; color: var(--ls-gold); font-size: 12px;
+}
+
+/* 一串歌的通用动作 / 多选后的批量动作 */
+.piano-listacts, .piano-batch {
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 12px 8px;
+}
+.piano-listacts[hidden], .piano-batch[hidden] { display: none }
+.piano-listacts button, .piano-batch button {
+  padding: 5px 10px; cursor: pointer;
+  border: 1px solid var(--ls-line-soft); border-radius: 8px;
+  background: transparent; color: var(--ls-ink-dim);
+  font-family: var(--ls-cn); font-size: 12px;
+}
+.piano-listacts button:first-child { border-color: var(--ls-gold); color: var(--ls-gold) }
+.piano-batch .n {
+  flex: 1; font-family: var(--ls-meta); font-size: 11px; color: var(--ls-ink-faint);
+}
+.piano-batch button[hidden] { display: none }
+.piano-batch #pianoBatchX { border: 0; font-size: 16px; padding: 0 6px; line-height: 1 }
+
+/* 列表行：多选打勾 + 右边的详情键 */
+.piano-row { position: relative; display: flex; align-items: center; gap: 8px }
+.piano-tick {
+  flex: 0 0 auto; width: 0; height: 15px; border-radius: 50%;
+  border: 1px solid var(--ls-line); opacity: 0;
+  transition: width .14s, opacity .14s;
+}
+.piano-row.multi .piano-tick { width: 15px; opacity: 1 }
+.piano-row.picked .piano-tick { background: var(--ls-gold); border-color: var(--ls-gold) }
+.piano-row-more {
+  flex: 0 0 auto; border: 0; background: transparent; cursor: pointer;
+  padding: 0 4px; font-size: 15px; line-height: 1; color: var(--ls-ink-faint);
+}
+
+/* 歌名 / 歌手可点：一个进详情，一个进歌手主页 */
+.piano-song-t, .piano-song-a { cursor: pointer }
+
+/* 收藏到哪个歌单 */
+.piano-favlist { display: flex; flex-direction: column; gap: 4px; max-height: 46vh; overflow-y: auto }
+.piano-favrow {
+  display: flex; align-items: baseline; gap: 8px; cursor: pointer; text-align: left;
+  padding: 8px 10px; border: 0; border-radius: 8px;
+  background: var(--ls-panel2); color: var(--ls-ink);
+}
+.piano-favrow .n { flex: 1; font-size: 13px }
+.piano-favrow .c { font-family: var(--ls-meta); font-size: 10px; color: var(--ls-ink-faint) }
+
+/* 歌曲详情 */
+.piano-songacts { display: flex; gap: 6px; padding: 2px 12px 8px }
+.piano-songacts button {
+  flex: 1; padding: 6px 0; cursor: pointer;
+  border: 1px solid var(--ls-line-soft); border-radius: 8px;
+  background: transparent; color: var(--ls-ink-dim);
+  font-family: var(--ls-cn); font-size: 12px;
+}
+.piano-songacts button:first-child { border-color: var(--ls-gold); color: var(--ls-gold) }
+.piano-songtabs { display: flex; gap: 14px; padding: 0 14px 6px; border-bottom: 1px solid var(--ls-line-soft) }
+.piano-songtab {
+  border: 0; background: transparent; cursor: pointer; padding: 4px 0;
+  font-family: var(--ls-cn); font-size: 12px; color: var(--ls-ink-faint);
+  border-bottom: 2px solid transparent;
+}
+.piano-songtab.on { color: var(--ls-ink); border-bottom-color: var(--ls-gold) }
+.piano-songblock { margin: 10px 2px }
+.piano-songblock .h {
+  font-family: var(--ls-meta); font-size: 10px; color: var(--ls-gold);
+  letter-spacing: .06em; margin-bottom: 4px;
+}
+.piano-songblock .b { font-size: 13px; line-height: 1.7; color: var(--ls-ink-dim); white-space: pre-wrap }
+.piano-note {
+  margin: 8px 2px; padding: 8px 10px;
+  border-radius: 9px; background: var(--ls-panel2);
+}
+.piano-note .p { font-size: 12px; color: var(--ls-gold); margin-bottom: 3px }
+.piano-note .q { font-size: 13px; color: var(--ls-ink); line-height: 1.6 }
+.piano-note .a { font-size: 12.5px; color: var(--ls-ink-dim); line-height: 1.65; margin-top: 4px }
+.piano-cmt { margin: 9px 2px; padding-bottom: 8px; border-bottom: 1px solid var(--ls-line-soft) }
+.piano-cmt .u { font-family: var(--ls-meta); font-size: 10px; color: var(--ls-ink-faint); margin-bottom: 3px }
+.piano-cmt .t { font-size: 12.5px; line-height: 1.6; color: var(--ls-ink-dim) }
+
+/* ══════════════ 琴房 · 房间（状态卡 / 分享卡）══════════════════════════
+   卡片塞在 #stream 里，但不是消息——它们不进小窝的库、不进模型上下文，
+   退出琴房时会被摘掉（pianoStripCards）。 */
+
+.piano-topbtn {
+  border: 0; background: transparent; cursor: pointer;
+  padding: 4px; color: var(--ls-ink-faint); line-height: 0;
+}
+.piano-topbtn svg { width: 17px; height: 17px }
+.piano-topbtn:active { color: var(--ls-gold) }
+
+.piano-card { margin: 8px auto; max-width: 82% }
+
+/* 状态卡：居中一行小字，不抢戏 */
+.piano-evtcard {
+  width: fit-content; padding: 3px 10px; border-radius: 10px;
+  background: var(--ls-panel2); color: var(--ls-ink-faint);
+  font-family: var(--ls-meta); font-size: 10.5px; text-align: center;
+}
+
+/* 分享卡：点卡即播 */
+.piano-sharecard {
+  display: flex; align-items: center; gap: 9px; cursor: pointer;
+  padding: 7px 10px; border-radius: 11px;
+  background: var(--ls-panel); border: 1px solid var(--ls-line-soft);
+  box-shadow: 0 2px 10px var(--ls-shadow);
+}
+.piano-sharecard .cv {
+  flex: 0 0 auto; width: 38px; height: 38px; border-radius: 7px;
+  overflow: hidden; background: var(--ls-panel2);
+}
+.piano-sharecard .cv img { width: 100%; height: 100%; object-fit: cover; display: block }
+.piano-sharecard .mt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px }
+.piano-sharecard b {
+  font-size: 13px; font-weight: 600; color: var(--ls-ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.piano-sharecard i {
+  font-style: normal; font-size: 11px; color: var(--ls-ink-faint);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.piano-sharecard .go { flex: 0 0 auto; color: var(--ls-gold); font-size: 13px }
+
+/* 琴房只露最近几轮，但卡片不该被那条规则连坐藏掉 */
+.stream-inner.piano-trim .piano-card { display: block }

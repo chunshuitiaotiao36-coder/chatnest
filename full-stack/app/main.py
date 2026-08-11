@@ -17,7 +17,10 @@ from dotenv import load_dotenv
 ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(ROOT / ".env")
 
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, Request, UploadFile
+from fastapi import (
+    Depends, FastAPI, File, Form, Header, HTTPException, Query, Request,
+    UploadFile, WebSocket, WebSocketDisconnect,
+)
 from fastapi.responses import FileResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 from typing import Any
@@ -493,6 +496,7 @@ async def chat(body: ChatBody) -> StreamingResponse:
         response_text = ""
         response_thinking = ""
         response_traces: list[dict] = []
+        act_stripper = piano.ActStripper()      # 一轮一个，见 piano.py
         try:
             await get_registry().assert_available()
             display_message = body.message.strip()
@@ -631,7 +635,19 @@ async def chat(body: ChatBody) -> StreamingResponse:
                     continue
 
                 if chunk["event"] == "delta":
-                    response_text += chunk.get("text", "")
+                    # 琴房 DJ：把 <<ACT>>{...}<<>> 剥出来单独发一帧，
+                    # 剩下的才是她该看见的正文。剥干净的文本才进 response_text，
+                    # 所以下面 tool_use 的 text_offset 和落库的都是干净的。
+                    clean, acts = act_stripper.feed(chunk.get("text", ""))
+                    for act in acts:
+                        logger.info("[琴房] DJ 动作 conv=%s act=%s", conv_id, act)
+                        act_data = json.dumps(act, ensure_ascii=False)
+                        yield f"event: piano_act\ndata: {act_data}\n\n"
+                    if not clean:
+                        # 整块都被扣住了（标记正拆在几帧里），这一帧不发
+                        continue
+                    chunk["text"] = clean
+                    response_text += clean
                 elif chunk["event"] == "thinking":
                     response_thinking += chunk.get("text", "")
                 elif chunk["event"] == "tool_use":
@@ -650,6 +666,12 @@ async def chat(body: ChatBody) -> StreamingResponse:
                         "is_error": chunk.get("is_error", False),
                     })
                 elif chunk["event"] == "done":
+                    # 扣在缓冲里的尾巴还回去，一个字都不能吞在这儿
+                    tail = act_stripper.flush()
+                    if tail:
+                        response_text += tail
+                        tail_data = json.dumps({"text": tail}, ensure_ascii=False)
+                        yield f"event: delta\ndata: {tail_data}\n\n"
                     logger.info(
                         "claude_raw_response request_id=%s conv_id=%s raw=%r",
                         request_id,
@@ -1031,6 +1053,15 @@ async def _piano(path: str, params: dict[str, Any] | None = None) -> dict:
         raise HTTPException(status_code=exc.status, detail=str(exc)) from exc
 
 
+async def _piano_post(path: str, body: dict[str, Any] | None = None,
+                      params: dict[str, Any] | None = None) -> dict:
+    """POST 那半边。Duetto 有一批 POST 从 query 读参数，所以 params 也要能传。"""
+    try:
+        return await piano.post(path, body, params=params)
+    except piano.PianoError as exc:
+        raise HTTPException(status_code=exc.status, detail=str(exc)) from exc
+
+
 @app.get("/api/piano/playlists", dependencies=[Depends(require_auth)])
 async def piano_playlists() -> dict:
     return await _piano("/api/ncm/playlists")
@@ -1136,6 +1167,18 @@ async def piano_notes(id: str = Query(max_length=64), limit: int = 60) -> dict:
     return await _piano("/api/song-notes", {"id": id, "limit": max(1, min(200, limit))})
 
 
+# 红心。DJ 的 {"type":"like"} 要它，验收第 2 条点名要「真的执行了」。
+# Duetto 那条 POST 从 query 读参数（index.mjs:361），所以走 params 不走 body。
+@app.post("/api/piano/ncm/like", dependencies=[Depends(require_auth)])
+async def piano_ncm_like(id: str = Query(max_length=64), like: bool = True) -> dict:
+    try:
+        return await piano.post(
+            "/api/ncm/like", params={"id": id, "like": "1" if like else "0"}
+        )
+    except piano.PianoError as exc:
+        raise HTTPException(status_code=exc.status, detail=str(exc)) from exc
+
+
 # 网易云扫码登录。登录入口做在琴房里，不让她为了扫个码绕出去。
 # 二维码和登录态都由 Duetto 持有，chatnest 只是转发——cookie 一步都不进小窝。
 
@@ -1152,6 +1195,193 @@ async def piano_ncm_check(key: str = Query(max_length=256)) -> dict:
 @app.get("/api/piano/ncm/status", dependencies=[Depends(require_auth)])
 async def piano_ncm_status() -> dict:
     return await _piano("/api/ncm/status")
+
+
+@app.post("/api/piano/ncm/logout", dependencies=[Depends(require_auth)])
+async def piano_ncm_logout() -> dict:
+    return await _piano_post("/api/ncm/logout")
+
+
+# ── 曲库：日推 / 排行 / 最近 / 红心 / 私人FM / 歌手 / 评论 ──────────────────
+# 施工单 §3：把 index.mjs 的 /api/ncm/* 全部代理过来，一条不落。
+# 这一节没有前端，是给后面三项（歌词页 / 房间 / 听歌档案）铺路。
+
+@app.get("/api/piano/ncm/recommend", dependencies=[Depends(require_auth)])
+async def piano_ncm_recommend() -> dict:
+    return await _piano("/api/ncm/recommend")
+
+
+@app.get("/api/piano/ncm/toplist", dependencies=[Depends(require_auth)])
+async def piano_ncm_toplist(id: str = Query(default="", max_length=64)) -> dict:
+    # 不带 id 返榜单列表，带 id 返那个榜的曲目（index.mjs:358 一条路由两种用法）
+    return await _piano("/api/ncm/toplist", {"id": id})
+
+
+@app.get("/api/piano/ncm/record", dependencies=[Depends(require_auth)])
+async def piano_ncm_record() -> dict:
+    return await _piano("/api/ncm/record")
+
+
+@app.get("/api/piano/ncm/likelist", dependencies=[Depends(require_auth)])
+async def piano_ncm_likelist() -> dict:
+    return await _piano("/api/ncm/likelist")
+
+
+@app.get("/api/piano/ncm/personal-fm", dependencies=[Depends(require_auth)])
+async def piano_ncm_personal_fm() -> dict:
+    return await _piano("/api/ncm/personal-fm")
+
+
+@app.post("/api/piano/ncm/fm-trash", dependencies=[Depends(require_auth)])
+async def piano_ncm_fm_trash(id: str = Query(max_length=64)) -> dict:
+    return await _piano_post("/api/ncm/fm-trash", params={"id": id})
+
+
+@app.get("/api/piano/ncm/search-artist", dependencies=[Depends(require_auth)])
+async def piano_ncm_search_artist(kw: str = Query(max_length=200)) -> dict:
+    return await _piano("/api/ncm/search-artist", {"kw": kw})
+
+
+@app.get("/api/piano/ncm/artist-songs", dependencies=[Depends(require_auth)])
+async def piano_ncm_artist_songs(id: str = Query(max_length=64)) -> dict:
+    return await _piano("/api/ncm/artist-songs", {"id": id})
+
+
+@app.get("/api/piano/ncm/comments", dependencies=[Depends(require_auth)])
+async def piano_ncm_comments(id: str = Query(max_length=64)) -> dict:
+    return await _piano("/api/ncm/comments", {"id": id})
+
+
+# 歌单写操作。tracks 是逗号分隔的一串 id（批量操作靠它），
+# 上限跟 Duetto 一次拉 300 首对齐，别让一条 URL 无限长。
+@app.post("/api/piano/ncm/playlist-add", dependencies=[Depends(require_auth)])
+async def piano_ncm_playlist_add(
+    pid: str = Query(max_length=64),
+    id: str = Query(max_length=4096),
+) -> dict:
+    return await _piano_post("/api/ncm/playlist-add", params={"pid": pid, "id": id})
+
+
+@app.post("/api/piano/ncm/playlist-del", dependencies=[Depends(require_auth)])
+async def piano_ncm_playlist_del(
+    pid: str = Query(max_length=64),
+    id: str = Query(max_length=4096),
+) -> dict:
+    return await _piano_post("/api/ncm/playlist-del", params={"pid": pid, "id": id})
+
+
+# ── 档案：在场记录 / 听歌流水 / 房间时间线 ──────────────────────────────────
+# 🔴 在场记录照旧存 Duetto（song_notes 表），但「每满 6 条揉成回忆」那一步
+# 不走它的 maybeImpress——那段第一人称是 Duetto 自带的 DJ 写的，不是梁忱写的。
+# 所以 Duetto 的 data/settings.json 里 ai.api_key 保持空着，maybeImpress
+# 永远 return。回忆由小窝这条线揉，见施工单 §1.5（第 5 项要做的事）。
+
+class PianoNoteBody(BaseModel):
+    id: str = Field(default="", max_length=64)
+    title: str = Field(default="", max_length=200)
+    artist: str = Field(default="", max_length=200)
+    cover: str = Field(default="", max_length=500)
+    passage: str = Field(default="", max_length=200)     # 引用的那句歌词
+    thought: str = Field(default="", max_length=1000)    # 她说的
+    reply: str = Field(default="", max_length=2000)      # 他回的
+
+
+@app.post("/api/piano/song-note", dependencies=[Depends(require_auth)])
+async def piano_song_note(body: PianoNoteBody) -> dict:
+    return await _piano_post("/api/song-note", body.model_dump())
+
+
+class PianoListenBody(BaseModel):
+    id: str = Field(default="", max_length=64)
+    title: str = Field(default="", max_length=200)
+    artist: str = Field(default="", max_length=200)
+    cover: str = Field(default="", max_length=500)
+    dur: int = 0
+
+
+@app.post("/api/piano/listen-log", dependencies=[Depends(require_auth)])
+async def piano_listen_log(body: PianoListenBody) -> dict:
+    # 听歌档案的数据来源。以前一条都没写过，所以 listen-stats 一直是空的。
+    return await _piano_post("/api/listen-log", body.model_dump())
+
+
+@app.get("/api/piano/listen-stats", dependencies=[Depends(require_auth)])
+async def piano_listen_stats() -> dict:
+    return await _piano("/api/listen-stats")
+
+
+# ── 房间实时同步：/ws 的代理 ────────────────────────────────────────────
+# 前端连这条，小窝拿着 DUETTO_TOKEN 去连 Duetto 的 /ws。两条腿对拷字节。
+#
+# 🔴 鉴权必须自己写，两个原因，缺一个都是敞着门：
+#   一、`Depends(require_auth)` 是个 Header 参数（main.py 上面那个），
+#      WebSocket 路由上根本不生效。
+#   二、AUTH_MODE=both 时那层 Basic Auth 是 `@app.middleware("http")`，
+#      **WebSocket 不经过它**。所以这条路由是唯一一扇外层拦不住的门。
+#
+# 🔴 token 走 subprotocol，不走 query。浏览器的 new WebSocket() 不能设 header，
+#   一般做法是塞 query，但小窝的 token 是 HMAC(CHAT_SECRET) 的**恒定值**
+#   （auth.py:12），没有过期，进了反向代理的访问日志就是永久泄露。
+#   subprotocol 在握手头里，日志不记。
+
+@app.websocket("/ws/piano")
+async def piano_ws(ws: WebSocket) -> None:
+    raw = ws.headers.get("sec-websocket-protocol") or ""
+    protos = [p.strip() for p in raw.split(",") if p.strip()]
+    token = protos[1] if len(protos) >= 2 and protos[0] == "bearer" else ""
+    if not token or not auth.verify_token(token):
+        await ws.close(code=1008)          # policy violation
+        return
+    if not piano.configured():
+        await ws.accept(subprotocol="bearer")
+        await ws.close(code=1011, reason="piano not configured")
+        return
+
+    room = (ws.query_params.get("room") or "main")[:64]
+    await ws.accept(subprotocol="bearer")
+
+    try:
+        async with piano.ws_connect(room) as up:
+            logger.info("[琴房] 房间 %s 接上了", room)
+
+            async def down_to_up() -> None:
+                while True:
+                    await up.send(await ws.receive_text())
+
+            async def up_to_down() -> None:
+                while True:
+                    msg = await up.recv()
+                    await ws.send_text(msg if isinstance(msg, str) else msg.decode())
+
+            done, pending = await asyncio.wait(
+                [asyncio.create_task(down_to_up()), asyncio.create_task(up_to_down())],
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            # 一头断了另一头就没意义了，别把任务漏在后台
+            for t in pending:
+                t.cancel()
+            for t in done:
+                exc = t.exception()
+                if exc and not isinstance(exc, (WebSocketDisconnect, asyncio.CancelledError)):
+                    logger.info("[琴房] 房间 %s 断开：%s", room, exc)
+    except piano.PianoError as exc:
+        logger.warning("[琴房] WS 代理起不来：%s", exc)
+    except Exception as exc:      # 上游连不上、握手被拒……都不该把小窝带崩
+        logger.warning("[琴房] WS 上游连不上：%s: %s", exc.__class__.__name__, exc)
+    finally:
+        try:
+            await ws.close()
+        except RuntimeError:
+            pass                  # 已经关了
+
+
+@app.get("/api/piano/room/events", dependencies=[Depends(require_auth)])
+async def piano_room_events(
+    room: str = Query(default="main", max_length=64),
+    limit: int = 120,
+) -> dict:
+    return await _piano("/api/room/events",
+                        {"room": room, "limit": max(1, min(300, limit))})
 
 
 @app.get("/api/background", dependencies=[Depends(require_auth)])
