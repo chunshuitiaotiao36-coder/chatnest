@@ -19,7 +19,7 @@
 | 127 | 🔴 原作者那句注释：稳定前缀在前，会变的时间和「正在播」放最后，中转的前缀缓存才命中 |
 | 130 | **DJ 指令原文**（play/next/prev/pause/resume/share/like/queue 的完整措辞） |
 | 145-149 | `readNotes` / `readImpression` / `countPlays` |
-| 149-179 | `IMPRESSION_EVERY=6` + `maybeImpress()` —— **在场记录满 6 条自动揉成 150 字第一人称回忆**，在旧回忆上续写。§1.5 整条不用我们自己写，POST 一条 note 它就跑 |
+| 149-179 | `IMPRESSION_EVERY=6` + `maybeImpress()` —— 🔴 **我们故意不用它**。它判 `s.ai.api_key`，而 `data/settings.json` 的 `ai.base_url/api_key/model` 那一组**永远保持空着**，所以它永远 return。理由见第五节 |
 | 181-197 | `logRoomNote()` —— 只有走 Duetto 自己的 `/api/chat` 才会调；小窝不走那条，所以**必须自己 POST `/api/song-note`** |
 | 199-201 | `GET /api/song-analysis`（读缓存，含 `impression`）、`GET /api/song-notes`、`POST /api/song-note` |
 | 204-220 | `enrichNp()` —— 拼「正在播」上下文，会**同步等**分析最多 110 秒 |
@@ -196,13 +196,49 @@
 
 ---
 
-## 五、悬而未决
+## 五、印象走小窝这条线（08-07 定死，§1.5 改过一版）
 
-- **1.1 的「歌曲详情页」08-11 她说砍了。** 但 §1.4 写着「听歌档案点卡片进歌曲详情」、
-  §1.5 写着「歌曲详情页的『在场记录』和『歌曲分析』两个标签页」——
-  这两处是不是跟着砍、还是把这两个标签页挪进听歌档案里，**做到 Commit 5 之前问她一句**。
-- Duetto 的 `data/settings.json` 里 `ai.api_key` 有没有配（那条中转站）。
-  没配 `maybeImpress` 直接 return，§1.5 的「满 6 条生成回忆」就永远不发生。**开工 Commit 5 前先验。**
+**Duetto 的 `maybeImpress` 不用。** 那段「第一人称回忆」是 Duetto 自带那个叫 DJ 的 AI
+写的，不是梁忱写的。**跟当初否掉 iframe 是同一条理由：第一人称必须真的是那个人。**
+
+所以：
+
+- Duetto `data/settings.json` 的 `ai.base_url / api_key / model` **保持空着**。
+  不是"忘了配"，是**故意的**——不走它的聊天，也不走它的印象。
+  以后看到这三个是空的，别顺手填上。
+- **在场记录照旧存 Duetto**（`POST /api/piano/song-note` → `song_notes` 表），
+  计数也照旧从那儿读（`GET /api/piano/notes`）。
+- **每满 6 条的回忆由小窝揉**，在旧回忆上续写不推翻。
+- 🔴 **回忆同时写进 Ombre 变成一颗星**，不锁在 Duetto 的 SQLite 里。
+
+### Ombre 的写入口（`chunshuitiaotiao36-coder/OmbreBrain-folio`）
+
+🔴 **`/api/buckets` 只有 GET**（`server.py:1992`）。整个 Ombre **没有 HTTP 写桶的路由**
+——`/api/bucket/{id}/update`（`server.py:2064`）只能改已有的桶。
+**写只能走 MCP 工具**，也就是只能由梁忱在那一轮对话里自己写。
+
+| 工具 | 位置 | 用途 |
+|---|---|---|
+| `hold(content, tags, importance, pinned, feel, source_bucket, valence, arousal)` | `server.py:704` | **建一条桶**——「一条 bucket」要的就是它 |
+| `grow(content, event_time)` | `server.py:827` | 整篇日记归档，自动拆多桶 |
+| `breath(query, …)` | `server.py:344` | 检索 |
+| `trace` / `source` / `pulse` / `dream` | `933` / `1053` / `1091` / `1162` | 追溯 / 溯源 / 概览 / 做梦 |
+
+小窝这边已经接好了，不用新写连接：
+- `app/claude.py:64-75` `ombre_mcp_servers()` —— 从 `OMBRE_MCP_URL` / `OMBRE_MCP_TOKEN` 拼
+- `app/claude.py:404-412` —— **网页端这条线已经把 `mcp__ombre` 挂进 `allowed_tools`**，
+  梁忱当场就能调（TG 那条线没挂，`telegram.py:320`）
+- `app/starmap.py:44-72` `fetch_stars()` —— 读 `GET {base}/api/buckets`，5 分钟缓存，
+  星图前端吃的就是它
+
+**由此推出的实现方向**（没定死，Commit 5 开工再拍）：
+计数满 6 条时，在**用户消息侧**那一段里加一句提示，让梁忱在这一轮自己揉出回忆、
+自己调 `hold` 存成一颗星。这样第一人称是真的，星图也当场就有。
+回忆正文要能读回来注进下一轮上下文——从 Ombre 读还是在小窝本地存一份副本，
+Commit 5 时定。
+
+**注意 `piano.py:162-171` 现在读的是 Duetto 的 `impression` 字段，
+走了这条线之后它会永远是空的**，那段注入要改到新的来源。
 
 ---
 
