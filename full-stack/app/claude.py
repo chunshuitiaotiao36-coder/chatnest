@@ -332,7 +332,8 @@ def _now_line() -> str:
 
 
 async def build_user_prompt(
-    message: str, conv_id: str | None = None, carry: str = ""
+    message: str, conv_id: str | None = None, carry: str = "",
+    with_time: bool = True,
 ) -> str:
     """Memory recall is volatile (re-retrieved per message), so it must never
     enter system_prompt — that would move the cache-breaking bytes to the very
@@ -347,7 +348,9 @@ async def build_user_prompt(
     body，**不**参与下面的向量检索和世界书关键词扫描——那两样只看 message：
     两轮旧原文会污染检索 query，还会让上一轮已经触发过的条目再触发一次。
     网页端不传，默认空串，行为一个字没变。"""
-    now_line = _now_line()
+    # with_time=False：琴房「时间感知」关掉时这一轮不报时间。
+    # 只影响这一轮的用户侧，系统前缀一个字节都不动。
+    now_line = _now_line() if with_time else ""
     head = f"{now_line}\n\n" if now_line else ""
     memory_hits = await fetch_memory_hits(message)
     body = message
@@ -454,6 +457,7 @@ async def stream_chat(
     lean: bool = False,
     source: str = "web",
     carry: str = "",
+    with_time: bool = True,
     usage_callback: Callable[[dict], None] | None = None,
 ) -> AsyncGenerator[dict, None]:
     """lean=True 是 Telegram 那条轻量线：轻量人设 + 精简工具集，
@@ -481,7 +485,8 @@ async def stream_chat(
     thinking, selected_effort = thinking_options(model_config, effort, extended)
 
     system_prompt = build_system_prompt(model, lean=lean)
-    prompt = await build_user_prompt(message, conv_id, carry=carry)
+    prompt = await build_user_prompt(message, conv_id, carry=carry,
+                                     with_time=with_time)
 
     # lean 以前同时管两件事：精简 prompt + 不挂 MCP。07-31 把这两件拆开——
     # 精简 prompt 保留，MCP 恢复。

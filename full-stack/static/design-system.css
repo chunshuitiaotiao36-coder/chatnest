@@ -2340,3 +2340,155 @@ body.tab-away #chat {
 /* 听歌档案 */
 .piano-arcbody { padding-bottom: 12px }
 .piano-note.tappable { cursor: pointer }
+
+/* ══════════════ 琴房 · 悬浮球 / 房间设置 ═══════════════════════════════
+   🔴 --lsg-* / --lsr-* 这组变量由 pianoApplyRoom() 写在 #pianoRoom 上，
+   不是 documentElement——值里含 var(--ls-*) 的自定义属性在**声明它的元素**
+   上解析，挂到 <html> 那会儿 --ls-* 还不存在（皮肤类在 .piano-room）。 */
+
+.piano-fb { position: absolute; right: 14px; bottom: 96px; z-index: 22 }
+.piano-fborb {
+  width: 44px; height: 44px; border-radius: 50%; border: 0; cursor: grab;
+  display: grid; place-items: center; touch-action: none;
+  background: var(--ls-panel); color: var(--ls-gold);
+  box-shadow: 0 3px 14px var(--ls-shadow);
+}
+.piano-fborb .eq { display: flex; align-items: flex-end; gap: 2px; height: 15px }
+.piano-fborb .eq i { width: 3px; border-radius: 1px; background: currentColor; height: 6px }
+.piano-fborb .eq i:nth-child(1) { height: 9px }
+.piano-fborb .eq i:nth-child(2) { height: 15px }
+.piano-fborb .eq i:nth-child(3) { height: 7px }
+
+.piano-fbpanel {
+  position: absolute; right: 0; bottom: 52px; width: min(288px, 78vw);
+  display: flex; flex-direction: column;
+  border-radius: 14px; overflow: hidden;
+  background: var(--ls-panel); border: 1px solid var(--ls-line-soft);
+  box-shadow: 0 8px 28px var(--ls-shadow);
+}
+.piano-fbpanel[hidden] { display: none }
+.fb-now { display: flex; align-items: center; gap: 8px; padding: 9px 10px }
+.fb-cv { width: 32px; height: 32px; border-radius: 6px; overflow: hidden; background: var(--ls-panel2); flex: 0 0 auto }
+.fb-cv img { width: 100%; height: 100%; object-fit: cover; display: block }
+.fb-mt { flex: 1; min-width: 0; display: flex; flex-direction: column }
+.fb-mt b { font-size: 12.5px; color: var(--ls-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.fb-mt i { font-style: normal; font-size: 10.5px; color: var(--ls-ink-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.fb-now button { border: 0; background: transparent; cursor: pointer; color: var(--ls-ink-dim); padding: 2px; line-height: 0 }
+.fb-now button svg { width: 17px; height: 17px }
+.fb-tabs { display: flex; gap: 12px; padding: 0 11px 6px; border-bottom: 1px solid var(--ls-line-soft) }
+.fb-tab {
+  border: 0; background: transparent; cursor: pointer; padding: 3px 0;
+  font-family: var(--ls-cn); font-size: 11.5px; color: var(--ls-ink-faint);
+  border-bottom: 2px solid transparent;
+}
+.fb-tab.on { color: var(--ls-ink); border-bottom-color: var(--ls-gold) }
+.fb-body { max-height: 232px; overflow-y: auto; padding: 5px 6px 8px; scrollbar-width: none }
+.fb-body::-webkit-scrollbar { display: none }
+.fb-empty { padding: 22px 0; text-align: center; font-family: var(--ls-meta); font-size: 11px; color: var(--ls-ink-faint) }
+.fb-row {
+  width: 100%; display: flex; align-items: baseline; gap: 7px; text-align: left;
+  border: 0; background: transparent; cursor: pointer; padding: 6px 7px; border-radius: 7px;
+}
+.fb-row.on { background: var(--ls-panel2) }
+.fb-row .t { flex: 1; min-width: 0; font-size: 12.5px; color: var(--ls-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.fb-row.on .t { color: var(--ls-gold) }
+.fb-row .s { font-size: 10.5px; color: var(--ls-ink-faint); max-width: 38%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.fb-ly {
+  display: block; width: 100%; text-align: center; border: 0; background: transparent;
+  cursor: pointer; padding: 5px 4px; font-size: 12px; color: var(--ls-ink-faint); line-height: 1.5;
+}
+.fb-ly.on { color: var(--ls-ink); font-weight: 600 }
+.fb-search { display: flex; gap: 5px; padding: 4px 5px 7px }
+.fb-search input {
+  flex: 1; min-width: 0; padding: 5px 8px; font-size: 12px;
+  border: 1px solid var(--ls-line-soft); border-radius: 7px;
+  background: var(--ls-panel2); color: var(--ls-ink);
+}
+.fb-search button {
+  padding: 0 10px; cursor: pointer; font-size: 12px;
+  border: 1px solid var(--ls-gold); border-radius: 7px;
+  background: transparent; color: var(--ls-gold);
+}
+
+/* ── 房间设置面板 ── */
+.piano-setbody { padding-bottom: 16px }
+.set-sec {
+  margin: 14px 2px 6px; font-family: var(--ls-meta); font-size: 10px;
+  letter-spacing: .08em; color: var(--ls-gold);
+}
+.set-row { display: flex; align-items: center; gap: 10px; padding: 6px 2px }
+.set-l { flex: 0 0 auto; min-width: 92px; font-size: 12.5px; color: var(--ls-ink-dim) }
+.set-seg { display: flex; gap: 5px; margin-left: auto }
+.set-segb {
+  padding: 4px 10px; cursor: pointer; font-size: 11.5px;
+  border: 1px solid var(--ls-line-soft); border-radius: 8px;
+  background: transparent; color: var(--ls-ink-faint);
+}
+.set-segb.on { border-color: var(--ls-gold); color: var(--ls-gold) }
+.set-sw {
+  margin-left: auto; width: 40px; height: 22px; border-radius: 11px; cursor: pointer;
+  border: 1px solid var(--ls-line); background: transparent; position: relative;
+}
+.set-sw::after {
+  content: ""; position: absolute; top: 2px; left: 2px;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--ls-ink-faint); transition: transform .16s, background .16s;
+}
+.set-sw.on { border-color: var(--ls-gold) }
+.set-sw.on::after { transform: translateX(18px); background: var(--ls-gold) }
+.set-range { flex: 1; min-width: 0; accent-color: var(--ls-gold) }
+.set-n { flex: 0 0 auto; width: 26px; text-align: right; font-family: var(--ls-meta); font-size: 10px; color: var(--ls-ink-faint) }
+.set-reset {
+  width: 100%; margin-top: 16px; padding: 9px 0; cursor: pointer;
+  border: 1px solid var(--ls-line-soft); border-radius: 9px;
+  background: transparent; color: var(--ls-ink-faint); font-size: 12px;
+}
+
+/* ── 设置真正生效的地方：六个表面 + 两套气泡 + 几个开关 ── */
+.piano-room .piano-top { backdrop-filter: blur(var(--lsg-head-blur, 0px)) }
+.piano-room .piano-say { backdrop-filter: blur(var(--lsg-input-blur, 0px)) }
+.piano-room .piano-say input {
+  background: color-mix(in srgb, var(--ls-panel) calc(var(--lsg-input-a, .78) * 100%), transparent);
+}
+.piano-room .piano-evtcard {
+  background: color-mix(in srgb, var(--ls-panel2) calc(var(--lsg-evt-a, .3) * 100%), transparent);
+  backdrop-filter: blur(var(--lsg-evt-blur, 0px));
+}
+.piano-room .piano-sharecard {
+  background: color-mix(in srgb, var(--ls-panel) calc(var(--lsg-share-a, .62) * 100%), transparent);
+  backdrop-filter: blur(var(--lsg-share-blur, 0px));
+}
+.piano-room .piano-stage {
+  background: color-mix(in srgb, var(--ls-panel) calc(var(--lsg-card-a, .7) * 100%), transparent);
+  backdrop-filter: blur(var(--lsg-card-blur, 0px));
+  border-radius: 16px;
+}
+.piano-room .piano-chat {
+  background: color-mix(in srgb, var(--ls-bg2) calc(var(--lsg-bg-a, .45) * 100%), transparent);
+  backdrop-filter: blur(var(--lsg-bg-blur, 0px));
+}
+.piano-room #stream .msg-claude .bubble {
+  background: var(--lsr-bub-other, var(--ls-panel));
+  backdrop-filter: blur(var(--lsr-blur-other, 0px));
+}
+.piano-room #stream .msg-user .bubble {
+  background: var(--lsr-bub-self, var(--ls-panel));
+  backdrop-filter: blur(var(--lsr-blur-self, 0px));
+}
+.piano-room.rm-hideevt .piano-evtcard { display: none }
+.piano-room.rm-hideava #stream .avatar,
+.piano-room.rm-hideava #stream .msg-avatar { display: none }
+.piano-room.rm-mini .piano-kicker { display: none }
+.piano-room.rm-mini .piano-h { font-size: 17px }
+/* 分气泡：收起思考、正文每段各自成泡 */
+.piano-room.rm-bubbles #stream .thinking-block,
+.piano-room.rm-bubbles #stream .thought { display: none }
+.piano-room.rm-bubbles #stream .msg-claude .bubble {
+  background: transparent; padding: 0; backdrop-filter: none;
+}
+.piano-room.rm-bubbles #stream .msg-claude .bubble > [data-message-text] > p {
+  background: var(--lsr-bub-other, var(--ls-panel));
+  backdrop-filter: blur(var(--lsr-blur-other, 0px));
+  border-radius: 13px; padding: 7px 11px; margin: 0 0 5px;
+  width: fit-content; max-width: 100%;
+}

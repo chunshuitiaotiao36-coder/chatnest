@@ -689,6 +689,9 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
         <div class="piano-kicker">正在一起听</div>
         <div class="piano-h" id="pianoRoomName">此刻</div>
       </div>
+      <button type="button" class="piano-topbtn" id="pianoSetBtn" aria-label="房间设置">
+        <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>
+      </button>
       <button type="button" class="piano-topbtn" id="pianoArcBtn" aria-label="听歌档案">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V6a2 2 0 0 1 2-2h9l5 5v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M14 4v5h5"/><path d="M8 13h8M8 17h5"/></svg>
       </button>
@@ -823,6 +826,40 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
       </button>
     </form>
+
+    <!-- 悬浮球：可拖，展开是迷你播放器 + 歌词/点歌/歌单/待播 四页签 -->
+    <div class="piano-fb" id="pianoFb">
+      <div class="piano-fbpanel" id="pianoFbPanel" hidden>
+        <div class="fb-now">
+          <span class="fb-cv" id="pianoFbCover"></span>
+          <span class="fb-mt"><b id="pianoFbTitle">还没放歌</b><i id="pianoFbArtist"></i></span>
+          <button type="button" class="fb-play" id="pianoFbPlay" aria-label="播放/暂停">
+            <svg id="pianoFbIcon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+          <button type="button" class="fb-nx" id="pianoFbNext" aria-label="下一首">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM6 5l8.5 7L6 19z"/></svg>
+          </button>
+        </div>
+        <div class="fb-tabs" id="pianoFbTabs"></div>
+        <div class="fb-body" id="pianoFbBody"></div>
+      </div>
+      <button type="button" class="piano-fborb" id="pianoFbOrb" aria-label="迷你播放器">
+        <span class="eq"><i></i><i></i><i></i></span>
+      </button>
+    </div>
+
+    <!-- 房间设置（顶栏 ⋯） -->
+    <section class="sheet piano-sheet" id="pianoSetSheet" aria-hidden="true" inert>
+      <div class="sheet-handle"></div>
+      <header class="sheet-head">
+        <button class="icon-button" id="pianoSetBack" aria-label="关闭">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <h2 class="sheet-title">房间</h2>
+        <span class="piano-sub"></span>
+      </header>
+      <div class="sheet-content"><div class="piano-setbody" id="pianoSetBody"></div></div>
+    </section>
 
     <!-- 抽屉遮罩：点空白处关掉。
          🔴 关闭态靠 hidden（display:none）收干净，不是留一层透明的靠
@@ -3856,6 +3893,8 @@ function pianoNowPlaying(){
     np.listSongs={name:piano.listName||'',
                   titles:piano.browse.map(x=>x.title||'').filter(Boolean)};
   }
+  /* 房间设置里的「时间感知」。关掉之后这一轮不给他报时间。 */
+  if(!pianoTimeAware())np.noTime=true;
   return Object.keys(np).length?np:null;
 }
 
@@ -4533,6 +4572,7 @@ async function pianoPlay(i){
   piano.healed=false;
   if(piano.view==='songs')pianoRenderSongs();
   pianoSetMedia(s);                                /* 锁屏卡片先立起来 */
+  if(pianoFb.open){pianoFbSyncNow();if(pianoFb.tab==='queue')pianoFbRender()}
 
   /* 歌词并行去拉，不挡声音 */
   const lrcP=api('/api/piano/lyric?id='+encodeURIComponent(s.id))
@@ -4885,6 +4925,322 @@ function pianoLogNote(note,reply){
                          reply:txt.slice(0,2000)})})
     .then(r=>{if(!r.ok)console.warn('song-note 没写成',r.status)})
     .catch(e=>console.warn('song-note 没写成',e));
+}
+
+/* ══ 房间设置 ══════════════════════════════════════════════════════════
+   全部存 localStorage，全部作用在 #pianoRoom 上，不碰别的 tab。
+
+   🔴 六个表面那组自定义属性**必须挂在 .piano-room 上，不能挂 documentElement**。
+   值里含 var(--ls-*) 的自定义属性是在**声明它的那个元素**上解析的，挂到
+   <html> 上 --ls-* 还不存在（皮肤类在 .piano-room），整条值直接失效。
+   这跟小窝自己那条「.glass 会盖掉宿主 background/border」是同一类雷。 */
+var PIANO_SURFACES=[
+  {k:'head', name:'顶栏'},{k:'card',name:'顶卡'},{k:'evt',name:'状态卡'},
+  {k:'input',name:'输入框'},{k:'share',name:'分享卡'},{k:'bg',name:'背景蒙版'}
+];
+/* 默认比原版低一档——她要的「透明度调低一点」。原版是
+   head0 card100 evt42 input100 share82 bg60，糊得太实。 */
+var PIANO_GLASS_DEF={head:{a:0,b:0},card:{a:70,b:14},evt:{a:30,b:0},
+                     input:{a:78,b:16},share:{a:62,b:0},bg:{a:45,b:0}};
+var PIANO_BUBBLE_DEF={other:{c:'#ffffff',a:70,b:10},self:{c:'#ffffff',a:70,b:0}};
+
+function pianoLS(key,def){
+  try{const v=JSON.parse(localStorage.getItem(key)||'null');return v||def}
+  catch(e){return def}
+}
+function pianoGlass(){
+  const g=pianoLS('piano_room_glass',null)||{};
+  const out={};PIANO_SURFACES.forEach(s=>{out[s.k]={...PIANO_GLASS_DEF[s.k],...(g[s.k]||{})}});
+  return out;
+}
+function pianoBubble(){
+  const b=pianoLS('piano_room_bubble',null)||{};
+  return {other:{...PIANO_BUBBLE_DEF.other,...(b.other||{})},
+          self:{...PIANO_BUBBLE_DEF.self,...(b.self||{})}};
+}
+function pianoHex(hex,a){
+  const m=/^#?([0-9a-f]{6})$/i.exec(String(hex||''));
+  if(!m)return 'rgba(255,255,255,'+(a/100)+')';
+  const n=parseInt(m[1],16);
+  return 'rgba('+((n>>16)&255)+','+((n>>8)&255)+','+(n&255)+','+(a/100)+')';
+}
+
+function pianoApplyRoom(){
+  const room=$('pianoRoom');if(!room)return;
+  const g=pianoGlass();
+  PIANO_SURFACES.forEach(s=>{
+    const v=g[s.k];
+    room.style.setProperty('--lsg-'+s.k+'-a',(v.a/100).toFixed(2));
+    room.style.setProperty('--lsg-'+s.k+'-blur',v.b+'px');
+  });
+  const b=pianoBubble();
+  room.style.setProperty('--lsr-bub-other',pianoHex(b.other.c,b.other.a));
+  room.style.setProperty('--lsr-bub-self',pianoHex(b.self.c,b.self.a));
+  room.style.setProperty('--lsr-blur-other',b.other.b+'px');
+  room.style.setProperty('--lsr-blur-self',b.self.b+'px');
+  room.classList.toggle('rm-bubbles',localStorage.getItem('piano_room_replymode')==='bubbles');
+  room.classList.toggle('rm-mini',localStorage.getItem('piano_room_card')==='mini');
+  room.classList.toggle('rm-hideevt',localStorage.getItem('piano_room_hideevt')==='1');
+  room.classList.toggle('rm-hideava',localStorage.getItem('piano_room_hideava')==='1');
+}
+
+function pianoTimeAware(){return localStorage.getItem('piano_room_timeaware')!=='0'}
+
+function pianoOpenSettings(){
+  const sh=$('pianoSetSheet');
+  pianoRenderSettings();
+  sh.classList.add('open');sh.removeAttribute('inert');sh.setAttribute('aria-hidden','false');
+}
+function pianoCloseSettings(){
+  const sh=$('pianoSetSheet');
+  sh.classList.remove('open');sh.setAttribute('inert','');sh.setAttribute('aria-hidden','true');
+}
+
+function pianoRenderSettings(){
+  const box=$('pianoSetBody');if(!box)return;
+  box.innerHTML='';
+  const sec=t=>{const d=document.createElement('div');d.className='set-sec';d.textContent=t;box.appendChild(d)};
+  /* 二选一 */
+  const pick=(label,key,opts,def)=>{
+    const row=document.createElement('div');row.className='set-row';
+    const l=document.createElement('span');l.className='set-l';l.textContent=label;
+    const g=document.createElement('div');g.className='set-seg';
+    const cur=localStorage.getItem(key)||def;
+    opts.forEach(o=>{
+      const b=document.createElement('button');b.type='button';
+      b.className='set-segb'+(o.v===cur?' on':'');b.textContent=o.n;
+      b.onclick=()=>{localStorage.setItem(key,o.v);pianoApplyRoom();pianoRenderSettings()};
+      g.appendChild(b);
+    });
+    row.append(l,g);box.appendChild(row);
+  };
+  /* 开关 */
+  const sw=(label,key,onVal,defOn)=>{
+    const row=document.createElement('div');row.className='set-row';
+    const l=document.createElement('span');l.className='set-l';l.textContent=label;
+    const raw=localStorage.getItem(key);
+    const on=raw===null?defOn:(raw===onVal);
+    const b=document.createElement('button');
+    b.type='button';b.className='set-sw'+(on?' on':'');b.setAttribute('aria-pressed',String(on));
+    b.onclick=()=>{localStorage.setItem(key,on?(onVal==='1'?'':'0'):onVal);
+                   pianoApplyRoom();pianoRenderSettings()};
+    row.append(l,b);box.appendChild(row);
+  };
+  /* 滑杆 */
+  const slider=(label,val,min,max,onInput)=>{
+    const row=document.createElement('div');row.className='set-row';
+    const l=document.createElement('span');l.className='set-l';l.textContent=label;
+    const i=document.createElement('input');
+    i.type='range';i.className='set-range';i.min=String(min);i.max=String(max);i.value=String(val);
+    const n=document.createElement('span');n.className='set-n';n.textContent=String(val);
+    i.oninput=()=>{n.textContent=i.value;onInput(Number(i.value))};
+    row.append(l,i,n);box.appendChild(row);
+  };
+
+  sec('回复样式');
+  pick('气泡','piano_room_replymode',
+       [{v:'stream',n:'完整带思考'},{v:'bubbles',n:'分气泡'}],'stream');
+  sec('房间');
+  pick('顶栏','piano_room_card',[{v:'full',n:'完整卡'},{v:'mini',n:'极简条'}],'full');
+  sw('隐藏状态卡','piano_room_hideevt','1',false);
+  sw('隐藏气泡头像','piano_room_hideava','1',false);
+  sw('时间感知','piano_room_timeaware','0',true);
+
+  sec('气泡');
+  const bb=pianoBubble();
+  [['他','other'],['我','self']].forEach(([nm,side])=>{
+    slider(nm+' · 透明度',bb[side].a,10,100,v=>{
+      const cur=pianoBubble();cur[side].a=v;
+      localStorage.setItem('piano_room_bubble',JSON.stringify(cur));pianoApplyRoom();
+    });
+    slider(nm+' · 磨砂',bb[side].b,0,20,v=>{
+      const cur=pianoBubble();cur[side].b=v;
+      localStorage.setItem('piano_room_bubble',JSON.stringify(cur));pianoApplyRoom();
+    });
+  });
+
+  sec('六个表面');
+  const gg=pianoGlass();
+  PIANO_SURFACES.forEach(s=>{
+    slider(s.name+' · 透明度',gg[s.k].a,0,100,v=>{
+      const cur=pianoGlass();cur[s.k].a=v;
+      localStorage.setItem('piano_room_glass',JSON.stringify(cur));pianoApplyRoom();
+    });
+    slider(s.name+' · 磨砂',gg[s.k].b,0,30,v=>{
+      const cur=pianoGlass();cur[s.k].b=v;
+      localStorage.setItem('piano_room_glass',JSON.stringify(cur));pianoApplyRoom();
+    });
+  });
+
+  const rst=document.createElement('button');
+  rst.type='button';rst.className='set-reset';rst.textContent='全部恢复默认';
+  rst.onclick=()=>{
+    ['piano_room_glass','piano_room_bubble','piano_room_replymode','piano_room_card',
+     'piano_room_hideevt','piano_room_hideava','piano_room_timeaware']
+      .forEach(k=>localStorage.removeItem(k));
+    pianoApplyRoom();pianoRenderSettings();toast('恢复默认了');
+  };
+  box.appendChild(rst);
+}
+
+/* ══ 悬浮球 ════════════════════════════════════════════════════════════
+   可拖；展开是迷你播放器 + 歌词 / 点歌 / 歌单 / 待播 四页签。
+   「待播」能有东西显示，靠的是第 3.5 项那次 queue / browse 分家。 */
+var PIANO_FB_TABS=[{k:'lyric',n:'歌词'},{k:'search',n:'点歌'},{k:'lists',n:'歌单'},{k:'queue',n:'待播'}];
+var pianoFb={tab:'queue',open:false,moved:false};
+
+function pianoFbPos(){
+  const p=pianoLS('piano_fbpos',null);
+  return (p&&typeof p.x==='number')?p:null;
+}
+function pianoFbPlace(){
+  const fb=$('pianoFb'),p=pianoFbPos();
+  if(!fb||!p)return;
+  fb.style.left=p.x+'px';fb.style.top=p.y+'px';
+  fb.style.right='auto';fb.style.bottom='auto';
+}
+
+function pianoFbBind(){
+  const fb=$('pianoFb'),orb=$('pianoFbOrb');
+  if(!fb||!orb)return;
+  pianoFbPlace();
+  let sx=0,sy=0,ox=0,oy=0,on=false;
+  orb.addEventListener('pointerdown',e=>{
+    on=true;pianoFb.moved=false;
+    sx=e.clientX;sy=e.clientY;
+    const r=fb.getBoundingClientRect(),h=fb.parentNode.getBoundingClientRect();
+    ox=r.left-h.left;oy=r.top-h.top;
+    try{orb.setPointerCapture(e.pointerId)}catch(err){}
+  });
+  orb.addEventListener('pointermove',e=>{
+    if(!on)return;
+    const dx=e.clientX-sx,dy=e.clientY-sy;
+    if(Math.abs(dx)+Math.abs(dy)>8)pianoFb.moved=true;
+    if(!pianoFb.moved)return;
+    const h=fb.parentNode.getBoundingClientRect();
+    /* 夹在房间里，别拖出去找不回来 */
+    const x=Math.max(4,Math.min(h.width-fb.offsetWidth-4,ox+dx));
+    const y=Math.max(4,Math.min(h.height-fb.offsetHeight-4,oy+dy));
+    fb.style.left=x+'px';fb.style.top=y+'px';fb.style.right='auto';fb.style.bottom='auto';
+  });
+  const up=()=>{
+    if(!on)return;on=false;
+    if(pianoFb.moved){
+      const h=fb.parentNode.getBoundingClientRect(),r=fb.getBoundingClientRect();
+      localStorage.setItem('piano_fbpos',
+        JSON.stringify({x:Math.round(r.left-h.left),y:Math.round(r.top-h.top)}));
+    }
+  };
+  orb.addEventListener('pointerup',up);
+  orb.addEventListener('pointercancel',up);
+  /* 🔴 拖完那一下的 click 要吞掉，否则一松手面板就弹出来 */
+  orb.addEventListener('click',e=>{
+    if(pianoFb.moved){pianoFb.moved=false;e.stopPropagation();return}
+    pianoFbToggle();
+  });
+}
+
+function pianoFbToggle(open){
+  pianoFb.open=(open===undefined)?!pianoFb.open:!!open;
+  $('pianoFbPanel').hidden=!pianoFb.open;
+  if(pianoFb.open){pianoFbSyncNow();pianoFbRenderTabs();pianoFbRender()}
+}
+
+function pianoFbSyncNow(){
+  const s=piano.queue[piano.idx];
+  $('pianoFbTitle').textContent=s?(s.title||''):'还没放歌';
+  $('pianoFbArtist').textContent=s?(s.artist||''):'';
+  const cv=$('pianoFbCover');cv.innerHTML='';
+  if(s&&s.cover){const im=new Image();im.src=s.cover;im.alt='';cv.appendChild(im)}
+  const playing=pianoAudio&&!pianoAudio.paused;
+  $('pianoFbIcon').innerHTML=playing?'<path d="M6 5h4v14H6zm8 0h4v14h-4z"/>':'<path d="M8 5v14l11-7z"/>';
+}
+
+function pianoFbRenderTabs(){
+  const box=$('pianoFbTabs');box.innerHTML='';
+  PIANO_FB_TABS.forEach(t=>{
+    const b=document.createElement('button');
+    b.type='button';b.className='fb-tab'+(t.k===pianoFb.tab?' on':'');b.textContent=t.n;
+    b.onclick=()=>{pianoFb.tab=t.k;pianoFbRenderTabs();pianoFbRender()};
+    box.appendChild(b);
+  });
+}
+
+function pianoFbRow(title,sub,onclick,playing){
+  const b=document.createElement('button');
+  b.type='button';b.className='fb-row'+(playing?' on':'');
+  b.innerHTML='<span class="t"></span><span class="s"></span>';
+  b.querySelector('.t').textContent=title||'';
+  b.querySelector('.s').textContent=sub||'';
+  b.onclick=onclick;
+  return b;
+}
+
+async function pianoFbRender(){
+  const body=$('pianoFbBody');body.innerHTML='';
+  const say=t=>{const d=document.createElement('div');d.className='fb-empty';d.textContent=t;body.appendChild(d)};
+  if(pianoFb.tab==='queue'){
+    if(!piano.queue.length){say('待播是空的');return}
+    piano.queue.forEach((s,i)=>body.appendChild(
+      pianoFbRow(s.title,s.artist,()=>{pianoActor={who:'user',t:Date.now()};pianoPlay(i)},i===piano.idx)));
+    return;
+  }
+  if(pianoFb.tab==='lyric'){
+    if(!piano.lyrics.length){say('这首没有歌词');return}
+    const t=pianoAudio?(pianoAudio.currentTime||0):0;
+    let cur=-1;piano.lyrics.forEach((l,i)=>{if(l.t<=t)cur=i});
+    piano.lyrics.forEach((l,i)=>{
+      const d=document.createElement('button');
+      d.type='button';d.className='fb-ly'+(i===cur?' on':'');d.textContent=l.text;
+      d.onclick=()=>{if(pianoAudio){pianoAudio.currentTime=l.t;pianoAudio.play().catch(()=>{})}};
+      body.appendChild(d);
+    });
+    const act=body.querySelector('.fb-ly.on');
+    if(act)act.scrollIntoView({block:'center'});
+    return;
+  }
+  if(pianoFb.tab==='search'){
+    const f=document.createElement('form');f.className='fb-search';
+    f.innerHTML='<input type="text" placeholder="搜歌名 / 歌手…"><button type="submit">搜</button>';
+    const out=document.createElement('div');
+    f.onsubmit=async e=>{
+      e.preventDefault();
+      const kw=f.querySelector('input').value.trim();
+      if(!kw)return;
+      out.innerHTML='';
+      try{
+        const songs=await pianoSearch(kw);
+        if(!songs.length){out.textContent='没搜到';return}
+        songs.forEach((s,i)=>out.appendChild(pianoFbRow(s.title,s.artist,()=>{
+          pianoActor={who:'user',t:Date.now()};
+          pianoReplaceQueue(songs.slice(),i);
+        })));
+      }catch(err){out.textContent=String(err&&err.message||'搜不了')}
+    };
+    body.append(f,out);
+    return;
+  }
+  /* 歌单 */
+  try{
+    if(!piano.lists.length){
+      const r=await api('/api/piano/playlists');
+      if(r.ok)piano.lists=((await r.json()).playlists||[]);
+    }
+    if(!piano.lists.length){say('还没登录网易云');return}
+    piano.lists.forEach(pl=>body.appendChild(
+      pianoFbRow(pl.name,(pl.count||0)+' 首',async()=>{
+        body.innerHTML='';
+        try{
+          const r=await api('/api/piano/playlist?id='+encodeURIComponent(pl.id));
+          const songs=r.ok?((await r.json()).songs||[]):[];
+          if(!songs.length){say('这个歌单是空的');return}
+          songs.forEach((s,i)=>body.appendChild(pianoFbRow(s.title,s.artist,()=>{
+            pianoActor={who:'user',t:Date.now()};
+            pianoReplaceQueue(songs.slice(),i);
+          })));
+        }catch(e){say('打不开')}
+      })));
+  }catch(e){say('歌单拿不到')}
 }
 
 /* ══ 房间：实时同步 / 状态卡 / 分享卡 ══════════════════════════════════
@@ -5374,16 +5730,19 @@ function pianoInit(){
     const l=pianoCurrentLyric();
     if(l!==$('pianoLyric').textContent)$('pianoLyric').textContent=l;
     if(piano.page===1)pianoLyrSyncActive(false);   /* 翻在歌词页才跟随 */
+    if(pianoFb.open&&pianoFb.tab==='lyric')pianoFbRender();
   });
   pianoAudio.addEventListener('play',()=>{
     pianoSetPlayIcon(true);
     piano.wantPlaying=true;
+    if(pianoFb.open)pianoFbSyncNow();
     pianoBroadcast(true);
     const s=piano.queue[piano.idx];
     if(s)pianoRoomEvent('放了《'+(s.title||'')+'》');
   });
   pianoAudio.addEventListener('pause',()=>{
     pianoSetPlayIcon(false);
+    if(pianoFb.open)pianoFbSyncNow();
     /* 🔴 她还想放却收到 pause —— 锁屏、来电、切后台干的。
        不广播（不然会把对面也停掉），也不留卡片（不然一晚上刷一屏）。 */
     if(piano.wantPlaying){
@@ -5520,6 +5879,18 @@ function pianoInit(){
     $('pianoSay').focus();
   };
   $('pianoArcBtn').onclick=e=>{e.stopPropagation();pianoOpenArchive()};
+  $('pianoSetBtn').onclick=e=>{e.stopPropagation();pianoOpenSettings()};
+  $('pianoSetBack').onclick=()=>pianoCloseSettings();
+  pianoFbBind();
+  pianoApplyRoom();
+  $('pianoFbPlay').onclick=e=>{e.stopPropagation();
+    if(!pianoAudio)return;
+    pianoActor={who:'user',t:Date.now()};
+    if(pianoAudio.paused){piano.wantPlaying=true;pianoAudio.play().catch(()=>{})}
+    else{piano.wantPlaying=false;pianoAudio.pause()}
+    pianoFbSyncNow();};
+  $('pianoFbNext').onclick=e=>{e.stopPropagation();
+    pianoActor={who:'user',t:Date.now()};pianoNext(1)};
   $('pianoArcBack').onclick=()=>pianoCloseArchive();
   /* 点歌名 → 歌曲详情；点歌手名 → 歌手主页。
      🔴 两个都要 stopPropagation：它们在 stage 里面，不拦会顺手把唱片折叠了。 */

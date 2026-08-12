@@ -569,6 +569,8 @@ async def chat(body: ChatBody) -> StreamingResponse:
             # cache_read 直接归零。缓存前缀稳定化那一单的教训，不重复第二遍。
             # 分析拿不到就不附加那一段（Duetto 分析一首要几十秒，
             # 第一次听没有是应该的），不卡在这儿等。
+            # 琴房房间设置里的「时间感知」。关掉就这一轮不报时间。
+            piano_with_time = not (body.piano or {}).get("noTime")
             if body.piano:
                 try:
                     block = await piano.now_playing_block(body.piano)
@@ -606,13 +608,13 @@ async def chat(body: ChatBody) -> StreamingResponse:
                 first_chunk = await chat_stream.__anext__()
             else:
                 try:
-                    chat_stream = stream_chat(*chat_args)
+                    chat_stream = stream_chat(*chat_args, with_time=piano_with_time)
                     first_chunk = await chat_stream.__anext__()
                 except (SessionResumeError, StopAsyncIteration):
                     logger.info("session resume failed for conv=%s, retrying without session", conv_id)
                     chat_args = (prompt, conv_id, None, body.model,
                                  body.effort, body.extended, log_timing)
-                    chat_stream = stream_chat(*chat_args)
+                    chat_stream = stream_chat(*chat_args, with_time=piano_with_time)
                     first_chunk = await chat_stream.__anext__()
 
             async def _merged():
