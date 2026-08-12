@@ -413,6 +413,18 @@ def _pick_model() -> str:
     return ""
 
 
+def _agent_max_turns() -> int:
+    """TG 那条线真正生效的往返上限，跟 claude.py 取同一个来源。
+
+    不写死常数：她可以用 TG_MAX_TURNS 调这个值，写死会在调完之后悄悄失准，
+    而这个数是「是不是跑满了」的唯一判据。读不到就按默认 8。"""
+    try:
+        from app import claude
+        return max(1, int(claude.TG_MAX_TURNS))
+    except Exception:
+        return 8
+
+
 def _sid(session_id: str | None) -> str:
     """session_id 只打前 8 位：够认出「是不是同一条会话」，又不必把整串进日志。"""
     return (session_id or "")[:8] or "-"
@@ -518,7 +530,12 @@ async def _stream_reply(
         int((time.monotonic() - started) * 1000),
         len(reply), thinking_chars, len(carry),
     )
-    return reply, session, thinking_chars, ombre_calls
+    # roundtrips 带出去给重试阶梯判断：跑满上限还是空，跟偶发空回复是两回事。
+    try:
+        roundtrips = int(usage.get("num_turns") or 0)
+    except (TypeError, ValueError):
+        roundtrips = 0
+    return reply, session, thinking_chars, ombre_calls, roundtrips
 
 
 async def _run_turn(text: str, carry: str = "") -> tuple[str, str | None, int]:
@@ -531,7 +548,7 @@ async def _run_turn(text: str, carry: str = "") -> tuple[str, str | None, int]:
         return "", None, 0
     resumed = bool(_state.get("session_id"))
     try:
-        reply, session, thinking, ombre = await _stream_reply(
+        reply, session, thinking, ombre, trips = await _stream_reply(
             text, model, _state.get("session_id"), carry
         )
     except SessionResumeError:
@@ -541,12 +558,41 @@ async def _run_turn(text: str, carry: str = "") -> tuple[str, str | None, int]:
         _state["session_id"] = None
         _save_state()
         resumed = False
-        reply, session, thinking, ombre = await _stream_reply(text, model, None, carry)
+        reply, session, thinking, ombre, trips = await _stream_reply(
+            text, model, None, carry
+        )
     cli_logger.info(
         "telegram: turn done resumed=%s text_chars=%d thinking_chars=%d",
         resumed, len(reply), thinking,
     )
     if reply.strip() or not resumed:
+        return reply, session, ombre
+
+    # 空回复分两种，代价差一个数量级，不能走同一条重试路。
+    #
+    # 08-12 的账：一次「问记忆」连着三次 roundtrips=4 / text_chars=0，形状
+    # 一模一样，烧掉 ¥1.05 换来零个字，第四次换新会话才答出来。那不是偶发——
+    # 是 agent 循环跑满了往返上限还没走到工具那步，**同一个形状再撞两次墙，
+    # 结果必然一样**。而每一次重试都是整个前缀再发 N 遍。
+    #
+    # 判据就是 roundtrips：跑满上限 = 结构性饿死，跳过原地重试直接换新会话
+    # （那才是当天真正把她问题答出来的那一次）；没跑满 = 偶发，走下面的老路。
+    # 用 > 不用 >=：实测跑满时 num_turns = max_turns + 1（max_turns=3 打出
+    # roundtrips=4），而正常成功那次是 7/8——没跑满。取 > 才没有误判。
+    if trips and trips > _agent_max_turns():
+        cli_logger.warning(
+            "telegram: 空回复且跑满往返上限（roundtrips=%d），跳过原地重试直接换新会话",
+            trips,
+        )
+        _state["session_id"] = None
+        _save_state()
+        reply, session, thinking, ombre, trips = await _stream_reply(
+            text, model, None, carry
+        )
+        cli_logger.info(
+            "telegram: retry(fresh, 上限饿死) text_chars=%d roundtrips=%d",
+            len(reply), trips,
+        )
         return reply, session, ombre
 
     # ① 先用**同一个 session** 原地重试一次。
@@ -560,7 +606,7 @@ async def _run_turn(text: str, carry: str = "") -> tuple[str, str | None, int]:
     # 空回复大概率是偶发的（12:06-12:14 连着三轮都好好的），偶发的东西原地
     # 重试一次就过去了，没必要拿整段上下文去换。上下文该是最后被牺牲的。
     cli_logger.warning("telegram: 空回复，原地重试（保留 session）")
-    reply, session, thinking, ombre = await _stream_reply(
+    reply, session, thinking, ombre, trips = await _stream_reply(
         text, model, _state.get("session_id"), carry
     )
     cli_logger.info(
@@ -574,7 +620,9 @@ async def _run_turn(text: str, carry: str = "") -> tuple[str, str | None, int]:
     cli_logger.warning("telegram: 原地重试仍空，清 session 重试一次")
     _state["session_id"] = None
     _save_state()
-    reply, session, thinking, ombre = await _stream_reply(text, model, None, carry)
+    reply, session, thinking, ombre, trips = await _stream_reply(
+        text, model, None, carry
+    )
     cli_logger.info(
         "telegram: retry(fresh) text_chars=%d thinking_chars=%d", len(reply), thinking
     )
