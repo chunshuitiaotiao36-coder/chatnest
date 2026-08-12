@@ -64,6 +64,36 @@ cli_logger = logging.getLogger("uvicorn.error")
 OMBRE_MCP_URL = os.environ.get("OMBRE_MCP_URL", "")
 OMBRE_MCP_TOKEN = os.environ.get("OMBRE_MCP_TOKEN", "")
 
+# agent 循环的往返上限。**往返次数是直接乘在账上的**——每次往返都把整个前缀
+# 重发一遍。08-11 实测：一条「问记忆」的消息跑了 7 次往返，同一份 2 万前缀发了
+# 7 遍，热缓存 ¥0.99、冷缓存 ¥10.02（139,038 ≈ 7 × 19,862）。
+#
+# TG 是闲聊：直接答 = 1 次往返，翻一次记忆再答 = 2 次，3 次够用。
+# 🔴 不靠 prompt 写「少翻一点」去约束——模型未必听，花钱的事要硬限制。
+#
+# 🔴 只压 TG 这一条线。网页端挂着 Bash / Write / Edit / WebSearch，砍到 3 会把活
+# 干到一半截断，那是回归。
+WEB_MAX_TURNS = 8
+
+
+def _read_tg_max_turns() -> int:
+    """默认 3。留环境变量口子是因为验收第 4 条写了「3 太紧就调回 4」——
+    调它不该等一次改代码。"""
+    raw = (os.environ.get("TG_MAX_TURNS") or "").strip()
+    if not raw:
+        return 3
+    try:
+        value = int(raw)
+    except ValueError:
+        value = 0
+    if value < 1:
+        cli_logger.warning("TG_MAX_TURNS=%r 不是 ≥1 的整数，按默认 3", raw)
+        return 3
+    return value
+
+
+TG_MAX_TURNS = _read_tg_max_turns()
+
 
 def ombre_mcp_servers() -> dict:
     if not OMBRE_MCP_URL:
@@ -470,7 +500,7 @@ async def stream_chat(
         allowed_tools=allowed_tools,
         mcp_servers=mcp_servers,
         can_use_tool=memory_tool_permission,
-        max_turns=8,
+        max_turns=TG_MAX_TURNS if lean else WEB_MAX_TURNS,
         include_partial_messages=True,
         thinking=thinking,
         resume=session_id,

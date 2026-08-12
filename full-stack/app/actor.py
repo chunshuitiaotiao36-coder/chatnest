@@ -285,6 +285,13 @@ class ConvActor:
                                 "cache_read": usage.get("cache_read_input_tokens"),
                                 "cost_usd": sdk_message.total_cost_usd,
                                 "model": ",".join((sdk_message.model_usage or {}).keys()) or None,
+                                # 一条消息内部跑了几次往返（agent 循环的次数）。
+                                # 08-11 查明这是账单的乘数：每次往返都把整个前缀
+                                # 重发一遍，7 次往返 = 同一份 2 万发 7 遍。
+                                # 只走 usage（会被 pop 掉），不能直接挂在 done 上，
+                                # 否则会顺着 SSE 漏到前端。store.record_usage 是
+                                # 显式取键的，多这一个字段它不看，不影响记账。
+                                "num_turns": getattr(sdk_message, "num_turns", None),
                             },
                         })
                     else:

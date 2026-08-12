@@ -418,6 +418,18 @@ def _sid(session_id: str | None) -> str:
     return (session_id or "")[:8] or "-"
 
 
+def _fmt_counts(counts: dict[str, int]) -> str:
+    """拼成 name:n,name:n，按数量降序。空的给一个 `-`，别在日志里留空洞。
+
+    08-11 那轮 `ombre_calls=1` 却跑了 7 次往返，剩下六次不明——因为当时只数了
+    ombre。按工具名分类之后，「连着翻了好几次记忆」和「中间有别的往返」才分得开。"""
+    if not counts:
+        return "-"
+    return ",".join(
+        f"{name}:{n}" for name, n in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    )
+
+
 async def _stream_reply(
     text: str, model: str, session_id: str | None, carry: str = ""
 ) -> tuple[str, str | None, int, int]:
@@ -436,9 +448,11 @@ async def _stream_reply(
     里同一分钟的两三条记录。`ombre_result_chars` 是那一单的核心：如果一次检索
     把几十条记忆的全文塞回来，十几万 token 就说得通了。**只加日志，不改逻辑。**"""
     reply, session, thinking_chars, ombre_calls = "", None, 0, 0
-    # tool_result 只带 tool_use_id，不带工具名，所以要先记下哪些 id 是 ombre 的，
-    # 才能把返回的字符数算到它头上。Read 读图片那种不算。
-    ombre_ids: set[str] = set()
+    # tool_result 只带 tool_use_id、不带工具名，所以先把 id → 名字记下来，
+    # 才能把返回的字符数算到对应的工具头上。
+    tool_names: dict[str, str] = {}
+    tool_calls: dict[str, int] = {}
+    tool_chars: dict[str, int] = {}
     ombre_result_chars = 0
     usage: dict = {}
     started = time.monotonic()
@@ -469,25 +483,35 @@ async def _stream_reply(
         elif event == "thinking":
             thinking_chars += len(chunk.get("text", "") or "")
         elif event == "tool_use":
-            if str(chunk.get("name") or "").startswith("mcp__ombre"):
+            name = str(chunk.get("name") or "?")
+            tool_calls[name] = tool_calls.get(name, 0) + 1
+            if chunk.get("id"):
+                tool_names[str(chunk["id"])] = name
+            if name.startswith("mcp__ombre"):
                 ombre_calls += 1
-                if chunk.get("id"):
-                    ombre_ids.add(str(chunk["id"]))
         elif event == "tool_result":
-            if str(chunk.get("tool_use_id") or "") in ombre_ids:
-                ombre_result_chars += len(chunk.get("content") or "")
-        # 其余 tool_use / tool_result 一律丢掉
+            name = tool_names.get(str(chunk.get("tool_use_id") or ""))
+            if name:
+                n = len(chunk.get("content") or "")
+                tool_chars[name] = tool_chars.get(name, 0) + n
+                if name.startswith("mcp__ombre"):
+                    ombre_result_chars += n
+        # tool_use / tool_result 只统计，正文一个字都不往 TG 发
         elif event == "done":
             session = chunk.get("session_id")
 
     # 这一行是 08-11 排查单的全部产出。字段顺序别改，她要按前缀 grep 出来对表。
     cli_logger.info(
         "telegram: tg_metrics resumed=%s sid_in=%s sid_out=%s turns=%d/%d "
+        "roundtrips=%s tools=%s tool_chars=%s "
         "ombre_calls=%d ombre_result_chars=%d "
         "input=%s cache_read=%s cache_write=%s output=%s cost_usd=%s "
         "elapsed_ms=%d text_chars=%d thinking_chars=%d carry_chars=%d",
         bool(session_id), _sid(session_id), _sid(session),
         int(_state.get("turns") or 0), WINDOW_TURNS,
+        # roundtrips 是账单的乘数：每次往返都把整个前缀重发一遍。
+        # 8.2 把它从 8 压到 3，验收就看这个数。
+        usage.get("num_turns"), _fmt_counts(tool_calls), _fmt_counts(tool_chars),
         ombre_calls, ombre_result_chars,
         usage.get("input_tokens"), usage.get("cache_read"), usage.get("cache_create"),
         usage.get("output_tokens"), usage.get("cost_usd"),
