@@ -402,6 +402,13 @@ def _recent_messages(conv_id: str | None) -> list[str]:
         return []
     try:
         rows, _, _ = store.conversation_messages(conv_id, limit=_MAX_SCAN_BACK)
+    except store.ConversationNotFound:
+        # TG 那条线用 conv_id="telegram"，它**从来不在** conversations 表里：
+        # telegram.py 不落库，历史只活在 CLI 会话里。所以这不是故障，是常态，
+        # 行为跟下面一样（只扫当前这条消息），但不该按错误报。
+        # 用 exception() 打的话每一轮 TG 都刷一个 traceback，真的报错会被淹掉。
+        cli_logger.debug("世界书：conv_id=%s 没有历史记录，这一轮只扫当前消息", conv_id)
+        return []
     except Exception:
         cli_logger.exception("世界书取历史失败，这一轮只扫当前消息")
         return []
@@ -535,7 +542,18 @@ async def stream_chat(
     # 根因在 CLI 内部，这里先绕开：订阅模式每次新建子进程。
     # 中转站不受影响，热复用照旧。
     try:
-        active_summary = relays.get_active_summary()
+        if lean:
+            # TG 焊死在订阅线路上（telegram.py 的 subscription_env +
+            # subscription_models），所以它的账要记在**订阅**那条上。
+            # get_active_summary() 给的是小窝当前激活的那条——她切到中转站去试
+            # 线路时，TG 的轮次会全被贴成「API 计费」，而「订阅额度」那栏显示
+            # 0 轮。面板是她唯一能看见成本的地方，不能骗她。
+            #
+            # 订阅线路被删掉时回落到激活那条：那种情况下 _pick_model() 本来就
+            # 挑不到模型、这一轮会走兜底文案，记成什么已经不重要，但不能崩。
+            active_summary = relays.subscription_summary() or relays.get_active_summary()
+        else:
+            active_summary = relays.get_active_summary()
         is_subscription = active_summary.get("mode") == "subscription"
     except Exception:
         logging.getLogger("uvicorn.error").exception("relay mode 判定失败，按中转站处理")

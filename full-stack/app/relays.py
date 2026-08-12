@@ -280,6 +280,25 @@ def subscription_models() -> list[dict]:
     return []
 
 
+def subscription_summary() -> dict:
+    """订阅那条线路的身份，跟 subscription_models() 同一个取法。
+
+    为什么要有它：TG 焊死在订阅上（`subscription_env()` + `subscription_models()`），
+    但记账那边拿的是 `get_active_summary()`，返回的是**当前激活**那条。于是小朵
+    在小窝切到中转站之后，TG 明明跑在订阅上，每一轮却被贴上中转站的 mode——
+    用量面板「订阅额度」那栏长期显示 0 轮。她原话：「我中转站没钱了所以肯定都是
+    订阅额度，但是记到 API 那一栏去了」。
+
+    `subscription_env()` 只换环境变量，从来不动「哪条是激活的」，所以这个偏差
+    靠它是修不掉的，得在记账那一侧按线路取。
+
+    找不到订阅线路就返回空 dict——调用方要能接受它不存在（她可以把它删掉）。"""
+    for r in (_cache or {}).get("relays") or []:
+        if _normalize_mode(r.get("mode")) == "subscription":
+            return {"id": r["id"], "name": r["name"], "mode": "subscription"}
+    return {}
+
+
 @contextlib.asynccontextmanager
 async def subscription_env():
     """TG 专用：这段期间强制走订阅，出去时原样恢复。
