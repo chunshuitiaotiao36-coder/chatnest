@@ -417,6 +417,7 @@ async def stream_chat(
     lean: bool = False,
     source: str = "web",
     carry: str = "",
+    usage_callback: Callable[[dict], None] | None = None,
 ) -> AsyncGenerator[dict, None]:
     """lean=True 是 Telegram 那条轻量线：轻量人设 + 精简工具集，
     但**挂 Ombre MCP**（07-31 从「不挂」回退过来，见下面 mcp_servers 那段）。
@@ -427,7 +428,11 @@ async def stream_chat(
 
     carry 只有 TG 短窗口换会话之后的第一条消息会传：最近两轮的原文，拼在用户
     消息侧（见 build_user_prompt）。**不碰 system_prompt**——碰了就等于每换一次
-    窗口把她那份前缀缓存也一起打掉，而这一单本来就是来省钱的。"""
+    窗口把她那份前缀缓存也一起打掉，而这一单本来就是来省钱的。
+
+    usage_callback 是 08-11 排查单的埋点口子：usage 在下面 yield 之前必须
+    `pop` 掉（不能透传到前端），于是调用方拿不到 token 数。给它一个只读回调，
+    跟 `_record_usage` 拿的是同一份数据。**纯旁路**，抛异常也不影响回复。"""
     model_config = next(
         (item for item in available_models() if item["id"] == model),
         None,
@@ -535,6 +540,11 @@ async def stream_chat(
             except Exception:
                 # 记账是旁路功能，绝不允许因为它写不进去而让她收不到回复
                 cli_logger.warning("用量记账失败（不影响回复）", exc_info=True)
+            if usage_callback is not None:
+                try:
+                    usage_callback(usage_payload or {})
+                except Exception:
+                    cli_logger.warning("usage_callback 失败（不影响回复）", exc_info=True)
         yield item
 
 

@@ -413,6 +413,11 @@ def _pick_model() -> str:
     return ""
 
 
+def _sid(session_id: str | None) -> str:
+    """session_id 只打前 8 位：够认出「是不是同一条会话」，又不必把整串进日志。"""
+    return (session_id or "")[:8] or "-"
+
+
 async def _stream_reply(
     text: str, model: str, session_id: str | None, carry: str = ""
 ) -> tuple[str, str | None, int, int]:
@@ -424,8 +429,19 @@ async def _stream_reply(
     不记内容。
 
     ombre_calls 是 08-07 那单要的耗时基线：按「这一轮有没有真去翻记忆」把日志
-    分成两组算平均，差值就是翻一次记忆的代价。只数次数，不看内容。"""
+    分成两组算平均，差值就是翻一次记忆的代价。只数次数，不看内容。
+
+    08-11 排查单：这里再打一行 `tg_metrics`。**一次模型调用一行**，跟
+    usage_log 的行一一对应——空回复重试那两条路会连打两三行，正好对得上用量表
+    里同一分钟的两三条记录。`ombre_result_chars` 是那一单的核心：如果一次检索
+    把几十条记忆的全文塞回来，十几万 token 就说得通了。**只加日志，不改逻辑。**"""
     reply, session, thinking_chars, ombre_calls = "", None, 0, 0
+    # tool_result 只带 tool_use_id，不带工具名，所以要先记下哪些 id 是 ombre 的，
+    # 才能把返回的字符数算到它头上。Read 读图片那种不算。
+    ombre_ids: set[str] = set()
+    ombre_result_chars = 0
+    usage: dict = {}
+    started = time.monotonic()
     async for chunk in stream_chat(
         message=text,
         conv_id=CONV_ID,
@@ -442,6 +458,10 @@ async def _stream_reply(
         # 会原样进向量检索和世界书的关键词扫描——两轮旧原文会污染 query，还会
         # 让上一轮已经触发过的条目再触发一次。
         carry=carry,
+        # 排查专用：usage 在 claude.py 里 yield 之前就被 pop 掉了（不能透传到
+        # 前端），所以它到不了这儿。开一个只读回调把那几个数拿出来打日志，
+        # 记账那一路一个字没动。
+        usage_callback=usage.update,
     ):
         event = chunk.get("event")
         if event == "delta":
@@ -451,9 +471,29 @@ async def _stream_reply(
         elif event == "tool_use":
             if str(chunk.get("name") or "").startswith("mcp__ombre"):
                 ombre_calls += 1
+                if chunk.get("id"):
+                    ombre_ids.add(str(chunk["id"]))
+        elif event == "tool_result":
+            if str(chunk.get("tool_use_id") or "") in ombre_ids:
+                ombre_result_chars += len(chunk.get("content") or "")
         # 其余 tool_use / tool_result 一律丢掉
         elif event == "done":
             session = chunk.get("session_id")
+
+    # 这一行是 08-11 排查单的全部产出。字段顺序别改，她要按前缀 grep 出来对表。
+    cli_logger.info(
+        "telegram: tg_metrics resumed=%s sid_in=%s sid_out=%s turns=%d/%d "
+        "ombre_calls=%d ombre_result_chars=%d "
+        "input=%s cache_read=%s cache_write=%s output=%s cost_usd=%s "
+        "elapsed_ms=%d text_chars=%d thinking_chars=%d carry_chars=%d",
+        bool(session_id), _sid(session_id), _sid(session),
+        int(_state.get("turns") or 0), WINDOW_TURNS,
+        ombre_calls, ombre_result_chars,
+        usage.get("input_tokens"), usage.get("cache_read"), usage.get("cache_create"),
+        usage.get("output_tokens"), usage.get("cost_usd"),
+        int((time.monotonic() - started) * 1000),
+        len(reply), thinking_chars, len(carry),
+    )
     return reply, session, thinking_chars, ombre_calls
 
 
@@ -622,10 +662,11 @@ async def _handle_update(upd: dict) -> None:
     for chunk in _split_for_tg(reply):
         await _send_message(ALLOWED_CHAT_ID, chunk)
 
+    # 端到端耗时（含 Telegram 发送那几个来回）。逐次模型调用的细账在
+    # _stream_reply 里的 tg_metrics，那一行才是拿来对用量表的。
     cli_logger.info(
-        "telegram: turn_metrics elapsed=%.1fs ombre_calls=%d turns=%d/%d text_chars=%d",
-        time.monotonic() - started, ombre_calls,
-        int(_state.get("turns") or 0), WINDOW_TURNS, len(reply),
+        "telegram: turn_sent total_ms=%d chunks=%d",
+        int((time.monotonic() - started) * 1000), len(_split_for_tg(reply)),
     )
 
     # 换窗口放在**回复发出去之后**：她发一句话，等的是回复，不是等我做家务。
