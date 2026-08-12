@@ -5367,12 +5367,17 @@ function pianoApplyRemote(m){
    谁播放了 / 暂停了 / 红心了 / 收藏了什么，居中一张小卡。
    🔴 锁屏、来电、切后台这类系统行为不算，不刷屏。 */
 var pianoCardSeen={};          /* 文本 → 上次出现的时间，30 秒内不重复 */
+/* 一次性闸：他放歌时已经掉了一张漂亮卡，纯文字那张就别再来一条。
+   用一次性标记而不是时间窗——pianoPlay 要等搜歌和取地址，
+   慢起来能超过任何合理的时间窗，那时候闸就漏了。 */
+var pianoSkipEvt=false;
 
 function pianoWho(){
   return (pianoActor.who==='ai'&&Date.now()-pianoActor.t<4000)?'梁忱':'小朵';
 }
 
 function pianoRoomEvent(tail){
+  if(pianoSkipEvt){pianoSkipEvt=false;return}   /* 这一下已经掉过漂亮卡了 */
   const quiet=(Date.now()-pianoSys.evt<3000)||(Date.now()-pianoSys.remote<3000);
   if(quiet)return;                              /* 系统行为或远端引发的，不发卡 */
   const t=pianoWho()+' '+tail;
@@ -5384,10 +5389,10 @@ function pianoRoomEvent(tail){
   pianoSend({t:'chat',msg});                    /* 广播出去，同时落 Duetto 的 room_events */
 }
 
-function pianoShare(s,who){
+function pianoShare(s,who,kicker){
   const song=s||piano.queue[piano.idx];
   if(!song){toast('现在没在放歌');return}
-  const msg={who:who==='ai'?'ai':'me',ts:Date.now(),
+  const msg={who:who==='ai'?'ai':'me',ts:Date.now(),kicker:kicker||'',
              share:{id:String(song.id),title:song.title||'',artist:song.artist||'',
                     cover:song.cover||'',url:song.url||''}};
   pianoCardIn(msg);
@@ -5412,7 +5417,7 @@ function pianoCardEl(msg){
     const cv=d.querySelector('.cv');
     if(msg.share.cover){const im=new Image();im.src=msg.share.cover;im.alt='';
       im.onerror=()=>{cv.innerHTML=''};cv.appendChild(im)}
-    d.querySelector('em').textContent=mine?'放给你听':'他想放给你听';
+    d.querySelector('em').textContent=msg.kicker||(mine?'放给你听':'他想放给你听');
     d.querySelector('b').textContent=msg.share.title||'';
     d.querySelector('i').textContent=msg.share.artist||'';
     /* 正在放的就是这一首时，唱片转起来，右边换成跳动的均衡器 */
@@ -5543,7 +5548,11 @@ async function pianoRunAct(act){
       if(!q){toast('他没说放哪首');return}
       const songs=await pianoSearch(q);
       if(!songs.length){toast('没搜到《'+q+'》');return}
+      /* 他放歌就掉一张卡，别只留一行「梁忱 放了《X》」的灰字。
+         纯文字那张状态卡在这一下要压掉，不然一放歌出来两条。 */
+      pianoSkipEvt=true;
       pianoReplaceQueue(songs,0);
+      pianoShare(songs[0],'ai','给你放上了');
       return;
     }
     if(type==='queue'){

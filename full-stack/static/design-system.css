@@ -2549,3 +2549,31 @@ body.tab-away #chat {
 @media (prefers-reduced-motion: reduce) {
   .piano-sharecard.is-playing .go::after { animation: none }
 }
+
+/* ── 🔴 卡片跑到 Chat tab 里时的兜底配色 ────────────────────────────────
+   --ls-* 那一整套只定义在 `.piano-room.ls-skin-*` 上（design-system.css:1543
+   起）。而 #stream 这个节点是在琴房和 Chat 之间搬家的：
+     · 在琴房里 → 卡片在 .piano-room 内，皮肤色正常继承
+     · 在 Chat 里 → 卡片在 #chat 内，所有 var(--ls-*) 全部解析不出来，
+       背景变透明、字色变继承 —— 表现就是「卡片没了，只剩一行灰字」。
+   08-12 她在 Chat 里让他放歌，看到的就是这个。
+
+   用 #chat 这个前缀限定：只在 Chat 里补一套，映射到小窝自己的全局 token。
+   那批 token 有暗色覆盖，所以暗色下自动跟着走，不用再写一遍。
+   琴房内的卡片走的是 .piano-room 那一支，这条够不着，皮肤色不受影响。 */
+#chat .piano-card {
+  --ls-panel:      var(--bg-surface);
+  --ls-panel2:     var(--bg-sunken);
+  --ls-amb:        var(--bg-sunken);
+  --ls-ink:        var(--text-primary);
+  --ls-ink-dim:    var(--text-secondary);
+  --ls-ink-faint:  var(--text-faint);
+  --ls-line:       var(--border);
+  --ls-line-soft:  var(--border);
+  --ls-gold:       var(--accent);
+  --ls-eve:        var(--accent);
+  --ls-shadow:     rgba(0, 0, 0, .14);
+  --ls-serif-d:    var(--font-serif);
+  --ls-meta:       var(--font-sans);
+  --ls-cn:         var(--font-sans);
+}
