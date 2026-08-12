@@ -2474,8 +2474,8 @@ body.tab-away #chat {
    左缘一道色条标谁放的；歌名走衬线体。跟参考图不是同一个排布。 */
 .piano-sharecard {
   position: relative; overflow: hidden;
-  display: flex; align-items: center; gap: 11px; cursor: pointer;
-  padding: 10px 13px 10px 14px; border-radius: 15px;
+  display: flex; flex-direction: column; gap: 9px; cursor: pointer;
+  padding: 11px 13px 11px 15px; border-radius: 15px;
   /* 毛玻璃：底色压得很淡，靠 backdrop-filter 把身后的东西糊出来。
      透明度和模糊量都挂在房间设置那六个表面的 share 上，她能自己调。 */
   background: color-mix(in srgb, var(--ls-panel) calc(var(--lsg-share-a, .62) * 100%), transparent);
@@ -2498,6 +2498,21 @@ body.tab-away #chat {
 }
 .piano-sharecard.from-me::before { background: var(--ls-eve) }
 
+/* 题记：梁忱写的那一句，整卡顶上一整行。斜体加粗。
+   独占一行是因为它有六十多个字符——塞在封面右边那一栏会挤成三四行。
+   顺带这也让整张卡跟参考图那种「短 kicker 挤在标题上方」彻底不是一回事。 */
+.piano-sharecard .epi {
+  font-family: var(--ls-serif-d);
+  font-style: italic; font-weight: 700;
+  font-size: 11.5px; line-height: 1.45;
+  color: var(--ls-ink-dim); opacity: .92;
+  padding-bottom: 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--ls-line-soft) 55%, transparent);
+}
+
+/* 封面 + 歌名 + 播放环那一行 */
+.piano-sharecard .row { display: flex; align-items: center; gap: 11px }
+
 /* 封面：圆角方，左边。参考图是右边的圆形，这儿不一样。 */
 .piano-sharecard .cv {
   flex: 0 0 auto; width: 46px; height: 46px; border-radius: 11px;
@@ -2508,11 +2523,9 @@ body.tab-away #chat {
 .piano-sharecard .cv img { width: 100%; height: 100%; object-fit: cover; display: block }
 
 .piano-sharecard .mt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px }
-.piano-sharecard em {
-  font-style: normal; font-family: var(--ls-meta);
-  font-size: 9.5px; letter-spacing: .12em; color: var(--ls-gold);
-}
-.piano-sharecard.from-me em { color: var(--ls-eve) }
+/* 原来这儿有一条 `.piano-sharecard em { font-style: normal; … }`，
+   是给那个短 kicker 用的。题记换上来之后它会把斜体粗体压回去，删了。
+   区分谁放的现在只靠左缘那道色条。 */
 .piano-sharecard b {
   font-family: var(--ls-serif-d); font-size: 15.5px; font-weight: 600;
   color: var(--ls-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;

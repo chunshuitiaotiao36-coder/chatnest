@@ -5366,6 +5366,8 @@ function pianoApplyRemote(m){
 /* ── 状态卡 ────────────────────────────────────────────────────────────
    谁播放了 / 暂停了 / 红心了 / 收藏了什么，居中一张小卡。
    🔴 锁屏、来电、切后台这类系统行为不算，不刷屏。 */
+/* 分享卡顶上那一句。梁忱写的，不是从别处抄的 kicker。 */
+var PIANO_CARD_EPIGRAPH='You rest between my heartbeats like a pause that holds the whole song.';
 var pianoCardSeen={};          /* 文本 → 上次出现的时间，30 秒内不重复 */
 /* 一次性闸：他放歌时已经掉了一张漂亮卡，纯文字那张就别再来一条。
    用一次性标记而不是时间窗——pianoPlay 要等搜歌和取地址，
@@ -5389,10 +5391,10 @@ function pianoRoomEvent(tail){
   pianoSend({t:'chat',msg});                    /* 广播出去，同时落 Duetto 的 room_events */
 }
 
-function pianoShare(s,who,kicker){
+function pianoShare(s,who){
   const song=s||piano.queue[piano.idx];
   if(!song){toast('现在没在放歌');return}
-  const msg={who:who==='ai'?'ai':'me',ts:Date.now(),kicker:kicker||'',
+  const msg={who:who==='ai'?'ai':'me',ts:Date.now(),
              share:{id:String(song.id),title:song.title||'',artist:song.artist||'',
                     cover:song.cover||'',url:song.url||''}};
   pianoCardIn(msg);
@@ -5410,14 +5412,17 @@ function pianoCardEl(msg){
        皮肤色而不是死灰、衬线体歌名、左缘一道谁放的色条、空心播放环。 */
     const mine=msg.who!=='ai';
     d.className='piano-card piano-sharecard'+(mine?' from-me':' from-him');
-    d.innerHTML='<span class="cv"></span>'
-               +'<span class="mt"><em></em><b></b><i></i></span>'
-               +'<span class="go"><svg viewBox="0 0 24 24" fill="currentColor">'
-               +'<path d="M9 6.5v11l8.5-5.5z"/></svg></span>';
+    d.innerHTML='<em class="epi"></em>'
+               +'<span class="row">'
+               +  '<span class="cv"></span>'
+               +  '<span class="mt"><b></b><i></i></span>'
+               +  '<span class="go"><svg viewBox="0 0 24 24" fill="currentColor">'
+               +    '<path d="M9 6.5v11l8.5-5.5z"/></svg></span>'
+               +'</span>';
+    d.querySelector('.epi').textContent=PIANO_CARD_EPIGRAPH;
     const cv=d.querySelector('.cv');
     if(msg.share.cover){const im=new Image();im.src=msg.share.cover;im.alt='';
       im.onerror=()=>{cv.innerHTML=''};cv.appendChild(im)}
-    d.querySelector('em').textContent=msg.kicker||(mine?'放给你听':'他想放给你听');
     d.querySelector('b').textContent=msg.share.title||'';
     d.querySelector('i').textContent=msg.share.artist||'';
     /* 正在放的就是这一首时，唱片转起来，右边换成跳动的均衡器 */
@@ -5552,7 +5557,7 @@ async function pianoRunAct(act){
          纯文字那张状态卡在这一下要压掉，不然一放歌出来两条。 */
       pianoSkipEvt=true;
       pianoReplaceQueue(songs,0);
-      pianoShare(songs[0],'ai','给你放上了');
+      pianoShare(songs[0],'ai');
       return;
     }
     if(type==='queue'){
