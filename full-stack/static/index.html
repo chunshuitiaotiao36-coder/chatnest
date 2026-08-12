@@ -4378,7 +4378,7 @@ function pianoRenderChips(){
    一起听过多少次 / 多少首 / 最常在什么时段 + 全部在场记录，点卡进歌曲详情。 */
 async function pianoOpenArchive(){
   const sh=$('pianoArcSheet'),body=$('pianoArcBody'),sub=$('pianoArcSub');
-  sh.classList.add('open');sh.removeAttribute('inert');sh.setAttribute('aria-hidden','false');
+  pianoSheet(sh,true);
   body.innerHTML='';sub.textContent='读取中…';
   const say=t=>{const d=document.createElement('div');d.className='piano-empty';d.textContent=t;body.appendChild(d)};
   try{
@@ -4409,7 +4409,7 @@ async function pianoOpenArchive(){
 }
 function pianoCloseArchive(){
   const sh=$('pianoArcSheet');
-  sh.classList.remove('open');sh.setAttribute('inert','');sh.setAttribute('aria-hidden','true');
+  pianoSheet(sh,false);
 }
 
 var PIANO_SONG_TABS=[{id:'notes',name:'在场记录'},{id:'vibe',name:'歌曲分析'},{id:'ncm',name:'网易评论'}];
@@ -4423,12 +4423,12 @@ function pianoOpenSong(s){
   pianoRenderChips();
   pianoRenderSongTabs();
   const sh=$('pianoSongSheet');
-  sh.classList.add('open');sh.removeAttribute('inert');sh.setAttribute('aria-hidden','false');
+  pianoSheet(sh,true);
   pianoLoadSongTab();
 }
 function pianoCloseSong(){
   const sh=$('pianoSongSheet');
-  sh.classList.remove('open');sh.setAttribute('inert','');sh.setAttribute('aria-hidden','true');
+  pianoSheet(sh,false);
 }
 function pianoRenderSongTabs(){
   const box=$('pianoSongTabs');box.innerHTML='';
@@ -4990,11 +4990,11 @@ function pianoTimeAware(){return localStorage.getItem('piano_room_timeaware')!==
 function pianoOpenSettings(){
   const sh=$('pianoSetSheet');
   pianoRenderSettings();
-  sh.classList.add('open');sh.removeAttribute('inert');sh.setAttribute('aria-hidden','false');
+  pianoSheet(sh,true);
 }
 function pianoCloseSettings(){
   const sh=$('pianoSetSheet');
-  sh.classList.remove('open');sh.setAttribute('inert','');sh.setAttribute('aria-hidden','true');
+  pianoSheet(sh,false);
 }
 
 function pianoRenderSettings(){
@@ -5657,13 +5657,43 @@ function pianoSetAnimating(on){
   $('pianoMiniDisc').classList.toggle('spin',!!running);
 }
 
+/* 🔴 .sheet 是靠 **show** 这个类滑上来的（`.sheet.show` 收起态、
+   `.sheet.show.expanded` 全屏态，见 design-system.css 那段注释），
+   不是 `open`。08-12 踩过：歌曲详情 / 听歌档案 / 房间设置三个面板都写成了
+   classList.add('open')，结果按钮响应了、面板一直在屏幕外——表现是「点不动」。
+   一律走这个函数，别再各写各的。 */
+function pianoSheet(el,open){
+  if(!el)return;
+  el.classList.toggle('show',open);
+  el.classList.toggle('expanded',open);
+  el.setAttribute('aria-hidden',open?'false':'true');
+  if(open)el.removeAttribute('inert');else{el.setAttribute('inert','');el.style.transform=''}
+  pianoSyncMask();
+}
+
+/* 只要还有任何一个面板开着，遮罩就留着 */
+function pianoSyncMask(){
+  const m=$('pianoMask');if(!m)return;
+  const any=['pianoDrawer','pianoSongSheet','pianoArcSheet','pianoSetSheet']
+    .some(id=>{const e=$(id);return e&&e.classList.contains('show')});
+  m.hidden=!any;
+}
+
+/* 点遮罩：把开着的都收掉 */
+function pianoCloseSheets(){
+  pianoDrawer(false);
+  pianoSheet($('pianoSongSheet'),false);
+  pianoSheet($('pianoArcSheet'),false);
+  pianoSheet($('pianoSetSheet'),false);
+}
+
 function pianoDrawer(open){
   const el=$('pianoDrawer');
-  $('pianoMask').hidden=!open;
   el.classList.toggle('show',open);
   el.classList.toggle('expanded',open);
   el.setAttribute('aria-hidden',open?'false':'true');
   if(open){el.removeAttribute('inert');pianoLoadLists()}else{el.setAttribute('inert','');el.style.transform=''}
+  pianoSyncMask();
 }
 
 /* 会话为空时露琴房自己那一句。Chat 的开屏语被 .piano-trim .empty 藏了，
@@ -5820,7 +5850,7 @@ function pianoInit(){
   };
   $('pianoMini').onclick=()=>pianoSetCollapsed(false);
   $('pianoListBtn').onclick=e=>{e.stopPropagation();pianoDrawer(true)};
-  $('pianoMask').onclick=()=>pianoDrawer(false);
+  $('pianoMask').onclick=()=>pianoCloseSheets();
   $('pianoQrAgain').onclick=()=>pianoQrNew();
   /* 复用 Chat 那套 sheet 拖拽（08-05 修过阈值的那个），不新写 */
   initSheetDrag($('pianoDrawer'),'#pianoBack',()=>pianoDrawer(false));
