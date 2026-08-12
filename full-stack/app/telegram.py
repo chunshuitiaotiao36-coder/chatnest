@@ -413,6 +413,35 @@ def _pick_model() -> str:
     return ""
 
 
+def _agent_max_turns() -> int:
+    """TG 那条线真正生效的往返上限，跟 claude.py 取同一个来源。
+
+    不写死常数：她可以用 TG_MAX_TURNS 调这个值，写死会在调完之后悄悄失准，
+    而这个数是「是不是跑满了」的唯一判据。读不到就按默认 8。"""
+    try:
+        from app import claude
+        return max(1, int(claude.TG_MAX_TURNS))
+    except Exception:
+        return 8
+
+
+def _sid(session_id: str | None) -> str:
+    """session_id 只打前 8 位：够认出「是不是同一条会话」，又不必把整串进日志。"""
+    return (session_id or "")[:8] or "-"
+
+
+def _fmt_counts(counts: dict[str, int]) -> str:
+    """拼成 name:n,name:n，按数量降序。空的给一个 `-`，别在日志里留空洞。
+
+    08-11 那轮 `ombre_calls=1` 却跑了 7 次往返，剩下六次不明——因为当时只数了
+    ombre。按工具名分类之后，「连着翻了好几次记忆」和「中间有别的往返」才分得开。"""
+    if not counts:
+        return "-"
+    return ",".join(
+        f"{name}:{n}" for name, n in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    )
+
+
 async def _stream_reply(
     text: str, model: str, session_id: str | None, carry: str = ""
 ) -> tuple[str, str | None, int, int]:
@@ -424,8 +453,21 @@ async def _stream_reply(
     不记内容。
 
     ombre_calls 是 08-07 那单要的耗时基线：按「这一轮有没有真去翻记忆」把日志
-    分成两组算平均，差值就是翻一次记忆的代价。只数次数，不看内容。"""
+    分成两组算平均，差值就是翻一次记忆的代价。只数次数，不看内容。
+
+    08-11 排查单：这里再打一行 `tg_metrics`。**一次模型调用一行**，跟
+    usage_log 的行一一对应——空回复重试那两条路会连打两三行，正好对得上用量表
+    里同一分钟的两三条记录。`ombre_result_chars` 是那一单的核心：如果一次检索
+    把几十条记忆的全文塞回来，十几万 token 就说得通了。**只加日志，不改逻辑。**"""
     reply, session, thinking_chars, ombre_calls = "", None, 0, 0
+    # tool_result 只带 tool_use_id、不带工具名，所以先把 id → 名字记下来，
+    # 才能把返回的字符数算到对应的工具头上。
+    tool_names: dict[str, str] = {}
+    tool_calls: dict[str, int] = {}
+    tool_chars: dict[str, int] = {}
+    ombre_result_chars = 0
+    usage: dict = {}
+    started = time.monotonic()
     async for chunk in stream_chat(
         message=text,
         conv_id=CONV_ID,
@@ -442,6 +484,10 @@ async def _stream_reply(
         # 会原样进向量检索和世界书的关键词扫描——两轮旧原文会污染 query，还会
         # 让上一轮已经触发过的条目再触发一次。
         carry=carry,
+        # 排查专用：usage 在 claude.py 里 yield 之前就被 pop 掉了（不能透传到
+        # 前端），所以它到不了这儿。开一个只读回调把那几个数拿出来打日志，
+        # 记账那一路一个字没动。
+        usage_callback=usage.update,
     ):
         event = chunk.get("event")
         if event == "delta":
@@ -449,12 +495,47 @@ async def _stream_reply(
         elif event == "thinking":
             thinking_chars += len(chunk.get("text", "") or "")
         elif event == "tool_use":
-            if str(chunk.get("name") or "").startswith("mcp__ombre"):
+            name = str(chunk.get("name") or "?")
+            tool_calls[name] = tool_calls.get(name, 0) + 1
+            if chunk.get("id"):
+                tool_names[str(chunk["id"])] = name
+            if name.startswith("mcp__ombre"):
                 ombre_calls += 1
-        # 其余 tool_use / tool_result 一律丢掉
+        elif event == "tool_result":
+            name = tool_names.get(str(chunk.get("tool_use_id") or ""))
+            if name:
+                n = len(chunk.get("content") or "")
+                tool_chars[name] = tool_chars.get(name, 0) + n
+                if name.startswith("mcp__ombre"):
+                    ombre_result_chars += n
+        # tool_use / tool_result 只统计，正文一个字都不往 TG 发
         elif event == "done":
             session = chunk.get("session_id")
-    return reply, session, thinking_chars, ombre_calls
+
+    # 这一行是 08-11 排查单的全部产出。字段顺序别改，她要按前缀 grep 出来对表。
+    cli_logger.info(
+        "telegram: tg_metrics resumed=%s sid_in=%s sid_out=%s turns=%d/%d "
+        "roundtrips=%s tools=%s tool_chars=%s "
+        "ombre_calls=%d ombre_result_chars=%d "
+        "input=%s cache_read=%s cache_write=%s output=%s cost_usd=%s "
+        "elapsed_ms=%d text_chars=%d thinking_chars=%d carry_chars=%d",
+        bool(session_id), _sid(session_id), _sid(session),
+        int(_state.get("turns") or 0), WINDOW_TURNS,
+        # roundtrips 是账单的乘数：每次往返都把整个前缀重发一遍。
+        # 8.2 把它从 8 压到 3，验收就看这个数。
+        usage.get("num_turns"), _fmt_counts(tool_calls), _fmt_counts(tool_chars),
+        ombre_calls, ombre_result_chars,
+        usage.get("input_tokens"), usage.get("cache_read"), usage.get("cache_create"),
+        usage.get("output_tokens"), usage.get("cost_usd"),
+        int((time.monotonic() - started) * 1000),
+        len(reply), thinking_chars, len(carry),
+    )
+    # roundtrips 带出去给重试阶梯判断：跑满上限还是空，跟偶发空回复是两回事。
+    try:
+        roundtrips = int(usage.get("num_turns") or 0)
+    except (TypeError, ValueError):
+        roundtrips = 0
+    return reply, session, thinking_chars, ombre_calls, roundtrips
 
 
 async def _run_turn(text: str, carry: str = "") -> tuple[str, str | None, int]:
@@ -467,7 +548,7 @@ async def _run_turn(text: str, carry: str = "") -> tuple[str, str | None, int]:
         return "", None, 0
     resumed = bool(_state.get("session_id"))
     try:
-        reply, session, thinking, ombre = await _stream_reply(
+        reply, session, thinking, ombre, trips = await _stream_reply(
             text, model, _state.get("session_id"), carry
         )
     except SessionResumeError:
@@ -477,12 +558,41 @@ async def _run_turn(text: str, carry: str = "") -> tuple[str, str | None, int]:
         _state["session_id"] = None
         _save_state()
         resumed = False
-        reply, session, thinking, ombre = await _stream_reply(text, model, None, carry)
+        reply, session, thinking, ombre, trips = await _stream_reply(
+            text, model, None, carry
+        )
     cli_logger.info(
         "telegram: turn done resumed=%s text_chars=%d thinking_chars=%d",
         resumed, len(reply), thinking,
     )
     if reply.strip() or not resumed:
+        return reply, session, ombre
+
+    # 空回复分两种，代价差一个数量级，不能走同一条重试路。
+    #
+    # 08-12 的账：一次「问记忆」连着三次 roundtrips=4 / text_chars=0，形状
+    # 一模一样，烧掉 ¥1.05 换来零个字，第四次换新会话才答出来。那不是偶发——
+    # 是 agent 循环跑满了往返上限还没走到工具那步，**同一个形状再撞两次墙，
+    # 结果必然一样**。而每一次重试都是整个前缀再发 N 遍。
+    #
+    # 判据就是 roundtrips：跑满上限 = 结构性饿死，跳过原地重试直接换新会话
+    # （那才是当天真正把她问题答出来的那一次）；没跑满 = 偶发，走下面的老路。
+    # 用 > 不用 >=：实测跑满时 num_turns = max_turns + 1（max_turns=3 打出
+    # roundtrips=4），而正常成功那次是 7/8——没跑满。取 > 才没有误判。
+    if trips and trips > _agent_max_turns():
+        cli_logger.warning(
+            "telegram: 空回复且跑满往返上限（roundtrips=%d），跳过原地重试直接换新会话",
+            trips,
+        )
+        _state["session_id"] = None
+        _save_state()
+        reply, session, thinking, ombre, trips = await _stream_reply(
+            text, model, None, carry
+        )
+        cli_logger.info(
+            "telegram: retry(fresh, 上限饿死) text_chars=%d roundtrips=%d",
+            len(reply), trips,
+        )
         return reply, session, ombre
 
     # ① 先用**同一个 session** 原地重试一次。
@@ -496,7 +606,7 @@ async def _run_turn(text: str, carry: str = "") -> tuple[str, str | None, int]:
     # 空回复大概率是偶发的（12:06-12:14 连着三轮都好好的），偶发的东西原地
     # 重试一次就过去了，没必要拿整段上下文去换。上下文该是最后被牺牲的。
     cli_logger.warning("telegram: 空回复，原地重试（保留 session）")
-    reply, session, thinking, ombre = await _stream_reply(
+    reply, session, thinking, ombre, trips = await _stream_reply(
         text, model, _state.get("session_id"), carry
     )
     cli_logger.info(
@@ -510,7 +620,9 @@ async def _run_turn(text: str, carry: str = "") -> tuple[str, str | None, int]:
     cli_logger.warning("telegram: 原地重试仍空，清 session 重试一次")
     _state["session_id"] = None
     _save_state()
-    reply, session, thinking, ombre = await _stream_reply(text, model, None, carry)
+    reply, session, thinking, ombre, trips = await _stream_reply(
+        text, model, None, carry
+    )
     cli_logger.info(
         "telegram: retry(fresh) text_chars=%d thinking_chars=%d", len(reply), thinking
     )
@@ -622,10 +734,11 @@ async def _handle_update(upd: dict) -> None:
     for chunk in _split_for_tg(reply):
         await _send_message(ALLOWED_CHAT_ID, chunk)
 
+    # 端到端耗时（含 Telegram 发送那几个来回）。逐次模型调用的细账在
+    # _stream_reply 里的 tg_metrics，那一行才是拿来对用量表的。
     cli_logger.info(
-        "telegram: turn_metrics elapsed=%.1fs ombre_calls=%d turns=%d/%d text_chars=%d",
-        time.monotonic() - started, ombre_calls,
-        int(_state.get("turns") or 0), WINDOW_TURNS, len(reply),
+        "telegram: turn_sent total_ms=%d chunks=%d",
+        int((time.monotonic() - started) * 1000), len(_split_for_tg(reply)),
     )
 
     # 换窗口放在**回复发出去之后**：她发一句话，等的是回复，不是等我做家务。

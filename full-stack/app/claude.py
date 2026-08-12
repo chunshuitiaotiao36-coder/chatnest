@@ -64,6 +64,36 @@ cli_logger = logging.getLogger("uvicorn.error")
 OMBRE_MCP_URL = os.environ.get("OMBRE_MCP_URL", "")
 OMBRE_MCP_TOKEN = os.environ.get("OMBRE_MCP_TOKEN", "")
 
+# agent 循环的往返上限。**往返次数是直接乘在账上的**——每次往返都把整个前缀
+# 重发一遍。08-11 实测：一条「问记忆」的消息跑了 7 次往返，同一份 2 万前缀发了
+# 7 遍，热缓存 ¥0.99、冷缓存 ¥10.02（139,038 ≈ 7 × 19,862）。
+#
+# TG 是闲聊：直接答 = 1 次往返，翻一次记忆再答 = 2 次，3 次够用。
+# 🔴 不靠 prompt 写「少翻一点」去约束——模型未必听，花钱的事要硬限制。
+#
+# 🔴 只压 TG 这一条线。网页端挂着 Bash / Write / Edit / WebSearch，砍到 3 会把活
+# 干到一半截断，那是回归。
+WEB_MAX_TURNS = 8
+
+
+def _read_tg_max_turns() -> int:
+    """默认 3。留环境变量口子是因为验收第 4 条写了「3 太紧就调回 4」——
+    调它不该等一次改代码。"""
+    raw = (os.environ.get("TG_MAX_TURNS") or "").strip()
+    if not raw:
+        return 3
+    try:
+        value = int(raw)
+    except ValueError:
+        value = 0
+    if value < 1:
+        cli_logger.warning("TG_MAX_TURNS=%r 不是 ≥1 的整数，按默认 3", raw)
+        return 3
+    return value
+
+
+TG_MAX_TURNS = _read_tg_max_turns()
+
 
 def ombre_mcp_servers() -> dict:
     if not OMBRE_MCP_URL:
@@ -372,6 +402,13 @@ def _recent_messages(conv_id: str | None) -> list[str]:
         return []
     try:
         rows, _, _ = store.conversation_messages(conv_id, limit=_MAX_SCAN_BACK)
+    except store.ConversationNotFound:
+        # TG 那条线用 conv_id="telegram"，它**从来不在** conversations 表里：
+        # telegram.py 不落库，历史只活在 CLI 会话里。所以这不是故障，是常态，
+        # 行为跟下面一样（只扫当前这条消息），但不该按错误报。
+        # 用 exception() 打的话每一轮 TG 都刷一个 traceback，真的报错会被淹掉。
+        cli_logger.debug("世界书：conv_id=%s 没有历史记录，这一轮只扫当前消息", conv_id)
+        return []
     except Exception:
         cli_logger.exception("世界书取历史失败，这一轮只扫当前消息")
         return []
@@ -417,6 +454,7 @@ async def stream_chat(
     lean: bool = False,
     source: str = "web",
     carry: str = "",
+    usage_callback: Callable[[dict], None] | None = None,
 ) -> AsyncGenerator[dict, None]:
     """lean=True 是 Telegram 那条轻量线：轻量人设 + 精简工具集，
     但**挂 Ombre MCP**（07-31 从「不挂」回退过来，见下面 mcp_servers 那段）。
@@ -427,7 +465,11 @@ async def stream_chat(
 
     carry 只有 TG 短窗口换会话之后的第一条消息会传：最近两轮的原文，拼在用户
     消息侧（见 build_user_prompt）。**不碰 system_prompt**——碰了就等于每换一次
-    窗口把她那份前缀缓存也一起打掉，而这一单本来就是来省钱的。"""
+    窗口把她那份前缀缓存也一起打掉，而这一单本来就是来省钱的。
+
+    usage_callback 是 08-11 排查单的埋点口子：usage 在下面 yield 之前必须
+    `pop` 掉（不能透传到前端），于是调用方拿不到 token 数。给它一个只读回调，
+    跟 `_record_usage` 拿的是同一份数据。**纯旁路**，抛异常也不影响回复。"""
     model_config = next(
         (item for item in available_models() if item["id"] == model),
         None,
@@ -465,7 +507,7 @@ async def stream_chat(
         allowed_tools=allowed_tools,
         mcp_servers=mcp_servers,
         can_use_tool=memory_tool_permission,
-        max_turns=8,
+        max_turns=TG_MAX_TURNS if lean else WEB_MAX_TURNS,
         include_partial_messages=True,
         thinking=thinking,
         resume=session_id,
@@ -500,7 +542,18 @@ async def stream_chat(
     # 根因在 CLI 内部，这里先绕开：订阅模式每次新建子进程。
     # 中转站不受影响，热复用照旧。
     try:
-        active_summary = relays.get_active_summary()
+        if lean:
+            # TG 焊死在订阅线路上（telegram.py 的 subscription_env +
+            # subscription_models），所以它的账要记在**订阅**那条上。
+            # get_active_summary() 给的是小窝当前激活的那条——她切到中转站去试
+            # 线路时，TG 的轮次会全被贴成「API 计费」，而「订阅额度」那栏显示
+            # 0 轮。面板是她唯一能看见成本的地方，不能骗她。
+            #
+            # 订阅线路被删掉时回落到激活那条：那种情况下 _pick_model() 本来就
+            # 挑不到模型、这一轮会走兜底文案，记成什么已经不重要，但不能崩。
+            active_summary = relays.subscription_summary() or relays.get_active_summary()
+        else:
+            active_summary = relays.get_active_summary()
         is_subscription = active_summary.get("mode") == "subscription"
     except Exception:
         logging.getLogger("uvicorn.error").exception("relay mode 判定失败，按中转站处理")
@@ -535,6 +588,11 @@ async def stream_chat(
             except Exception:
                 # 记账是旁路功能，绝不允许因为它写不进去而让她收不到回复
                 cli_logger.warning("用量记账失败（不影响回复）", exc_info=True)
+            if usage_callback is not None:
+                try:
+                    usage_callback(usage_payload or {})
+                except Exception:
+                    cli_logger.warning("usage_callback 失败（不影响回复）", exc_info=True)
         yield item
 
 
