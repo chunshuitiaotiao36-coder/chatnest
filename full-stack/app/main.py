@@ -62,6 +62,7 @@ from app.store import (
     ConversationNotFound,
     begin_turn,
     complete_turn,
+    save_piano_impression,
     ensure_conversation,
     initialize_store,
     prepare_edit_turn,
@@ -702,6 +703,8 @@ async def chat(body: ChatBody) -> StreamingResponse:
                         response_thinking,
                         response_traces,
                     )
+                    if body.piano:
+                        _capture_piano_impression(body.piano, response_traces)
                     chunk["conversation_id"] = conv_id
                     chunk["assistant_message_id"] = assistant_message_id
                     branch_committed = True
@@ -1045,6 +1048,38 @@ async def starmap_data(refresh: bool = False) -> dict:
 # ── 琴房：Duetto 的服务端代理 ────────────────────────────────────────────
 # 前端只跟这几条说话，Duetto 的 token 一步都不出后端。
 # 🔴 Duetto 的 /api/chat 永远不在这张表里——对话走小窝自己那条线。
+
+def _capture_piano_impression(np: dict[str, Any], traces: list[dict]) -> None:
+    """这一轮请他揉回忆了吗？揉了就从 tool_use 里把原文捞一份存本地。
+
+    🔴 权威副本在 Ombre——他自己 hold 进去的那颗星。这儿存的只是副本，
+    用来下一轮注回上下文、和记住上次揉到第几条。丢了不心疼。
+
+    没看到 hold 也不要紧：take_due 已经把标记清了，而条数还是超过阈值，
+    下一轮会再请他一次。
+    """
+    try:
+        song_id = str(np.get("id") or "")
+        n = piano.take_due(song_id)
+        if not song_id or n is None:
+            return
+        for t in traces:
+            if t.get("type") != "tool_use":
+                continue
+            if "hold" not in str(t.get("name") or "").lower():
+                continue
+            text = str((t.get("input") or {}).get("content") or "").strip()
+            if not text:
+                continue
+            save_piano_impression(song_id, text, n,
+                                  str(np.get("title") or ""),
+                                  str(np.get("artist") or ""))
+            logger.info("[琴房] 印象存好了 song=%s n=%d %d字", song_id, n, len(text))
+            return
+        logger.info("[琴房] 请他揉回忆了，但这一轮没看到 hold；下一轮再问 song=%s", song_id)
+    except Exception:
+        logger.exception("[琴房] 印象落库失败")
+
 
 async def _piano(path: str, params: dict[str, Any] | None = None) -> dict:
     try:

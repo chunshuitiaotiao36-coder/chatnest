@@ -689,6 +689,9 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
         <div class="piano-kicker">正在一起听</div>
         <div class="piano-h" id="pianoRoomName">此刻</div>
       </div>
+      <button type="button" class="piano-topbtn" id="pianoArcBtn" aria-label="听歌档案">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V6a2 2 0 0 1 2-2h9l5 5v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M14 4v5h5"/><path d="M8 13h8M8 17h5"/></svg>
+      </button>
       <button type="button" class="piano-topbtn" id="pianoShareBtn" aria-label="把这首分享进对话">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
       </button>
@@ -878,8 +881,23 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
         <button type="button" id="pianoSongLike">红心</button>
         <button type="button" id="pianoSongAsk">问 Ta</button>
       </div>
+      <!-- 问 Ta 的四个快捷问题。措辞照抄原版 store.jsx:9-14，一个字没动。 -->
+      <div class="piano-chips" id="pianoChips"></div>
       <div class="piano-songtabs" id="pianoSongTabs"></div>
       <div class="sheet-content"><div class="piano-songbody" id="pianoSongBody"></div></div>
+    </section>
+
+    <!-- 听歌档案：一起听过多少次、多少首、最常在什么时段，加全部在场记录 -->
+    <section class="sheet piano-sheet" id="pianoArcSheet" aria-hidden="true" inert>
+      <div class="sheet-handle"></div>
+      <header class="sheet-head">
+        <button class="icon-button" id="pianoArcBack" aria-label="关闭">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <h2 class="sheet-title">听歌档案</h2>
+        <span class="piano-sub" id="pianoArcSub"></span>
+      </header>
+      <div class="sheet-content"><div class="piano-arcbody" id="pianoArcBody"></div></div>
     </section>
 
     <!-- 收藏到哪个歌单 -->
@@ -4290,6 +4308,71 @@ async function pianoBatchDel(songs){
 }
 
 /* ── 歌曲详情 ──────────────────────────────────────────────────────── */
+/* 问 Ta 的四个快捷问题。措辞照抄原版（listen/store.jsx:9-14），一个字没动。 */
+var PIANO_CHIPS=[
+  {k:'explain', label:'这句在说什么', prompt:'这句歌词在说什么呀？'},
+  {k:'missyou', label:'我想到你',     prompt:'听到这句，我想到你了。'},
+  {k:'remember',label:'记住这一刻',   prompt:'我想把此刻和这句歌词一起记住。'},
+  {k:'stay',    label:'陪我听完',     prompt:'陪我把这首听完好不好。'}
+];
+
+function pianoRenderChips(){
+  const box=$('pianoChips');if(!box)return;
+  box.innerHTML='';
+  PIANO_CHIPS.forEach(c=>{
+    const b=document.createElement('button');
+    b.type='button';b.className='piano-chip';b.textContent=c.label;
+    b.onclick=()=>{
+      const s=pianoSongCur;if(!s)return;
+      pianoCloseSong();pianoDrawer(false);
+      /* 歌词页正好停在某一句就带上它，没有就只带这首歌 */
+      const line=pianoCurrentLyric();
+      const curId=String((piano.queue[piano.idx]||{}).id||'');
+      if(line&&curId===String(s.id))pianoSetQuote(line);
+      pianoSaySend(c.prompt);
+    };
+    box.appendChild(b);
+  });
+}
+
+/* ── 听歌档案 ──────────────────────────────────────────────────────────
+   一起听过多少次 / 多少首 / 最常在什么时段 + 全部在场记录，点卡进歌曲详情。 */
+async function pianoOpenArchive(){
+  const sh=$('pianoArcSheet'),body=$('pianoArcBody'),sub=$('pianoArcSub');
+  sh.classList.add('open');sh.removeAttribute('inert');sh.setAttribute('aria-hidden','false');
+  body.innerHTML='';sub.textContent='读取中…';
+  const say=t=>{const d=document.createElement('div');d.className='piano-empty';d.textContent=t;body.appendChild(d)};
+  try{
+    const [st,nt]=await Promise.allSettled([
+      api('/api/piano/listen-stats').then(r=>r.ok?r.json():null),
+      api('/api/piano/notes?limit=100').then(r=>r.ok?r.json():null)
+    ]);
+    const s=st.status==='fulfilled'?st.value:null;
+    if(s&&s.total){
+      /* 时段分布里最大的那一档 */
+      const b=Object.entries(s.buckets||{}).sort((x,y)=>y[1]-x[1])[0];
+      sub.textContent='一起听过 '+s.total+' 次 · '+(s.distinct||0)+' 首歌'
+                     +(b?(' · 最常在'+b[0]+'听'):'');
+    }else sub.textContent='还没有听歌记录';
+    const notes=(nt.status==='fulfilled'&&nt.value)?(nt.value.notes||[]):[];
+    body.innerHTML='';
+    if(!notes.length){say('还没有在场记录。放一首，说说它。');return}
+    notes.forEach(n=>{
+      const card=pianoNoteCard(n);
+      card.classList.add('tappable');
+      card.onclick=()=>{
+        pianoCloseArchive();
+        pianoOpenSong({id:n.song_id,title:n.title||'',artist:n.artist||'',cover:n.cover||''});
+      };
+      body.appendChild(card);
+    });
+  }catch(e){body.innerHTML='';sub.textContent='';say(String(e&&e.message||'没拿到'))}
+}
+function pianoCloseArchive(){
+  const sh=$('pianoArcSheet');
+  sh.classList.remove('open');sh.setAttribute('inert','');sh.setAttribute('aria-hidden','true');
+}
+
 var PIANO_SONG_TABS=[{id:'notes',name:'在场记录'},{id:'vibe',name:'歌曲分析'},{id:'ncm',name:'网易评论'}];
 var pianoSongCur=null,pianoSongTab='notes';
 
@@ -4298,6 +4381,7 @@ function pianoOpenSong(s){
   pianoSongCur=s;pianoSongTab='notes';
   $('pianoSongTitle').textContent=s.title||'';
   $('pianoSongArtist').textContent=s.artist||'';
+  pianoRenderChips();
   pianoRenderSongTabs();
   const sh=$('pianoSongSheet');
   sh.classList.add('open');sh.removeAttribute('inert');sh.setAttribute('aria-hidden','false');
@@ -4771,9 +4855,16 @@ function pianoSaySend(text){
      这段形状 _buildUserRow 认得，会渲染成引用块。 */
   const prompt=q?('（指着正在放的这句歌词跟你说：「'+q.line+'」）'+(body?('\n'+body):''))
                :body;
-  /* 施工单 §1.1：长按引用发出去之后，**这句要记进这首歌的档案**。 */
+  /* 施工单 §1.5：**每一轮**对话都挂在这首歌上，不只是长按引用那种。
+     「对话就是档案」——在场记录攒够 6 条，梁忱就会自己揉一段回忆。
+     passage 取引用的那句；没引用就取此刻唱到的那句。 */
+  const cur=piano.queue[piano.idx];
   const note=(q&&q.id)?{id:q.id,title:q.title,artist:q.artist,
-                        passage:q.line,thought:body}:null;
+                        passage:q.line,thought:body}
+            :(cur&&/^\d+$/.test(String(cur.id))
+              ?{id:String(cur.id),title:cur.title||'',artist:cur.artist||'',
+                passage:pianoCurrentLyric(),thought:body}
+              :null);
   pianoClearQuote();
   $('pianoBlank').hidden=true;
   sendMessage(prompt,true,[],[],{piano:np,
@@ -5427,8 +5518,9 @@ function pianoInit(){
     if(!pianoSongCur)return;
     pianoCloseSong();pianoDrawer(false);
     $('pianoSay').focus();
-    toast('说说这首《'+(pianoSongCur.title||'')+'》');
   };
+  $('pianoArcBtn').onclick=e=>{e.stopPropagation();pianoOpenArchive()};
+  $('pianoArcBack').onclick=()=>pianoCloseArchive();
   /* 点歌名 → 歌曲详情；点歌手名 → 歌手主页。
      🔴 两个都要 stopPropagation：它们在 stage 里面，不拦会顺手把唱片折叠了。 */
   $('pianoNowTitle').onclick=e=>{

@@ -128,6 +128,21 @@ def initialize_store() -> None:
             );
             CREATE INDEX IF NOT EXISTS idx_lore_enabled
                 ON lorebook_entries(enabled, priority DESC);
+
+            -- 琴房的「印象」：一首歌的在场记录满 6 条，梁忱自己揉一段第一人称
+            -- 回忆，并用 ombre 的 hold 存成星图上一颗星。这张表只留一份**副本**，
+            -- 用来下一轮注回上下文、和判断「攒到几条了」。
+            -- 🔴 权威副本在 Ombre，不在这儿。这张表丢了不心疼，星还在。
+            -- 不用 Duetto 自带的 maybeImpress：那段第一人称是它自带那个 DJ
+            -- 写的，不是梁忱写的（施工单 §1.5，08-07 定死）。
+            CREATE TABLE IF NOT EXISTS piano_impressions(
+                song_id    TEXT PRIMARY KEY,
+                title      TEXT NOT NULL DEFAULT '',
+                artist     TEXT NOT NULL DEFAULT '',
+                text       TEXT NOT NULL DEFAULT '',
+                n          INTEGER NOT NULL DEFAULT 0,
+                updated_at INTEGER NOT NULL
+            );
             """
         )
         # 08-05 取消了 position='depth'（原因见 lorebook.py 顶部）。已有的迁到
@@ -962,3 +977,40 @@ def usage_report(
         "summary": summary,
         "rows": [dict(row) for row in rows],
     }
+
+
+# ── 琴房：印象 ──────────────────────────────────────────────────────────
+# 权威副本在 Ombre（梁忱自己用 hold 存的那颗星）。这儿只留一份本地副本，
+# 用来下一轮注回上下文、以及记住「上次揉到第几条」。
+
+def piano_impression(song_id: str) -> dict | None:
+    if not song_id:
+        return None
+    with _connect() as db:
+        row = db.execute(
+            "SELECT song_id, title, artist, text, n, updated_at "
+            "FROM piano_impressions WHERE song_id = ?",
+            (str(song_id),),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def save_piano_impression(song_id: str, text: str, n: int,
+                          title: str = "", artist: str = "") -> None:
+    if not song_id or not text.strip():
+        return
+    with _connect() as db:
+        db.execute(
+            "INSERT INTO piano_impressions(song_id,title,artist,text,n,updated_at) "
+            "VALUES(?,?,?,?,?,?) "
+            "ON CONFLICT(song_id) DO UPDATE SET "
+            "  text=excluded.text, n=excluded.n, updated_at=excluded.updated_at, "
+            "  title=CASE WHEN excluded.title!='' THEN excluded.title ELSE piano_impressions.title END, "
+            "  artist=CASE WHEN excluded.artist!='' THEN excluded.artist ELSE piano_impressions.artist END",
+            # 🔴 顺序要跟上面的列名一一对上：song_id,title,artist,text,n,updated_at。
+            # 第一版这儿按 (song_id,text,n,title,artist) 传，整列错位，
+            # n 里存进了歌手名，下一轮 int() 当场炸。断言抓到的。
+            (str(song_id), title, artist, text.strip(), int(n),
+             int(time.time() * 1000)),
+        )
+        db.commit()

@@ -2327,3 +2327,16 @@ body.tab-away #chat {
   background: rgba(10,8,7,.28);
 }
 .piano-mask[hidden] { display: none }
+
+/* 问 Ta 的四个快捷问题 */
+.piano-chips { display: flex; gap: 6px; padding: 0 12px 8px; overflow-x: auto; scrollbar-width: none }
+.piano-chips::-webkit-scrollbar { display: none }
+.piano-chip {
+  flex: 0 0 auto; padding: 5px 11px; cursor: pointer;
+  border: 1px solid var(--ls-gold); border-radius: 13px;
+  background: transparent; color: var(--ls-gold);
+  font-family: var(--ls-cn); font-size: 12px; white-space: nowrap;
+}
+/* 听歌档案 */
+.piano-arcbody { padding-bottom: 12px }
+.piano-note.tappable { cursor: pointer }

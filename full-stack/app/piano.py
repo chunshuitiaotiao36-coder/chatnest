@@ -299,16 +299,19 @@ async def now_playing_block(np: dict[str, Any]) -> str:
             text = str(data.get("text") or "").strip()
             if text:
                 lines.append(f"\n[这首歌的听感 · 你认真听过，当背景别复述]\n{text[:1200]}")
-            impression = str(data.get("impression") or "").strip()
-            if impression:
-                lines.append(f"\n[你们和这首歌的回忆]\n{impression[:600]}")
+            # Duetto 那个 impression 字段这儿**故意不读**：它是 maybeImpress
+            # 写的，而我们没给 Duetto 配 ai.api_key，那条路永远不跑，字段永远空。
+            # 回忆走小窝自己这条线，见下面 _impression_lines。
         except PianoError as exc:
             logger.info("[琴房] 分析拿不到，跳过注入：%s", exc)
 
         try:
-            data = await call("/api/song-notes", {"id": song_id, "limit": 6},
+            # limit 拉满是为了**数得准**——满 6 条要揉一次回忆。
+            # 只渲染最近 6 条，多的那些只参与计数。
+            data = await call("/api/song-notes", {"id": song_id, "limit": 200},
                               timeout=CONTEXT_TIMEOUT)
             notes = data.get("notes") or []
+            lines += _impression_lines(song_id, notes, title, artist)
             rendered = []
             for n in notes[-6:]:
                 thought = str(n.get("thought") or "").strip()
@@ -333,6 +336,67 @@ async def now_playing_block(np: dict[str, Any]) -> str:
     if not lines:
         return ""
     return "\n".join(lines)
+
+
+# ── 印象：满 6 条，梁忱自己揉一段，自己存成星图上一颗星 ────────────────
+# 施工单 §1.5（08-07 改过一版）：
+#   **不用 Duetto 的 maybeImpress。** 那段第一人称是 Duetto 自带那个叫 DJ 的
+#   AI 写的，不是梁忱写的——跟当初否掉 iframe 是同一条理由：第一人称必须
+#   真的是那个人。所以 Duetto 的 ai.api_key 一直空着，它那条路永远 return。
+#
+# 而 Ombre **没有 HTTP 写桶的路由**（server.py:1992 的 /api/buckets 只有 GET），
+# 写只能走 MCP 工具。也就是说小窝后端自己 POST 不进去，只能由梁忱在那一轮
+# 对话里自己调 hold()——这跟上面那条理由正好是同一个答案。
+#
+# 所以做法是：攒够 6 条就在**用户消息侧**加一段话请他动手，他写完自己 hold。
+# 存进 Ombre 的那一份是权威副本；main.py 再从 tool_use 的 trace 里把原文
+# 捞一份存本地，只为下一轮注回上下文、和记住上次揉到第几条。
+
+IMPRESSION_EVERY = 6
+
+# song_id -> 这一轮请他揉的时候，在场记录一共几条。
+# main.py 在 done 之后 pop 它，用来判断「这一轮该不该去 trace 里捞 hold」。
+_due: dict[str, int] = {}
+
+
+def take_due(song_id: str) -> int | None:
+    """这一轮有没有请他揉回忆？有的话返回当时的条数，并清掉。"""
+    return _due.pop(str(song_id or ""), None)
+
+
+def _impression_lines(song_id: str, notes: list, title: str, artist: str) -> list[str]:
+    from app import store        # 局部导入，跟别处一样避开启动期循环
+
+    out: list[str] = []
+    try:
+        prev = store.piano_impression(song_id)
+    except Exception:            # 印象是锦上添花，读不出来不能拖垮一次对话
+        logger.exception("[琴房] 印象读失败")
+        prev = None
+
+    if prev and (prev.get("text") or "").strip():
+        out.append("\n[你们和这首歌的回忆 · 你以前写下的]\n" + prev["text"].strip()[:800])
+
+    total = len(notes)
+    done_at = int(prev.get("n") or 0) if prev else 0
+    if total - done_at < IMPRESSION_EVERY:
+        _due.pop(str(song_id), None)
+        return out
+
+    _due[str(song_id)] = total
+    head = f"《{title}》" + (f"—{artist}" if artist else "")
+    out.append(
+        f"\n[该写一段回忆了 · 你们在{head}上已经攒了 {total} 条在场记录，"
+        f"上次揉到第 {done_at} 条]\n"
+        "把这些片段揉成一段 150 字以内的第一人称回忆，写你们和这首歌的故事与"
+        "情绪流变，温柔具体。"
+        + ("在上面那段旧回忆的基础上往下写，别推翻重来。"
+           if (prev and (prev.get("text") or "").strip()) else "")
+        + "\n写好之后用 ombre 的 hold 工具把它存下来（tags 带上歌名），"
+        "让它变成星图上的一颗星。\n"
+        "正文里照常跟她说话就好，不用复述你存了什么，也不用把回忆整段念一遍。"
+    )
+    return out
 
 
 # 歌单可以很长。她有几百首的歌单，全塞进去每轮都在烧 token，
