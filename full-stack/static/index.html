@@ -4573,6 +4573,7 @@ async function pianoPlay(i){
   if(piano.view==='songs')pianoRenderSongs();
   pianoSetMedia(s);                                /* 锁屏卡片先立起来 */
   if(pianoFb.open){pianoFbSyncNow();if(pianoFb.tab==='queue')pianoFbRender()}
+  pianoSyncShareCards();
 
   /* 歌词并行去拉，不挡声音 */
   const lrcP=api('/api/piano/lyric?id='+encodeURIComponent(s.id))
@@ -5383,10 +5384,10 @@ function pianoRoomEvent(tail){
   pianoSend({t:'chat',msg});                    /* 广播出去，同时落 Duetto 的 room_events */
 }
 
-function pianoShare(s){
+function pianoShare(s,who){
   const song=s||piano.queue[piano.idx];
   if(!song){toast('现在没在放歌');return}
-  const msg={who:'me',ts:Date.now(),
+  const msg={who:who==='ai'?'ai':'me',ts:Date.now(),
              share:{id:String(song.id),title:song.title||'',artist:song.artist||'',
                     cover:song.cover||'',url:song.url||''}};
   pianoCardIn(msg);
@@ -5400,13 +5401,24 @@ function pianoCardEl(msg){
   const d=document.createElement('div');
   d.dataset.pianoTs=String(msg.ts||Date.now());
   if(msg.share){
-    d.className='piano-card piano-sharecard';
-    d.innerHTML='<span class="cv"></span><span class="mt"><b></b><i></i></span>'
-               +'<span class="go">▶</span>';
+    /* 毛玻璃卡。跟那种通用样式同一个家族，但用琴房自己的话说：
+       皮肤色而不是死灰、衬线体歌名、左缘一道谁放的色条、空心播放环。 */
+    const mine=msg.who!=='ai';
+    d.className='piano-card piano-sharecard'+(mine?' from-me':' from-him');
+    d.innerHTML='<span class="cv"></span>'
+               +'<span class="mt"><em></em><b></b><i></i></span>'
+               +'<span class="go"><svg viewBox="0 0 24 24" fill="currentColor">'
+               +'<path d="M9 6.5v11l8.5-5.5z"/></svg></span>';
     const cv=d.querySelector('.cv');
-    if(msg.share.cover){const im=new Image();im.src=msg.share.cover;im.alt='';cv.appendChild(im)}
+    if(msg.share.cover){const im=new Image();im.src=msg.share.cover;im.alt='';
+      im.onerror=()=>{cv.innerHTML=''};cv.appendChild(im)}
+    d.querySelector('em').textContent=mine?'放给你听':'他想放给你听';
     d.querySelector('b').textContent=msg.share.title||'';
     d.querySelector('i').textContent=msg.share.artist||'';
+    /* 正在放的就是这一首时，唱片转起来，右边换成跳动的均衡器 */
+    d.dataset.songId=String(msg.share.id);
+    const cur=piano.queue[piano.idx];
+    if(cur&&String(cur.id)===String(msg.share.id))d.classList.add('is-playing');
     d.onclick=()=>{                              /* 点卡即播 */
       const sg=msg.share;
       let at=piano.queue.findIndex(x=>String(x.id)===String(sg.id));
@@ -5452,6 +5464,17 @@ async function pianoHydrateCards(){
       else streamInner.appendChild(el);
     });
   }catch(e){/* 补不回来就算了，不挡她说话 */}
+}
+
+/* 换歌之后，流里那些分享卡的「正在放」状态要跟着改——
+   不然旧卡会一直亮着均衡器，看起来像同时在放好几首。 */
+function pianoSyncShareCards(){
+  if(!streamInner)return;
+  const cur=piano.queue[piano.idx];
+  const id=cur?String(cur.id):'';
+  streamInner.querySelectorAll('.piano-sharecard').forEach(el=>{
+    el.classList.toggle('is-playing',!!id&&el.dataset.songId===id);
+  });
 }
 
 function pianoStripCards(){
@@ -5534,10 +5557,11 @@ async function pianoRunAct(act){
       /* 不带 query 就是分享正在放的这首 */
       const s=q?(await pianoSearch(q))[0]:piano.queue[piano.idx];
       if(!s){toast(q?('没搜到《'+q+'》'):'现在没在放歌，分享不了');return}
-      /* 分享卡是房间那一单（第 4 项）的东西，这一单先落到「加进队列并播」，
-         行为跟原版 share 带 query 时一致（index.mjs 那边也会切过去）。 */
-      pianoQueueAppend(s);
-      pianoPlay(piano.queue.length-1);
+      /* 掉一张卡进对话，**不打断她正在听的**——分享是「你听听这个」，
+         不是「我给你换了」。她点卡才播。
+         （第 1 项那会儿卡片还没做，先落成了「加进队列直接播」，
+           第 4 项做完分享卡之后这儿就该改回来。） */
+      pianoShare(s,'ai');
       return;
     }
   }catch(e){
