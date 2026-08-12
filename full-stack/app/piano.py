@@ -290,21 +290,16 @@ async def now_playing_block(np: dict[str, Any]) -> str:
     else:
         song_id = ""
 
-    # 分析和在场记录都是纯读 Duetto 的本地库（index.mjs:199 / :200 只查表，
-    # 不触发分析），所以随便调不烧钱。但仍然给短超时，拿不到就算了。
+    # 在场记录是纯读 Duetto 的本地库（index.mjs:200 只查表），随便调不烧钱。
+    # 但仍然给短超时，拿不到就算了。
+    #
+    # 🔴 这儿原本还打一次 /api/song-analysis 读「听感」和「回忆」。两个字段
+    # 现在都永远是空的：听感只有 ensureAnalysis 会写，而那是施工单 §5 排除掉的
+    # Gemini 音频分析；回忆只有 maybeImpress 会写，而 §1.5 定死了不用它。
+    # Duetto 的 ai.api_key 一直留空，两条都不跑。删掉，省每轮一次 4 秒超时的往返。
+    # 这首歌客观上什么样 → librosa 频谱（main.py 那边注入）；
+    # 你们和它的回忆 → 下面的 _impression_lines。
     if song_id.isdigit():
-        try:
-            data = await call("/api/song-analysis", {"id": song_id},
-                              timeout=CONTEXT_TIMEOUT)
-            text = str(data.get("text") or "").strip()
-            if text:
-                lines.append(f"\n[这首歌的听感 · 你认真听过，当背景别复述]\n{text[:1200]}")
-            # Duetto 那个 impression 字段这儿**故意不读**：它是 maybeImpress
-            # 写的，而我们没给 Duetto 配 ai.api_key，那条路永远不跑，字段永远空。
-            # 回忆走小窝自己这条线，见下面 _impression_lines。
-        except PianoError as exc:
-            logger.info("[琴房] 分析拿不到，跳过注入：%s", exc)
-
         try:
             # limit 拉满是为了**数得准**——满 6 条要揉一次回忆。
             # 只渲染最近 6 条，多的那些只参与计数。

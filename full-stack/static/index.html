@@ -4456,13 +4456,22 @@ async function pianoLoadSongTab(){
       if(!notes.length){say('还没有一起听这首时说过的话。');return}
       notes.slice().reverse().forEach(n=>body.appendChild(pianoNoteCard(n)));
     }else if(pianoSongTab==='vibe'){
-      const r=await api('/api/piano/analysis?id='+id);
-      if(!r.ok)throw Error('分析拿不到');
-      const d=await r.json();
+      /* 「歌曲分析」= librosa 在本地算出来的频谱（BPM / 调性 / 能量走向），
+         不是 Duetto 那个听感字段——那条是 Gemini 音频分析，施工单 §5 的
+         唯一排除项，字段永远为空。回忆那一段也在这儿一起显示。 */
+      const r=await api('/api/piano/spectrum?id='+id);
+      const d=r.ok?await r.json():null;
       body.innerHTML='';
-      if(d.impression)body.appendChild(pianoSongBlock('这首歌的回忆',d.impression));
-      if(d.text)body.appendChild(pianoSongBlock('听感分析',d.text));
-      if(!d.impression&&!d.text)say('还没有分析。多听几次，多聊几句。');
+      if(d&&d.ready){
+        const bits=[];
+        if(d.bpm)bits.push(d.bpm+' BPM');
+        if(d.key)bits.push(d.key+' 调');
+        if(bits.length)body.appendChild(pianoSongBlock('这首歌',bits.join('　·　')));
+        if(d.story)body.appendChild(pianoSongBlock('能量走向',
+          d.story.replace(/^这首歌：.*\n?/,'').replace(/^能量走向：/,'')));
+      }else{
+        say('还在算。频谱是切歌之后在后台跑的，等一下再看。');
+      }
     }else{
       const r=await api('/api/piano/ncm/comments?id='+id);
       if(!r.ok)throw Error('评论拿不到');
@@ -4607,7 +4616,6 @@ async function pianoPlay(i){
   piano.tlyrics=lrc?pianoParseTLrc(lrc.tlyric||''):{};
   pianoRenderLyrics();
 
-  pianoEnsureAnalysis(s);        /* 切歌后按一下开关，不 await */
   pianoEnsureSpectrum(s);        /* 本地频谱，同样不 await */
   pianoPlanAhead();              /* 备好接下来三首 */
   /* 私人 FM 快到底了就提前续上，别等放完才发请求 */
@@ -4724,16 +4732,13 @@ async function pianoFmMore(playAfter){
   }finally{piano.fmBusy=false}
 }
 
-/* 切歌之后按一下分析的开关。Duetto 的分析是惰性的：读的那条只查库，
-   库里没有就返回空，真正触发要 POST。
-   🔴 三条约束，一条都不能松：
-     一、不许 await——分析一首几十秒，界面一秒都不能等，发出去就不管。
-     二、同一首只触发一次（_pianoAnalyzed 这个 Set），切来切去不重复烧钱。
-     三、失败一声不吭——没配 key 时 Duetto 返 {ok:true,text:''} 不报错，
-         那是正常的，没有分析只是少一段上下文，不是故障。
-   触发之后不轮询：下次她在琴房说话，聊天那条路本来就会 GET 一次分析，
-   那时候算好了自然带上。 */
-var _pianoAnalyzed=new Set();
+/* 🔴 这儿原本有 pianoEnsureAnalysis()：切歌就 POST /api/piano/analysis/audio，
+   让 Duetto 下整首音频喂分析模型。**那正是施工单 §5 唯一的排除项**
+   （Gemini 音频分析，确认走不通），而且 §1.5 定死了 Duetto 的 ai.api_key
+   一直留空——于是它每换一首新歌就把整首歌下载进那台 2G 机器的内存，
+   下完才在 callLLM 那儿失败。白烧带宽和内存。08-12 拆掉。
+   顶替它的是下面的 pianoEnsureSpectrum：librosa 在小窝自己进程里算，
+   不经过任何 AI 接口。 */
 var _pianoImgSent=new Set();      /* 已经送过频谱图的歌，同一首不再送 */
 
 /* 本地频谱分析（librosa，在小窝自己进程里算，不经过任何 AI 接口）。
@@ -4746,23 +4751,6 @@ function pianoEnsureSpectrum(s){
   api('/api/piano/spectrum',{method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({id,title:s.title||'',artist:s.artist||''})}).catch(()=>{});
-}
-function pianoEnsureAnalysis(s){
-  const id=String(s&&s.id||'');
-  if(!id||!/^\d+$/.test(id)||_pianoAnalyzed.has(id))return;
-  _pianoAnalyzed.add(id);                      /* 先记，失败也不重试，别烧钱 */
-  (async()=>{
-    try{
-      const r=await api('/api/piano/analysis?id='+encodeURIComponent(id));
-      const d=await r.json();
-      if((d.text||'').trim())return;           /* 缓存命中，什么都不做 */
-      /* 打的是「听」那条（fork 里新加的 /api/song-analysis-audio），
-         不是原版那条纯歌词的——那条会把音频版焊死。 */
-      await api('/api/piano/analysis/audio',{method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({id,title:s.title||'',artist:s.artist||''})});
-    }catch(e){/* 🔴 一声不吭 */}
-  })();
 }
 
 /* ── 播放模式：列表循环 / 单曲循环 / 随机 ─────────────────────────────── */

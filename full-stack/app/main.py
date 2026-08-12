@@ -1142,31 +1142,11 @@ class PianoAnalyzeBody(BaseModel):
     artist: str = Field(default="", max_length=300)
 
 
-@app.post("/api/piano/analysis/audio", dependencies=[Depends(require_auth)])
-async def piano_analyze_audio(body: PianoAnalyzeBody) -> dict:
-    """让 Duetto 去**听**这首歌（下整首音频送 Gemini），不是读歌词。
-
-    🔴 对面必须是 fork 里新加的 /api/song-analysis-audio。
-    Duetto 原版的 POST /api/song-analysis 走的是纯歌词那条，
-    而两条写同一张 song_analysis 表、都是「有就跳过」——
-    歌词版先落库，音频版就永远不会跑了。所以那条**连代理都不留**，
-    免得日后有人误调，一调就把这首歌的音频版焊死。
-
-    只透传 {id,title,artist}——不传 ai 字段，让它用服务端 settings.json
-    里配好的那套。
-    """
-    try:
-        return await piano.post(
-            "/api/song-analysis-audio",
-            {"id": body.id, "title": body.title, "artist": body.artist},
-            # fork 那条是 fire-and-forget，立刻回 {ok:true,started:true}，
-            # 所以这里不需要长超时。
-            timeout=piano.CONTEXT_TIMEOUT,
-        )
-    except piano.PianoError:
-        # 🔴 一声不吭。没配 key 时 Duetto 那边直接返空不报错，
-        # 没有分析只是少一段上下文，不是故障。
-        return {"ok": True, "queued": True}
+# 🔴 这儿原本是 POST /api/piano/analysis/audio —— 让 Duetto 下整首音频
+# 送分析模型。**那正是施工单 §5 唯一的排除项**（Gemini 音频分析，确认走不通），
+# 而且 §1.5 定死 Duetto 的 ai.api_key 一直留空，它下完音频才会在 callLLM 失败。
+# 前端已经不调了；路由一并拆掉，免得哪天有人手滑又把 100MB 下进那台 2G 机器。
+# 顶替它的是 librosa 频谱（POST /api/piano/spectrum 触发、GET 读结果）。
 
 
 @app.post("/api/piano/spectrum", dependencies=[Depends(require_auth)])
@@ -1197,6 +1177,27 @@ async def piano_spectrum(body: PianoAnalyzeBody) -> dict:
     asyncio.create_task(asyncio.to_thread(
         piano_analysis.analyze, body.id, url, body.title, body.artist))
     return {"ok": True, "queued": True}
+
+
+@app.get("/api/piano/spectrum", dependencies=[Depends(require_auth)])
+async def piano_spectrum_read(id: str = Query(max_length=64)) -> dict:
+    """读频谱的缓存结果。歌曲详情页的「歌曲分析」标签页吃这个。
+
+    施工单 §5：Gemini 音频分析是唯一的排除项，由 librosa 的本地频谱顶上。
+    所以那个标签页该显示的是这份客观数据（BPM / 调性 / 能量走向），
+    而不是 Duetto 那个永远为空的听感字段。
+    """
+    meta = piano_analysis.read_cached(id) or {}
+    if not meta:
+        return {"ok": True, "ready": False}
+    return {
+        "ok": True,
+        "ready": True,
+        "bpm": meta.get("bpm"),
+        "key": meta.get("key"),
+        "seconds": meta.get("seconds"),
+        "story": piano_analysis.context_line(meta),
+    }
 
 
 @app.get("/api/piano/notes", dependencies=[Depends(require_auth)])
