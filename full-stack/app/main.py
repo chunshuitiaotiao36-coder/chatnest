@@ -28,7 +28,7 @@ from starlette.formparsers import MultiPartParser
 
 MultiPartParser.max_part_size = 60 * 1024 * 1024  # 与 uploads.py 的 MAX_FILE_BYTES 对齐
 
-from app import auth, backgrounds, lorebook, nightguard, piano, piano_analysis, push, relays, starmap, telegram
+from app import auth, backgrounds, lorebook, nightguard, peek, piano, piano_analysis, push, relays, starmap, telegram
 from app.actor import ActorBusyError, _mem_kv
 from app.claude import (
     SessionResumeError,
@@ -180,6 +180,8 @@ async def outer_basic_auth(request: Request, call_next):
         # 手机快捷指令直接打这个，不带 cookie / basic auth。绕过外层是必须的，
         # **但函数内部自己校验 EVENTS_TOKEN**，见 events()。
         "/api/events",
+        # 截图上传，同上：绕过外层，函数内自己校验 EVENTS_TOKEN。
+        "/api/peek",
         "/static/manifest.webmanifest",
         "/static/css/typography-locked.css",
         "/static/design-system.css",
@@ -1131,8 +1133,11 @@ async def events(
             # 🔴 上报永远要成功。记不进去也不许让快捷指令拿到 500。
             timing_logger.exception("[凌晨守护] 上报落库失败")
         if kind.startswith("app"):
-            # maybe_bark 自己整个包在 try/except 里，不会抛到这儿来
-            await nightguard.maybe_bark(chat_lock)
+            # 🔴 判断留在请求里，开口扔后台，这儿立刻返回。stream_chat 要几秒到
+            #    几十秒，加上窥屏的邮件往返 15-45 秒，同步做会把上报请求吊死——
+            #    快捷指令的 URL 请求有超时，挂久了会失败甚至重试，
+            #    而重试又会再触发一次上报。trigger_bark 自己不抛。
+            nightguard.trigger_bark(chat_lock)
     return {"ok": True}
 
 
@@ -1143,6 +1148,45 @@ async def nightguard_test() -> dict:
     🔴 cn_hour 必须回显——这是验时区有没有搞对的唯一手段。
     """
     return await nightguard.maybe_bark(chat_lock, force=True)
+
+
+# ── 窥屏（砖 7）：开口前先看一眼她的屏幕 ────────────────────────────────
+
+@app.post("/api/peek")
+async def peek_upload(request: Request, key: str = Query(default="")) -> dict:
+    """手机截屏之后 POST 原始 PNG 上来。
+
+    🔴 key 放 URL 最前面：/api/peek?key=<TOKEN>
+       URL 里若带含空格的值，参数会从空格处截断，key 放最后就是 token 丢失。
+
+    鉴权复用 EVENTS_TOKEN——同一个信任域，都是她手机打进来的，省一次填变量。
+    """
+    if not nightguard.events_enabled():
+        raise HTTPException(status_code=404)
+    if not hmac.compare_digest(key, nightguard.EVENTS_TOKEN):
+        raise HTTPException(status_code=404)
+
+    data = await request.body()
+    if not data or len(data) > peek.max_bytes():
+        # 空 body / 超限：直接 400，不落盘
+        raise HTTPException(status_code=400)
+    try:
+        await asyncio.to_thread(peek.save_shot, data)
+    except Exception:
+        timing_logger.exception("[窥屏] 截图存盘失败")
+    # 永远返回 {"ok": true}，不回显路径
+    return {"ok": True}
+
+
+@app.post("/api/peek/mail-test", dependencies=[Depends(require_auth)])
+async def peek_mail_test() -> dict:
+    """只发一封触发邮件，不等图。
+
+    🔴 SMTP 是这条链路上最容易卡的一环（端口、加密方式、密码格式都可能错），
+       必须能跟「截图上传」「轮询等图」分开验。587 不通就把 MODE 换 ssl、
+       PORT 换 465 再试。
+    """
+    return await peek.send_trigger_mail()
 
 
 # ── 琴房：Duetto 的服务端代理 ────────────────────────────────────────────

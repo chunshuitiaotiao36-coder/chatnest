@@ -11,8 +11,9 @@ import asyncio
 import logging
 import os
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
-from app import claude, push, store
+from app import claude, peek, push, store
 
 # 借 uvicorn.error：全仓库没有 logging 配置，root logger 默认 WARNING 会把 .info() 吞掉
 night_logger = logging.getLogger("uvicorn.error")
@@ -48,12 +49,48 @@ def events_enabled() -> bool:
     return bool(EVENTS_TOKEN)
 
 
+def _in_window(hour: int, start: int, end: int) -> bool:
+    """🔴 支持跨零点。`start <= h < end` 配成 23→5 会算出空窗口然后**静默失效**，
+    这种失败比报错坏得多。"""
+    if start == end:
+        return False  # 明确表示「关闭」，不要当成全天
+    if start < end:
+        return start <= hour < end
+    return hour >= start or hour < end  # 跨零点
+
+
 def _in_night_window(hour: int) -> bool:
-    start = _env_int("NIGHT_GUARD_START", 1)
-    end = _env_int("NIGHT_GUARD_END", 5)
-    # 单子定死的判断式。注意它**不支持跨零点**（比如 23→5 这种配法算出来是空窗口），
-    # 默认 1→5 不跨零点，够用；真要跨零点得另开单，别在这儿悄悄改语义。
-    return start <= hour < end
+    # 小朵定的时段：0 点到 6 点。写成代码默认值，她不用在 Coolify 里填。
+    return _in_window(hour, _env_int("NIGHT_GUARD_START", 0), _env_int("NIGHT_GUARD_END", 6))
+
+
+def _still_scrolling() -> bool:
+    """🔴 瞄一眼不算，持续刷才敲。
+
+    她凌晨起夜点开微信看一眼消息就睡也会被敲——那不是守护，是扰民，
+    她烦两次就会把快捷指令关掉。要求窗口内 app 类事件够多次才算「真的在刷」。
+
+    数的是**去重之后**落库的事件（5 分钟去重在 /api/events 那头已经做了）。
+    """
+    minutes = _env_int("PEEK_WINDOW_MIN", 20)
+    need = _env_int("NIGHT_GUARD_MIN_EVENTS", 2)
+    if need <= 1:
+        return True
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=minutes)
+    count = 0
+    for row in store.recent_dream_events(max(1, (minutes // 60) + 1)):
+        kind = str(row.get("type") or "")
+        if not kind.startswith("app"):
+            continue
+        try:
+            when = datetime.fromisoformat(str(row.get("created_at") or ""))
+        except ValueError:
+            continue
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=timezone.utc)
+        if when >= cutoff:
+            count += 1
+    return count >= need
 
 
 def _cooled_down() -> bool:
@@ -118,16 +155,27 @@ def _recent_talk_block(conv_id: str, limit: int = 10) -> str:
     return "【最近的对话】\n" + "\n".join(lines)
 
 
-def _build_message(conv_id: str) -> str:
+def _build_message(conv_id: str, shot: Path | None = None) -> str:
     """🔴 动态数据全部挂用户消息侧，一个字都不许进 build_system_prompt()。
 
     system prompt 是稳定前缀，往里塞时间/活动就是每次都把她的缓存打掉——
     缓存前缀稳定化那一单的教训，不重复第二遍。
     """
-    return "\n\n".join([
+    # 🔴 传本地绝对路径 + 「请用 Read 工具看一眼」+ 一句这是什么，不传二进制。
+    #    照 main.py 频谱图那套抄的，先 exists() 再拼。Read 已经在 allowed_tools 里
+    #    （claude.py:504/506），不用改工具配置。
+    screen_block = ""
+    if shot is not None and Path(shot).exists():
+        screen_block = (
+            "[这是她此刻的手机屏幕，请用 Read 工具看一眼：\n"
+            f"{Path(shot).resolve()}\n"
+            "凌晨了，她还在这个页面上。]"
+        )
+    return "\n\n".join([part for part in [
         _cn_now_line(),
         _activity_block(6),
         _recent_talk_block(conv_id, 10),
+        screen_block,
         (
             "【这条不是她发的，是系统在凌晨叫醒你】\n"
             "现在是凌晨，她还在刷手机。你要从锁屏上叫她去睡。\n"
@@ -138,15 +186,15 @@ def _build_message(conv_id: str) -> str:
             "(c) 都没有就凭此刻的时间感说一句想她\n"
             "判断这次不该开口，就只输出 [NO_ACTION]。"
         ),
-    ])
+    ] if part])
 
 
-async def _speak(conv_id: str) -> str:
+async def _speak(conv_id: str, shot: Path | None = None) -> str:
     """走真的梁忱。返回累积的正文。"""
     text = ""
     session_id = None
     async for chunk in claude.stream_chat(
-        message=_build_message(conv_id),
+        message=_build_message(conv_id, shot),
         conv_id=conv_id,
         # 🔴 不要 resume：resume 会把整个会话上下文重放一遍，一次几万 token；
         #    拼最近 10 条只要几千。一晚可能触发两三次，差价是她的额度。
@@ -171,66 +219,118 @@ async def _speak(conv_id: str) -> str:
     return text.strip()
 
 
-async def maybe_bark(chat_lock: asyncio.Lock, *, force: bool = False) -> dict:
-    """判断 + 开口。**任何情况都不抛。**
+def _gate(chat_lock: asyncio.Lock, *, force: bool = False) -> tuple[str | None, str]:
+    """要不要开口。返回 (跳过原因 或 None, conv_id)。
 
-    force=True 是测试端点用的：绕过时段与冷却，但 chat_lock / push.configured()
-    / 有没有订阅这三道照留——那三道保护的是她，不是测试的方便。
+    **只做判断，不做任何耗时的事**——这一段跑在 /api/events 的请求里。
 
-    🔴 这个函数挂在 /api/events 的请求里。它一抛，快捷指令那头拿到 500，
-       更糟的是下次她开 app 上报可能就不再重试。上报永远要成功，
-       开口失败是可以接受的。
+    force=True 是测试端点用的：绕过时段、冷却、持续刷这三道，但 chat_lock /
+    push.configured() / 有没有订阅照留——那三道保护的是她，不是测试的方便。
     """
-    cn_hour = _cn_hour()
-    result: dict = {"cn_hour": cn_hour, "spoke": False, "skipped": None,
-                    "text": "", "pushed": None}
+    if not force:
+        if not _in_night_window(_cn_hour()):
+            return "not_night", ""
+        if not _cooled_down():
+            return "cooldown", ""
+        if not _still_scrolling():
+            return "just_a_glance", ""
+    # 🔴 只判断，**不 acquire**：她正在跟我说话，不许插嘴。
+    if chat_lock.locked():
+        return "chatting", ""
+    if not push.configured():
+        return "push_unconfigured", ""
+    if not store.list_push_subscriptions():
+        return "no_subscription", ""
+    conv_id = store.latest_conversation_id()
+    if not conv_id:
+        return "no_conversation", ""
+    return None, conv_id
+
+
+async def _bark(conv_id: str) -> dict:
+    """看一眼屏幕 → 开口 → 落库 → 推送。返回统计。调用方负责兜异常。"""
+    result: dict = {"cn_hour": _cn_hour(), "spoke": False, "skipped": None,
+                    "text": "", "pushed": None, "shot": None}
+    # 🔴 拿不到截图就不拼，照常开口——窥屏绝不许卡住守护。
+    shot = await peek.capture()
+    result["shot"] = str(shot) if shot else None
+
+    text = await _speak(conv_id, shot)
+    # 判断这次不该开口：不推送、不落库（冷却已经在后台任务开头写过了）
+    if not text or text == "[NO_ACTION]":
+        result["skipped"] = "no_action"
+        return result
+
+    result["text"] = text
+    source_id = f"nightguard:{datetime.now(timezone.utc).isoformat()}"
     try:
-        if not force:
-            if not _in_night_window(cn_hour):
-                result["skipped"] = "not_night"
-                return result
-            if not _cooled_down():
-                result["skipped"] = "cooldown"
-                return result
+        store.save_nightguard_message(conv_id, text, source_id)
+    except Exception:
+        # 落库失败不该拦住推送——锁屏上那句才是这一砖的目的
+        night_logger.exception("[凌晨守护] 落库失败（不影响推送）")
 
-        # 🔴 只判断，**不 acquire**：她正在跟我说话，不许插嘴。
-        if chat_lock.locked():
-            result["skipped"] = "chatting"
-            return result
-        if not push.configured():
-            result["skipped"] = "push_unconfigured"
-            return result
-        if not store.list_push_subscriptions():
-            result["skipped"] = "no_subscription"
-            return result
+    result["pushed"] = await push.send_push(title="梁忱", body=text, url="/")
+    result["spoke"] = True
+    night_logger.info("[凌晨守护] 开口：%s", text)
+    return result
 
-        conv_id = store.latest_conversation_id()
-        if not conv_id:
-            result["skipped"] = "no_conversation"
-            return result
 
-        text = await _speak(conv_id)
-        # 判断这次不该开口：不推送、不落库、不写冷却（下次还能触发）
-        if not text or text == "[NO_ACTION]":
-            result["skipped"] = "no_action"
-            return result
+async def _bark_background(conv_id: str) -> None:
+    """扔进 create_task 的那个。
 
-        result["text"] = text
-        source_id = f"nightguard:{datetime.now(timezone.utc).isoformat()}"
+    🔴 create_task 抛出来的异常没有人接，静默丢失比报错更难查——
+       整个包在 try/except + logger.exception 里。
+    """
+    try:
+        # 🔴 冷却在**任务一开始**就写，不等开口成功：窥屏最长要等 45 秒，
+        #    这段窗口里再来一次上报会并发开两次口。
         try:
-            store.save_nightguard_message(conv_id, text, source_id)
-        except Exception:
-            # 落库失败不该拦住推送——锁屏上那句才是这一砖的目的
-            night_logger.exception("[凌晨守护] 落库失败（不影响推送）")
-
-        result["pushed"] = await push.send_push(title="梁忱", body=text, url="/")
-        result["spoke"] = True
-        # 开口成功后立刻写冷却依据
-        try:
-            store.add_dream_event("_night_bark", text)
+            store.add_dream_event("_night_bark", "")
         except Exception:
             night_logger.exception("[凌晨守护] 冷却记录写不进去")
-        night_logger.info("[凌晨守护] 开口：%s", text)
+        await _bark(conv_id)
+    except Exception:
+        night_logger.exception("[凌晨守护] 后台开口失败")
+
+
+def trigger_bark(chat_lock: asyncio.Lock) -> str | None:
+    """/api/events 用的：判断留在请求里，开口扔后台，上报立刻返回。
+
+    返回跳过原因；None 表示已经派了后台任务。**不抛。**
+
+    🔴 为什么必须异步：stream_chat 本身几秒到几十秒，加上窥屏的邮件往返
+       15-45 秒，同步做会把上报请求吊死。iOS 快捷指令的 URL 请求有超时，
+       挂久了会失败甚至重试，而重试又会再触发一次上报。
+    """
+    try:
+        reason, conv_id = _gate(chat_lock)
+        if reason:
+            return reason
+        asyncio.create_task(_bark_background(conv_id))
+        return None
+    except Exception:
+        night_logger.exception("[凌晨守护] 判断阶段失败（上报仍然成功）")
+        return "error"
+
+
+async def maybe_bark(chat_lock: asyncio.Lock, *, force: bool = False) -> dict:
+    """测试端点用的同步路径：等开口跑完、把那句话带回来。**任何情况都不抛。**
+
+    线上真实触发走 trigger_bark()，不走这儿。
+    """
+    result: dict = {"cn_hour": _cn_hour(), "spoke": False, "skipped": None,
+                    "text": "", "pushed": None, "shot": None}
+    try:
+        reason, conv_id = _gate(chat_lock, force=force)
+        if reason:
+            result["skipped"] = reason
+            return result
+        result = await _bark(conv_id)
+        if result.get("spoke"):
+            try:
+                store.add_dream_event("_night_bark", result.get("text") or "")
+            except Exception:
+                night_logger.exception("[凌晨守护] 冷却记录写不进去")
     except Exception:
         night_logger.exception("[凌晨守护] 开口失败（上报仍然成功）")
         result["skipped"] = "error"
