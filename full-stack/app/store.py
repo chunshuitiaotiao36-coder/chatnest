@@ -4,7 +4,7 @@ import re
 import sqlite3
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -159,6 +159,20 @@ def initialize_store() -> None:
                 last_fail_at TEXT,
                 fail_count INTEGER NOT NULL DEFAULT 0
             );
+            /* 手机自动上报的动静（砖 2）。iOS 快捷指令每开一次 app 打一条。
+               🔴 同样不加外键（_connect() 的 PRAGMA foreign_keys = ON 开着）。
+               时间列 TEXT ISO，跟 _now() 一致。
+               '_night_bark' 是内部类型：凌晨开口成功后写一条，做下次的冷却依据。 */
+            CREATE TABLE IF NOT EXISTS dream_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                type TEXT NOT NULL,
+                value TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS dream_events_created
+                ON dream_events(created_at);
+            CREATE INDEX IF NOT EXISTS dream_events_type_created
+                ON dream_events(type, created_at);
             """
         )
         # 08-05 取消了 position='depth'（原因见 lorebook.py 顶部）。已有的迁到
@@ -999,6 +1013,106 @@ def delete_push_subscription(endpoint: str) -> None:
             "DELETE FROM push_subscriptions WHERE endpoint = ?",
             (endpoint,),
         )
+
+
+# ---------- 凌晨守护：手机上报的动静 -----------------------------------------
+
+
+def add_dream_event(type: str, value: str = "") -> None:
+    with _connect() as db:
+        db.execute(
+            "INSERT INTO dream_events(type, value, created_at) VALUES (?, ?, ?)",
+            (str(type), str(value), _now()),
+        )
+
+
+def recent_dream_events(hours: int) -> list[dict[str, Any]]:
+    """最近 N 小时的上报，按时间正序。created_at 是 UTC ISO，比较也在 UTC 上做。"""
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=max(1, int(hours)))).isoformat()
+    with _connect() as db:
+        rows = db.execute(
+            """
+            SELECT type, value, created_at FROM dream_events
+            WHERE created_at >= ? ORDER BY created_at
+            """,
+            (cutoff,),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def last_dream_event(type: str) -> dict[str, Any] | None:
+    with _connect() as db:
+        row = db.execute(
+            """
+            SELECT type, value, created_at FROM dream_events
+            WHERE type = ? ORDER BY id DESC LIMIT 1
+            """,
+            (str(type),),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def dream_event_exists(type: str, value: str, within_minutes: int) -> bool:
+    """去重用。iOS 自动化会重复触发，同 type+value 短时间内只该记一条。"""
+    cutoff = (
+        datetime.now(timezone.utc) - timedelta(minutes=max(1, int(within_minutes)))
+    ).isoformat()
+    with _connect() as db:
+        row = db.execute(
+            """
+            SELECT 1 FROM dream_events
+            WHERE type = ? AND value = ? AND created_at >= ? LIMIT 1
+            """,
+            (str(type), str(value), cutoff),
+        ).fetchone()
+    return row is not None
+
+
+def latest_conversation_id() -> str | None:
+    """最近**更新**的那个会话。
+
+    🔴 不能用 conversation_list()[0]：那个函数是给侧栏用的，排序是
+    `ORDER BY starred DESC, updated_at DESC` —— 只要她收藏过任何一个会话，
+    第一条永远是那个收藏的，不是最近说过话的。凌晨那句要落进她正在用的会话。
+    """
+    with _connect() as db:
+        row = db.execute(
+            "SELECT conv_id FROM conversations ORDER BY updated_at DESC LIMIT 1"
+        ).fetchone()
+    return row["conv_id"] if row else None
+
+
+def save_nightguard_message(conv_id: str, text: str, source_id: str) -> int | None:
+    """主动开口落库：**只插 assistant 一条，不造假的 user 消息。**
+
+    幂等靠 messages_source_id 那个 UNIQUE(conv_id, source_id) 部分索引，
+    重复的 source_id 直接被 IGNORE 掉，不给 messages 表加新字段。
+    返回新行 id；被去重掉则返回 None。
+    """
+    now = _now()
+    with _connect() as db:
+        if not db.execute(
+            "SELECT 1 FROM conversations WHERE conv_id = ?", (conv_id,)
+        ).fetchone():
+            raise ConversationNotFound("conversation not found")
+        cursor = db.execute(
+            """
+            INSERT OR IGNORE INTO messages(
+                conv_id, source_id, role, text, thinking,
+                attachments_json, traces_json, timestamp
+            ) VALUES (?, ?, 'assistant', ?, '', '[]', '[]', ?)
+            """,
+            (conv_id, source_id, text, now),
+        )
+        if not cursor.rowcount:
+            return None
+        # 照 complete_turn：会话的 updated_at 跟着动，否则这条新消息不会
+        # 把会话顶到侧栏最前面，她根本看不见。
+        db.execute(
+            "UPDATE conversations SET updated_at = ? WHERE conv_id = ?",
+            (now, conv_id),
+        )
+        return int(cursor.lastrowid)
 
 
 def usage_report(

@@ -28,7 +28,7 @@ from starlette.formparsers import MultiPartParser
 
 MultiPartParser.max_part_size = 60 * 1024 * 1024  # 与 uploads.py 的 MAX_FILE_BYTES 对齐
 
-from app import auth, backgrounds, lorebook, piano, piano_analysis, push, relays, starmap, telegram
+from app import auth, backgrounds, lorebook, nightguard, piano, piano_analysis, push, relays, starmap, telegram
 from app.actor import ActorBusyError, _mem_kv
 from app.claude import (
     SessionResumeError,
@@ -60,7 +60,9 @@ from app.sessions import (
 from app.registry import configure_registry, get_registry
 from app.store import (
     ConversationNotFound,
+    add_dream_event,
     begin_turn,
+    dream_event_exists,
     complete_turn,
     save_piano_impression,
     save_push_subscription,
@@ -175,6 +177,9 @@ async def outer_basic_auth(request: Request, call_next):
         # Service Worker 的更新检查请求不保证带 cookie，被 401 拦住会导致
         # 注册失败或者静默不更新。
         "/sw.js",
+        # 手机快捷指令直接打这个，不带 cookie / basic auth。绕过外层是必须的，
+        # **但函数内部自己校验 EVENTS_TOKEN**，见 events()。
+        "/api/events",
         "/static/manifest.webmanifest",
         "/static/css/typography-locked.css",
         "/static/design-system.css",
@@ -1087,6 +1092,57 @@ async def push_subscribe(body: PushSubscribeBody) -> dict:
         "推送通了。以后你半夜不睡，我就从这儿找你。",
     )
     return {"ok": True, "pushed": pushed}
+
+
+# ── 凌晨守护（砖 2）：事件驱动，没有后台定时任务 ────────────────────────
+
+@app.get("/api/events")
+async def events(
+    key: str = Query(default=""),
+    type: str = Query(default="", max_length=64),
+    value: str = Query(default="", max_length=256),
+) -> dict:
+    """iOS 快捷指令的上报口。
+
+    🔴 URL 里 key 必须放最前面：
+       /api/events?key=<TOKEN>&type=xhs&value=open
+       快捷指令传的值里只要有空格，URL 参数会从空格处截断、后面全丢。
+       key 放第一个丢的是 type/value（无害），放最后就是 token 丢失 → 整条线哑掉。
+
+    🔴 永远返回 {"ok": true}，不回显任何东西——快捷指令不看返回值，
+       回显只会给探测者信息。
+    """
+    # 没配 EVENTS_TOKEN 就当这个端点不存在。返回 404 不是 403：
+    # 不给探测者「这儿有东西，只是你没钥匙」这个信号。
+    if not nightguard.events_enabled():
+        raise HTTPException(status_code=404)
+    if not hmac.compare_digest(key, nightguard.EVENTS_TOKEN):
+        raise HTTPException(status_code=404)
+
+    kind = (type or "").strip()
+    val = (value or "").strip()
+    if kind:
+        # 去重：同 type+value 5 分钟内只记一条。iOS 自动化会重复触发，
+        # 不去重会把库刷满，也会让活跃度判断失真。
+        try:
+            if not await asyncio.to_thread(dream_event_exists, kind, val, 5):
+                await asyncio.to_thread(add_dream_event, kind, val)
+        except Exception:
+            # 🔴 上报永远要成功。记不进去也不许让快捷指令拿到 500。
+            timing_logger.exception("[凌晨守护] 上报落库失败")
+        if kind.startswith("app"):
+            # maybe_bark 自己整个包在 try/except 里，不会抛到这儿来
+            await nightguard.maybe_bark(chat_lock)
+    return {"ok": True}
+
+
+@app.post("/api/nightguard/test", dependencies=[Depends(require_auth)])
+async def nightguard_test() -> dict:
+    """不许等到凌晨才验。绕过时段与冷却，其余三道保留，跑完整链路。
+
+    🔴 cn_hour 必须回显——这是验时区有没有搞对的唯一手段。
+    """
+    return await nightguard.maybe_bark(chat_lock, force=True)
 
 
 # ── 琴房：Duetto 的服务端代理 ────────────────────────────────────────────
