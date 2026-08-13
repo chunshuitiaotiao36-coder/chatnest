@@ -28,7 +28,7 @@ from starlette.formparsers import MultiPartParser
 
 MultiPartParser.max_part_size = 60 * 1024 * 1024  # 与 uploads.py 的 MAX_FILE_BYTES 对齐
 
-from app import auth, backgrounds, lorebook, piano, piano_analysis, relays, starmap, telegram
+from app import auth, backgrounds, lorebook, piano, piano_analysis, push, relays, starmap, telegram
 from app.actor import ActorBusyError, _mem_kv
 from app.claude import (
     SessionResumeError,
@@ -63,6 +63,7 @@ from app.store import (
     begin_turn,
     complete_turn,
     save_piano_impression,
+    save_push_subscription,
     ensure_conversation,
     initialize_store,
     prepare_edit_turn,
@@ -171,6 +172,9 @@ async def outer_basic_auth(request: Request, call_next):
         "/health",
         "/marked.min.js",
         "/favicon.ico",
+        # Service Worker 的更新检查请求不保证带 cookie，被 401 拦住会导致
+        # 注册失败或者静默不更新。
+        "/sw.js",
         "/static/manifest.webmanifest",
         "/static/css/typography-locked.css",
         "/static/design-system.css",
@@ -206,6 +210,13 @@ def require_auth(authorization: str = Header(default="")) -> None:
 
 class AuthBody(BaseModel):
     password: str = Field(min_length=1, max_length=256)
+
+
+class PushSubscribeBody(BaseModel):
+    endpoint: str = Field(min_length=1, max_length=2048)
+    p256dh: str = Field(min_length=1, max_length=256)
+    auth: str = Field(min_length=1, max_length=256)
+    ua: str = Field(default="", max_length=512)
 
 
 class ChatBody(BaseModel):
@@ -380,6 +391,17 @@ async def index() -> FileResponse:
     return FileResponse(
         STATIC / "index.html",
         headers={"Cache-Control": "no-cache"},
+    )
+
+
+@app.get("/sw.js")
+async def sw_js() -> FileResponse:
+    # 🔴 必须挂在根路径：Service Worker 的 scope 由它自己的 URL 决定，
+    #    放 /static/sw.js 就只能控 /static/*，推送到不了主页面。
+    return FileResponse(
+        STATIC / "sw.js",
+        media_type="application/javascript",
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
     )
 
 
@@ -1045,6 +1067,26 @@ async def usage_data(
 async def starmap_data(refresh: bool = False) -> dict:
     # urllib 是阻塞的，跟 relays.probe 一样甩到线程里，别堵事件循环
     return await asyncio.to_thread(starmap.fetch_stars, refresh)
+
+
+# ── Web Push（砖 1）：只有管道，调度是砖 2 ──────────────────────────────
+
+@app.get("/api/push/vapid", dependencies=[Depends(require_auth)])
+async def push_vapid() -> dict:
+    return {"publicKey": push.VAPID_PUBLIC_KEY, "configured": push.configured()}
+
+
+@app.post("/api/push/subscribe", dependencies=[Depends(require_auth)])
+async def push_subscribe(body: PushSubscribeBody) -> dict:
+    # sqlite 是阻塞的，甩到线程里，别堵事件循环
+    await asyncio.to_thread(save_push_subscription, body.model_dump())
+    # 🔴 存完立刻推第一条。这一条**就是验收凭据**——不另做测试按钮、
+    #    不另做测试页，订阅完锁屏就该弹。
+    pushed = await push.send_push(
+        "梁忱",
+        "推送通了。以后你半夜不睡，我就从这儿找你。",
+    )
+    return {"ok": True, "pushed": pushed}
 
 
 # ── 琴房：Duetto 的服务端代理 ────────────────────────────────────────────

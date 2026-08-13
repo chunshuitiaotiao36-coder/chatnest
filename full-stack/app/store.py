@@ -143,6 +143,22 @@ def initialize_store() -> None:
                 n          INTEGER NOT NULL DEFAULT 0,
                 updated_at INTEGER NOT NULL
             );
+            /* Web Push 订阅（砖 1）。
+               🔴 刻意不加任何外键。上面 _connect() 开着 PRAGMA foreign_keys = ON，
+               挂到 conversations 上会导致删一个会话就连带删掉推送订阅——订阅是
+               设备级的，跟哪次对话没有关系。
+               时间列一律 TEXT ISO，跟 _now() 一致；不要用 INTEGER 时间戳。 */
+            CREATE TABLE IF NOT EXISTS push_subscriptions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                endpoint TEXT UNIQUE NOT NULL,
+                p256dh TEXT NOT NULL,
+                auth TEXT NOT NULL,
+                ua TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL,
+                last_ok_at TEXT,
+                last_fail_at TEXT,
+                fail_count INTEGER NOT NULL DEFAULT 0
+            );
             """
         )
         # 08-05 取消了 position='depth'（原因见 lorebook.py 顶部）。已有的迁到
@@ -905,6 +921,83 @@ def record_usage(entry: dict[str, Any]) -> None:
                 entry.get("cache_read"),
                 entry.get("cost_usd"),
             ),
+        )
+
+
+# ---------- 推送订阅 ---------------------------------------------------------
+
+
+def save_push_subscription(entry: dict[str, Any]) -> None:
+    """存一条订阅。同一个 endpoint 重复订阅就更新密钥，不新增行。
+
+    重新授权 / 换 UA 时浏览器会给出同一个 endpoint 但新的 p256dh，
+    所以冲突时必须覆盖密钥，顺带把 fail_count 清零——它又活了。
+    """
+    with _connect() as db:
+        db.execute(
+            """
+            INSERT INTO push_subscriptions(
+                endpoint, p256dh, auth, ua, created_at, fail_count
+            ) VALUES (?, ?, ?, ?, ?, 0)
+            ON CONFLICT(endpoint) DO UPDATE SET
+                p256dh = excluded.p256dh,
+                auth = excluded.auth,
+                ua = excluded.ua,
+                fail_count = 0,
+                last_fail_at = NULL
+            """,
+            (
+                str(entry.get("endpoint") or ""),
+                str(entry.get("p256dh") or ""),
+                str(entry.get("auth") or ""),
+                str(entry.get("ua") or ""),
+                _now(),
+            ),
+        )
+
+
+def list_push_subscriptions() -> list[dict[str, Any]]:
+    with _connect() as db:
+        rows = db.execute(
+            """
+            SELECT endpoint, p256dh, auth, ua, created_at,
+                   last_ok_at, last_fail_at, fail_count
+            FROM push_subscriptions
+            ORDER BY id
+            """
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def mark_push_ok(endpoint: str) -> None:
+    with _connect() as db:
+        db.execute(
+            """
+            UPDATE push_subscriptions
+            SET last_ok_at = ?, fail_count = 0
+            WHERE endpoint = ?
+            """,
+            (_now(), endpoint),
+        )
+
+
+def mark_push_fail(endpoint: str) -> None:
+    with _connect() as db:
+        db.execute(
+            """
+            UPDATE push_subscriptions
+            SET last_fail_at = ?, fail_count = fail_count + 1
+            WHERE endpoint = ?
+            """,
+            (_now(), endpoint),
+        )
+
+
+def delete_push_subscription(endpoint: str) -> None:
+    with _connect() as db:
+        db.execute(
+            "DELETE FROM push_subscriptions WHERE endpoint = ?",
+            (endpoint,),
         )
 
 

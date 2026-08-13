@@ -2436,7 +2436,41 @@ async function sendMessage(text,showUser=true,files=[],existingAttachments=[],op
   }catch(e){if(runId!==_chatRunId)return;if(e.name==='AbortError'){if(msg&&msg.row?.classList.contains('streaming'))msg.finish()}else if(msg)await recoverAfterBreak(msg,state.convId,e.message||'连接失败，请稍后重试。',()=>runId===_chatRunId);else toast(e.message||'文件上传失败')}
   finally{if(runId===_chatRunId){_chatAbort=null;_activeMsg=null;state.busy=false;updateSendButton()}}
 }
-send.onclick=()=>{clearStaleBusy();if(state.busy){stopActiveResponseNow();return}if(_editState.active){const row=_editState.row,next=input.value.trim(),raw=row?.dataset?.raw||'';if(!next){toast('消息不能为空');return}if(next===raw){exitEditMode();return}exitEditMode({restore:false});editUserAndRegenerate(row,next);return}if(!hasComposerContent()){toast('语音功能开发中');return}sendMessage(input.value.trim(),true,[...state.pendingFiles])};
+/* --- Web Push 订阅（砖 1）---
+   🔴 Notification.requestPermission() 只能在 onclick 内调用。放页面加载 /
+   DOMContentLoaded 里 iOS 会静默 deny，而且之后不再弹，只能删掉主屏图标重装。
+   所以挂在发送按钮上——顺带也就不用另加一个「开通推送」按钮占位置。 */
+let _pushTried=false;
+function urlBase64ToUint8Array(b64){const pad='='.repeat((4-b64.length%4)%4);const raw=atob((b64+pad).replace(/-/g,'+').replace(/_/g,'/'));const out=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);return out}
+async function trySubscribePush(){
+  if(_pushTried)return;
+  /* 只在 standalone 下试：Safari 标签页里注册 SW 能成，但推送不会到，
+     白弹一次权限，而且那次拒绝是记住的。 */
+  if(!(window.matchMedia('(display-mode: standalone)').matches||navigator.standalone))return;
+  if(!('serviceWorker'in navigator)||!('PushManager'in window)||!('Notification'in window))return;
+  if(Notification.permission==='denied'){_pushTried=true;return}
+  const token=localStorage.getItem('chat_token');if(!token)return;
+  _pushTried=true;
+  try{
+    const reg=await navigator.serviceWorker.register('/sw.js');
+    const perm=Notification.permission==='granted'?'granted':await Notification.requestPermission();
+    if(perm!=='granted')return;
+    /* 手写 Authorization，不走 api()：它 401 会 showGate() 把她踹回登录页，
+       这条是 fire-and-forget 的路，不该有那个副作用。 */
+    const h={Authorization:`Bearer ${token}`};
+    const vr=await fetch('/api/push/vapid',{headers:h});if(!vr.ok)throw Error('vapid '+vr.status);
+    const {publicKey,configured}=await vr.json();
+    if(!configured||!publicKey){console.warn('[push] 服务端没配 VAPID');return}
+    const sub=await reg.pushManager.getSubscription()||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlBase64ToUint8Array(publicKey)});
+    const j=sub.toJSON();
+    const sr=await fetch('/api/push/subscribe',{method:'POST',headers:{...h,'Content-Type':'application/json'},body:JSON.stringify({endpoint:j.endpoint,p256dh:j.keys.p256dh,auth:j.keys.auth,ua:navigator.userAgent.slice(0,512)})});
+    if(!sr.ok)throw Error('subscribe '+sr.status);
+    console.log('[push] 订阅成功',await sr.json());
+  }catch(e){_pushTried=false;console.warn('[push] 订阅失败',e)}
+}
+/* 🔴 fire-and-forget + try/catch 双保险：订阅逻辑一旦抛，她就发不出消息了——
+   这比推送不通严重得多。下面原有逻辑一行没动。 */
+send.onclick=()=>{try{trySubscribePush()}catch(e){}clearStaleBusy();if(state.busy){stopActiveResponseNow();return}if(_editState.active){const row=_editState.row,next=input.value.trim(),raw=row?.dataset?.raw||'';if(!next){toast('消息不能为空');return}if(next===raw){exitEditMode();return}exitEditMode({restore:false});editUserAndRegenerate(row,next);return}if(!hasComposerContent()){toast('语音功能开发中');return}sendMessage(input.value.trim(),true,[...state.pendingFiles])};
 input.oninput=()=>{input.style.height='auto';input.style.height=Math.min(input.scrollHeight,144)+'px';updateSendButton();input.scrollTop=input.scrollHeight};
 
 // --- 消息长按弹窗（照搬侧边栏 bindSessionMenu 模式）---
