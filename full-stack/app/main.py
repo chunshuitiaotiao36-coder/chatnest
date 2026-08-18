@@ -1034,6 +1034,30 @@ async def letters_unlock(letter_id: int, body: LetterUnlockBody) -> dict:
     return {"unlocked": True, "letter": full}
 
 
+@app.get("/api/keepalive/status", dependencies=[Depends(require_auth)])
+async def keepalive_status() -> dict:
+    """诊断：唤醒系统当前状态。"""
+    from app.keepalive import _cn_hour, _effective_interval, _in_active_hours
+    hour = _cn_hour()
+    interval = _effective_interval()
+    last_user = await asyncio.to_thread(store.last_user_message_time)
+    last_ka = await asyncio.to_thread(store.last_dream_event, "_keepalive")
+    push_configured = push.configured()
+    subs = await asyncio.to_thread(store.list_push_subscriptions)
+    conv = await asyncio.to_thread(store.latest_conversation_id)
+    return {
+        "cn_hour": hour,
+        "in_active_hours": _in_active_hours(hour),
+        "effective_interval_min": interval,
+        "last_user_message": str(last_user) if last_user else None,
+        "last_keepalive": last_ka.get("created_at") if last_ka else None,
+        "push_configured": push_configured,
+        "push_subscriptions": len(subs),
+        "has_conversation": bool(conv),
+        "chat_locked": chat_lock.locked(),
+    }
+
+
 @app.get("/api/splash")
 async def splash() -> dict:
     return {

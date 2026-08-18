@@ -179,8 +179,8 @@ def _parse_response(text: str) -> tuple[str, str, str, str]:
 
 # ── AI 调用与行动路由 ─────────────────────────────────────────────────
 
-async def _wake(conv_id: str) -> None:
-    logger.info("[唤醒] tick → 调 AI conv=%s", conv_id)
+async def _wake(conv_id: str, push_ok: bool = True) -> None:
+    logger.info("[唤醒] tick → 调 AI conv=%s push_ok=%s", conv_id, push_ok)
 
     text = ""
     session_id = None
@@ -223,8 +223,7 @@ async def _wake(conv_id: str) -> None:
             logger.warning("[唤醒] letter 但 content 为空")
             return
         try:
-            from app.store import create_letter
-            letter_id = create_letter(
+            letter_id = store.create_letter(
                 author="elian",
                 content=content,
                 title=title or "",
@@ -234,13 +233,21 @@ async def _wake(conv_id: str) -> None:
             logger.info("[唤醒] 信件写入 id=%d：%s", letter_id, content[:100])
         except Exception:
             logger.exception("[唤醒] 信件写入失败")
-        # Push notification to let her know
-        await push.send_push(title="寄相思", body=title or "你收到了一封信", url="/")
+        # 推送通知（推送没配也不影响信件落库）
+        if push_ok:
+            await push.send_push(title="寄相思", body=title or "你收到了一封信", url="/")
         return
 
     if action == "message":
         if not content:
             logger.warning("[唤醒] message 但 content 为空")
+            return
+        if not push_ok:
+            logger.warning("[唤醒] AI 想发 message 但推送不可用，改存 diary：%s", content[:60])
+            try:
+                store.add_dream_event("_diary", f"[想说但推送不通] {content}")
+            except Exception:
+                pass
             return
         source_id = f"keepalive:{datetime.now(timezone.utc).isoformat()}"
         try:
@@ -258,7 +265,7 @@ async def _tick(chat_lock: asyncio.Lock) -> None:
 
     # 1. 时段
     if not _in_active_hours(hour):
-        logger.debug("[唤醒] 跳过：不在活跃时段 hour=%d", hour)
+        logger.info("[唤醒] 跳过：不在活跃时段 hour=%d", hour)
         return
 
     interval = _effective_interval()
@@ -271,7 +278,7 @@ async def _tick(chat_lock: asyncio.Lock) -> None:
         elapsed_user = datetime.now(timezone.utc) - last_user
         if elapsed_user < timedelta(minutes=interval):
             remaining = timedelta(minutes=interval) - elapsed_user
-            logger.debug(
+            logger.info(
                 "[唤醒] 跳过：距上次聊天太近 interval=%d 还差 %s", interval, remaining
             )
             return
@@ -289,29 +296,28 @@ async def _tick(chat_lock: asyncio.Lock) -> None:
             elapsed_ka = datetime.now(timezone.utc) - when
             if elapsed_ka < timedelta(minutes=interval):
                 remaining = timedelta(minutes=interval) - elapsed_ka
-                logger.debug(
+                logger.info(
                     "[唤醒] 跳过：冷却中 interval=%d 还差 %s", interval, remaining
                 )
                 return
 
     # 4. 她正在说话
     if chat_lock.locked():
-        logger.debug("[唤醒] 跳过：正在聊天")
+        logger.info("[唤醒] 跳过：正在聊天")
         return
 
-    # 5. 推送就绪
-    if not push.configured():
-        logger.debug("[唤醒] 跳过：推送未配置")
-        return
-    if not store.list_push_subscriptions():
-        logger.debug("[唤醒] 跳过：无推送订阅")
-        return
-
-    # 6. 有会话
+    # 5. 有会话
     conv_id = store.latest_conversation_id()
     if not conv_id:
-        logger.debug("[唤醒] 跳过：无会话")
+        logger.info("[唤醒] 跳过：无会话")
         return
+
+    # 6. 推送状态（不再拦死全部动作，只记录给 _wake 用）
+    _push_ok = push.configured() and bool(store.list_push_subscriptions())
+    if not push.configured():
+        logger.info("[唤醒] ⚠️ VAPID 未配置——message 动作会跳过，diary/letter 正常")
+    elif not store.list_push_subscriptions():
+        logger.info("[唤醒] ⚠️ 无推送订阅——message 动作会跳过，diary/letter 正常")
 
     # 全部通过，写冷却然后调 AI
     try:
@@ -319,7 +325,8 @@ async def _tick(chat_lock: asyncio.Lock) -> None:
     except Exception:
         logger.exception("[唤醒] 冷却记录写不进去")
 
-    await _wake(conv_id)
+    logger.info("[唤醒] ✓ 通过全部检查 hour=%d interval=%d push=%s → 调 AI", hour, interval, _push_ok)
+    await _wake(conv_id, push_ok=_push_ok)
 
 
 # ── 主循环 ────────────────────────────────────────────────────────────
