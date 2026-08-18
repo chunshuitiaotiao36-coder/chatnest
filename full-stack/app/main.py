@@ -1134,11 +1134,14 @@ async def events(
         except Exception:
             # 🔴 上报永远要成功。记不进去也不许让快捷指令拿到 500。
             timing_logger.exception("[凌晨守护] 上报落库失败")
-        if kind.startswith("app"):
+        if kind.startswith("app") or kind == "heartbeat":
             # 🔴 判断留在请求里，开口扔后台，这儿立刻返回。stream_chat 要几秒到
             #    几十秒，加上窥屏的邮件往返 15-45 秒，同步做会把上报请求吊死——
             #    快捷指令的 URL 请求有超时，挂久了会失败甚至重试，
-            #    而重试又会再触发一次上报。两个 trigger 各自不抛。
+            #    而重试又会再触发一次上报。三个 trigger 各自不抛。
+            #
+            # app* = 她在用手机（快捷指令上报）
+            # heartbeat = 定时心跳（自动唤醒用，每 20 分钟 ping 一次）
             nightguard.trigger_bark(chat_lock)
             murmur.trigger_murmur(chat_lock)
     return {"ok": True}
