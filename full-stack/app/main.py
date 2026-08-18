@@ -86,6 +86,8 @@ logger = logging.getLogger(__name__)
 timing_logger = logging.getLogger("uvicorn.error")
 STATIC = ROOT / "static"
 chat_lock = asyncio.Lock()
+_chat_lock_acquired_at: float = 0.0
+_CHAT_LOCK_STALE_SECS = 180  # 三分钟还没放手？肯定是挂了
 initialize_store()
 TRACE_CONTENT_CHARS = 20_000
 
@@ -468,7 +470,7 @@ async def login(body: AuthBody) -> dict:
 
 
 @app.post("/api/chat", dependencies=[Depends(require_auth)])
-async def chat(body: ChatBody) -> StreamingResponse:
+async def chat(request: Request, body: ChatBody) -> StreamingResponse:
     request_id = uuid4().hex[:12]
     request_started = perf_counter()
     timing_stages = {"request_received"}
@@ -511,14 +513,35 @@ async def chat(body: ChatBody) -> StreamingResponse:
     )
 
     async def sse():
-        if chat_lock.locked():
+        global _chat_lock_acquired_at
+
+        # ── 过期锁安全阀 ──────────────────────────────
+        # 正常走 finally 一定会 release，但连接断掉后 generator
+        # 没被及时 close 的极端情况下锁会卡死。超过三分钟还没松，
+        # 说明上一轮已经没救了，强制放开。
+        if chat_lock.locked() and _chat_lock_acquired_at > 0:
+            held = perf_counter() - _chat_lock_acquired_at
+            if held > _CHAT_LOCK_STALE_SECS:
+                logger.warning("chat_lock stale (%.1fs), force-releasing", held)
+                try:
+                    chat_lock.release()
+                except RuntimeError:
+                    pass
+
+        # ── 带超时的获取 ──────────────────────────────
+        # retry / roll 时前端先 abort 旧连接再发新请求，旧 generator
+        # 的 finally 需要一小会儿跑完。给 5 秒等它松手，不要立刻
+        # 弹 "上一条还在回复"。
+        try:
+            await asyncio.wait_for(chat_lock.acquire(), timeout=5.0)
+        except asyncio.TimeoutError:
             payload = json.dumps(
                 {"message": "上一条消息仍在回复"},
                 ensure_ascii=False,
             )
             yield f"event: error\ndata: {payload}\n\n"
             return
-        await chat_lock.acquire()
+        _chat_lock_acquired_at = perf_counter()
         conv_id = None
         user_message_id = None
         branch_restore_id = None
@@ -663,6 +686,12 @@ async def chat(body: ChatBody) -> StreamingResponse:
                 except StopAsyncIteration:
                     break
                 except asyncio.TimeoutError:
+                    if await request.is_disconnected():
+                        logger.info(
+                            "client disconnected mid-stream, releasing lock "
+                            "(conv=%s)", conv_id,
+                        )
+                        break
                     yield ": heartbeat\n\n"
                     continue
 
@@ -742,6 +771,10 @@ async def chat(body: ChatBody) -> StreamingResponse:
                 name = chunk.pop("event")
                 data = json.dumps(chunk, ensure_ascii=False)
                 yield f"event: {name}\ndata: {data}\n\n"
+            # 流在 "done" 之前断了（客户端断连 / 流提前结束）
+            # retry / edit 操作删掉的消息要还回去
+            if branch_restore_id and not branch_committed:
+                restore_branch(branch_restore_id)
         except ConversationNotFound:
             if branch_restore_id and not branch_committed:
                 restore_branch(branch_restore_id)
@@ -789,6 +822,7 @@ async def chat(body: ChatBody) -> StreamingResponse:
             )
             yield f"event: error\ndata: {payload}\n\n"
         finally:
+            _chat_lock_acquired_at = 0.0
             chat_lock.release()
 
     return StreamingResponse(
