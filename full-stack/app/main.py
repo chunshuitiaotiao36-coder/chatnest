@@ -28,7 +28,7 @@ from starlette.formparsers import MultiPartParser
 
 MultiPartParser.max_part_size = 60 * 1024 * 1024  # 与 uploads.py 的 MAX_FILE_BYTES 对齐
 
-from app import auth, backgrounds, lorebook, nightguard, peek, piano, piano_analysis, push, relays, starmap, telegram
+from app import auth, backgrounds, lorebook, murmur, nightguard, peek, piano, piano_analysis, push, relays, starmap, telegram
 from app.actor import ActorBusyError, _mem_kv
 from app.claude import (
     SessionResumeError,
@@ -1138,8 +1138,9 @@ async def events(
             # 🔴 判断留在请求里，开口扔后台，这儿立刻返回。stream_chat 要几秒到
             #    几十秒，加上窥屏的邮件往返 15-45 秒，同步做会把上报请求吊死——
             #    快捷指令的 URL 请求有超时，挂久了会失败甚至重试，
-            #    而重试又会再触发一次上报。trigger_bark 自己不抛。
+            #    而重试又会再触发一次上报。两个 trigger 各自不抛。
             nightguard.trigger_bark(chat_lock)
+            murmur.trigger_murmur(chat_lock)
     return {"ok": True}
 
 
