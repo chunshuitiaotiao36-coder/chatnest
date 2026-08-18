@@ -169,10 +169,14 @@ html.context-menu-open,body.context-menu-open{background:var(--claude-context-di
 .profile-memory-list{gap:10px}.profile-memory-row{position:relative;overflow:hidden;border-radius:22px;background:#D54D4D;touch-action:pan-y}.profile-memory-row .profile-swipe-delete{position:absolute;right:0;top:0;bottom:0;width:96px;display:flex;align-items:center;justify-content:center;background:#D54D4D;border:0;cursor:pointer;color:#fff;font-size:var(--text-base);font-weight:600;letter-spacing:.2px}.profile-memory-row .profile-memory-card{position:relative;z-index:1;min-height:72px;padding:14px 16px;background:#f2f0ed;border:none;outline:2px solid #f2f0ed;outline-offset:-1px;box-shadow:0 1px 2px rgba(0,0,0,.025);transition:transform 180ms ease;touch-action:pan-y}.profile-memory-row.open .profile-memory-card{transform:translateX(-96px)}.profile-memory-row .profile-memory-textarea{min-height:44px;max-height:40dvh;overflow:auto;resize:none;font-size:var(--text-read);line-height:1.5;width:100%}.profile-preferences-card{background:#f2f0ed;border:1px solid rgba(32,31,29,.05);border-radius:28px;padding:24px 28px}.profile-preferences-card .profile-card-top{margin-bottom:12px}.profile-preferences-card .profile-preferences-textarea{min-height:52dvh;font-size:var(--text-read);line-height:1.5;resize:vertical}.profile-add-button{padding:17px;font-size:var(--text-base)}
 #diaryPanel{position:fixed;inset:0;z-index:80;display:none;flex-direction:column;background:#fbfaf7;color:#201f1d;overflow:hidden}#diaryPanel.show{display:flex}.diary-months{display:flex;gap:6px;padding:8px 18px 4px;overflow-x:auto;-webkit-overflow-scrolling:touch;flex:none}.diary-months::-webkit-scrollbar{display:none}.diary-month-pill{flex:none;padding:6px 14px;border:0;border-radius:999px;background:#f2f0ed;color:#77736c;font:500 var(--text-sm)/1 var(--font-sans);white-space:nowrap}.diary-month-pill.active{background:#201f1d;color:#fff}.diary-content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:10px 18px calc(env(safe-area-inset-bottom, 34px) + 60px)}.diary-date-header{font:600 var(--text-sm)/1.2 var(--font-sans);color:#77736c;padding:16px 4px 8px}.diary-entry{font:400 var(--text-read)/1.6 var(--font-sans);color:#201f1d;padding:10px 14px;border-radius:16px;background:#f2f0ed;margin-bottom:8px}.diary-empty{padding:40px 20px;text-align:center;color:#77736c;font-size:var(--text-sm)}
 @media(prefers-color-scheme: dark){#diaryPanel{background:var(--bg-primary);color:var(--text-primary)}.diary-date-header{color:var(--text-secondary)}.diary-entry{background:#2A2A28;color:var(--text-primary)}.diary-month-pill{background:#2A2A28;color:var(--text-secondary)}.diary-month-pill.active{background:var(--text-primary);color:var(--bg-primary)}}
-.letters-wrap{padding:10px 14px 20px;overflow-y:auto;-webkit-overflow-scrolling:touch}.letters-list{display:flex;flex-direction:column;gap:12px}.letter-card{position:relative;padding:18px 18px 16px;border-radius:20px;background:#f2f0ed;border:1px solid rgba(32,31,29,.05);cursor:pointer;transition:transform 120ms ease}.letter-card:active{transform:scale(.98)}.letter-card-author{font:500 var(--text-sm)/1 var(--font-sans);color:var(--accent);letter-spacing:.03em;margin-bottom:6px}.letter-card-title{font:400 16px/1.35 var(--font-sans);color:var(--text-primary);margin-bottom:4px}.letter-card-date{font:400 var(--text-sm)/1.2 var(--font-sans);color:var(--text-faint)}.letter-card-preview{margin-top:8px;font:400 var(--text-read)/1.55 var(--font-sans);color:var(--text-secondary);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.letter-card-lock{position:absolute;top:16px;right:16px;font-size:16px;opacity:.5}.letter-card.is-locked{background:linear-gradient(135deg,#f2f0ed 0%,#ede8e4 100%)}.letter-card.is-locked .letter-card-preview{font-style:italic;color:var(--text-faint)}.letter-card.is-new::after{content:'';position:absolute;top:14px;right:14px;width:8px;height:8px;border-radius:50%;background:var(--accent)}.letters-empty{padding:40px 20px;text-align:center;color:var(--text-faint);font-size:var(--text-sm);line-height:1.6}.letters-toolbar{display:flex;justify-content:flex-end;padding:0 4px 10px}.letters-write-btn{padding:8px 18px;border:0;border-radius:999px;background:var(--text-primary);color:var(--bg-primary);font:500 var(--text-sm)/1 var(--font-sans);cursor:pointer}
+/* 书房入口行 */
+.study-nav-row{display:flex;align-items:center;gap:10px;padding:14px 18px;margin:6px 14px;border-radius:16px;background:#f2f0ed;cursor:pointer;transition:transform 120ms ease}.study-nav-row:active{transform:scale(.98)}.study-nav-icon{font-size:20px;flex:none}.study-nav-label{font:500 15px/1 var(--font-sans);color:var(--text-primary);flex:1}.study-nav-sub{font:400 var(--text-sm)/1 var(--font-sans);color:var(--text-faint)}.study-nav-chevron{flex:none;color:var(--text-faint)}
+/* 寄相思全屏面板 */
+.letters-panel{position:fixed;inset:0;z-index:82;background:var(--bg-primary);display:none;flex-direction:column;overflow:hidden}.letters-panel.show{display:flex}.letters-panel-header{display:flex;align-items:center;gap:8px;padding:calc(env(safe-area-inset-top,50px) + 8px) 14px 10px;flex:none;border-bottom:1px solid var(--border)}.letters-panel-back{width:40px;height:40px;border:0;border-radius:50%;background:transparent;display:grid;place-items:center;color:var(--text-secondary);cursor:pointer;flex:none}.letters-panel-title{flex:1;font:500 18px/1 var(--font-sans);color:var(--text-primary)}.letters-panel-write{width:40px;height:40px;border:0;border-radius:50%;background:transparent;display:grid;place-items:center;color:var(--text-secondary);cursor:pointer;flex:none}.letters-panel-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 14px calc(env(safe-area-inset-bottom,34px) + 20px)}
+.letters-list{display:flex;flex-direction:column;gap:12px}.letter-card{position:relative;padding:18px 18px 16px;border-radius:20px;background:#f2f0ed;border:1px solid rgba(32,31,29,.05);cursor:pointer;transition:transform 120ms ease}.letter-card:active{transform:scale(.98)}.letter-card-author{font:500 var(--text-sm)/1 var(--font-sans);color:var(--accent);letter-spacing:.03em;margin-bottom:6px}.letter-card-title{font:400 16px/1.35 var(--font-sans);color:var(--text-primary);margin-bottom:4px}.letter-card-date{font:400 var(--text-sm)/1.2 var(--font-sans);color:var(--text-faint)}.letter-card-preview{margin-top:8px;font:400 var(--text-read)/1.55 var(--font-sans);color:var(--text-secondary);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.letter-card-lock{position:absolute;top:16px;right:16px;font-size:16px;opacity:.5}.letter-card.is-locked{background:linear-gradient(135deg,#f2f0ed 0%,#ede8e4 100%)}.letter-card.is-locked .letter-card-preview{font-style:italic;color:var(--text-faint)}.letter-card.is-new::after{content:'';position:absolute;top:14px;right:14px;width:8px;height:8px;border-radius:50%;background:var(--accent)}.letters-empty{padding:40px 20px;text-align:center;color:var(--text-faint);font-size:var(--text-sm);line-height:1.6}
 .letter-overlay{position:fixed;inset:0;z-index:85;background:var(--bg-primary);display:flex;flex-direction:column;overflow:hidden;animation:letterFadeIn 200ms ease}.letter-overlay[hidden]{display:none}@keyframes letterFadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}.letter-overlay-inner{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:calc(env(safe-area-inset-top,50px) + 14px) 20px calc(env(safe-area-inset-bottom,34px) + 20px)}.letter-overlay-close{position:fixed;top:calc(env(safe-area-inset-top,50px) + 10px);right:16px;z-index:86;width:40px;height:40px;border:0;border-radius:50%;background:var(--bg-surface);display:grid;place-items:center;color:var(--text-secondary);box-shadow:var(--shadow-soft)}.letter-detail-author{font:500 var(--text-sm)/1 var(--font-sans);color:var(--accent);letter-spacing:.03em;margin-bottom:8px}.letter-detail-title{font:400 22px/1.3 var(--font-sans);color:var(--text-primary);margin-bottom:6px}.letter-detail-date{font:400 var(--text-sm)/1.2 var(--font-sans);color:var(--text-faint);margin-bottom:24px}.letter-detail-body{font:400 var(--text-read)/1.75 var(--font-sans);color:var(--text-primary);white-space:pre-wrap;word-break:break-word}.letter-write-title{font:400 20px/1.2 var(--font-sans);color:var(--text-primary);margin-bottom:20px}.letter-input{width:100%;padding:12px 16px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--bg-surface);color:var(--text-primary);font:400 var(--text-base)/1.4 var(--font-sans);outline:0;margin-bottom:12px;box-sizing:border-box}.letter-input::placeholder{color:var(--text-faint)}.letter-textarea{width:100%;min-height:200px;padding:14px 16px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--bg-surface);color:var(--text-primary);font:400 var(--text-read)/1.65 var(--font-sans);outline:0;resize:vertical;margin-bottom:12px;box-sizing:border-box}.letter-textarea::placeholder{color:var(--text-faint)}.letter-lock-section{margin-bottom:16px}.letter-lock-toggle{font:400 var(--text-base)/1.4 var(--font-sans);color:var(--text-secondary);cursor:pointer;padding:8px 0}.letter-lock-options{padding:12px 0;display:flex;flex-direction:column;gap:10px}.letter-lock-row{display:flex;align-items:center;gap:10px;font:400 var(--text-base)/1.4 var(--font-sans);color:var(--text-primary)}.letter-send-btn{width:100%;padding:15px;border:0;border-radius:999px;background:var(--text-primary);color:var(--bg-primary);font:600 var(--text-base)/1 var(--font-sans);cursor:pointer;margin-top:8px}.letter-send-btn:disabled{opacity:.35}.letter-unlock-dialog{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(320px,calc(100vw - 40px));padding:28px 24px 20px;border-radius:24px;background:var(--bg-primary);border:1px solid var(--border);box-shadow:0 20px 60px rgba(0,0,0,.18)}.letter-unlock-cover{font:400 16px/1.5 var(--font-sans);color:var(--text-primary);text-align:center;margin-bottom:16px;font-style:italic}.letter-unlock-time{font:400 var(--text-sm)/1.3 var(--font-sans);color:var(--text-faint);text-align:center;margin-bottom:12px}.letter-unlock-actions{display:flex;gap:10px;margin-top:14px}.letter-unlock-cancel,.letter-unlock-submit{flex:1;padding:12px;border:0;border-radius:999px;font:500 var(--text-base)/1 var(--font-sans);cursor:pointer}.letter-unlock-cancel{background:var(--bg-surface);color:var(--text-secondary);border:1px solid var(--border)}.letter-unlock-submit{background:var(--text-primary);color:var(--bg-primary)}.letter-unlock-error{margin-top:10px;font:400 var(--text-sm)/1.3 var(--font-sans);color:#d54d4d;text-align:center;min-height:18px}
 .letter-replies-section{margin-top:32px;border-top:1px solid var(--border);padding-top:20px}.letter-replies-title{font:500 var(--text-sm)/1 var(--font-sans);color:var(--text-faint);letter-spacing:.04em;text-transform:uppercase;margin-bottom:16px}.letter-reply-item{padding:16px;border-radius:16px;background:#f2f0ed;margin-bottom:10px}.letter-reply-item.is-elian{background:rgba(var(--accent-rgb,139,115,85),.08)}.letter-reply-author{font:500 var(--text-sm)/1 var(--font-sans);color:var(--accent);margin-bottom:4px}.letter-reply-date{font:400 12px/1 var(--font-sans);color:var(--text-faint);margin-bottom:8px}.letter-reply-body{font:400 var(--text-read)/1.65 var(--font-sans);color:var(--text-primary);white-space:pre-wrap;word-break:break-word}.letter-reply-form{margin-top:20px}.letter-reply-textarea{width:100%;min-height:100px;padding:14px 16px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--bg-surface);color:var(--text-primary);font:400 var(--text-read)/1.55 var(--font-sans);outline:0;resize:vertical;box-sizing:border-box}.letter-reply-textarea::placeholder{color:var(--text-faint)}.letter-reply-send{margin-top:10px;padding:10px 24px;border:0;border-radius:999px;background:var(--text-primary);color:var(--bg-primary);font:500 var(--text-sm)/1 var(--font-sans);cursor:pointer;float:right}.letter-reply-send:disabled{opacity:.35}.letter-reply-waiting{margin-top:12px;font:400 var(--text-sm)/1.4 var(--font-sans);color:var(--text-faint);font-style:italic;text-align:center}.letter-reply-waiting::after{content:'';animation:replyDots 1.2s steps(4) infinite}@keyframes replyDots{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
-@media(prefers-color-scheme:dark){.letter-card{background:#2A2A28;border-color:var(--border)}.letter-card.is-locked{background:linear-gradient(135deg,#2A2A28 0%,#2E2C2A 100%)}.letters-write-btn{background:var(--text-primary);color:var(--bg-primary)}.letter-overlay{background:var(--bg-primary)}.letter-unlock-dialog{background:var(--bg-primary);border-color:var(--border);box-shadow:0 20px 60px rgba(0,0,0,.5)}.letter-reply-item{background:#2A2A28}.letter-reply-item.is-elian{background:rgba(139,115,85,.12)}}
+@media(prefers-color-scheme:dark){.study-nav-row{background:#2A2A28}.letters-panel{background:var(--bg-primary)}.letters-panel-header{border-color:var(--border)}.letter-card{background:#2A2A28;border-color:var(--border)}.letter-card.is-locked{background:linear-gradient(135deg,#2A2A28 0%,#2E2C2A 100%)}.letter-overlay{background:var(--bg-primary)}.letter-unlock-dialog{background:var(--bg-primary);border-color:var(--border);box-shadow:0 20px 60px rgba(0,0,0,.5)}.letter-reply-item{background:#2A2A28}.letter-reply-item.is-elian{background:rgba(139,115,85,.12)}}
 @media(prefers-color-scheme: dark){#memoryPanel{background:var(--bg-primary);color:var(--text-primary)}.profile-round-button,.profile-save-button,.profile-back-button{background:#2A2A28;border-color:var(--border);color:var(--text-primary);box-shadow:0 2px 8px rgba(0,0,0,.2)}.profile-save-button{color:var(--accent)}.profile-save-button:disabled{color:#6E6D66}.profile-title{color:var(--text-primary)}.profile-subtitle,.profile-section-title,.profile-help-text,.profile-nav-chevron,.profile-nav-row-icon{color:var(--text-secondary)}.profile-nav-row-note{color:var(--text-faint)}.profile-card{background:#2A2A28;border-color:var(--border);color:var(--text-primary)}.profile-nav-row{background:#2A2A28;color:var(--text-primary)}.profile-name-input,.profile-memory-textarea,.profile-preferences-textarea{color:var(--text-primary)}.profile-name-input::placeholder,.profile-memory-textarea::placeholder,.profile-preferences-textarea::placeholder{color:#6E6D66}.profile-divider{background:var(--border)}.profile-memory-row .profile-memory-card{background:#2A2A28;border:none;outline:2px solid #2A2A28;outline-offset:-1px;box-shadow:none}.profile-empty{background:#2A2A28;color:var(--text-secondary)}.profile-add-button{background:#2A2A28;color:var(--text-primary);border:1px solid rgba(255,255,255,.12)}.profile-mini-button{background:var(--border);color:var(--text-secondary)}.profile-preferences-card{background:#2A2A28;color:var(--text-primary)}.memory-search-bubble{background:rgba(42,42,40,.92);border-color:rgba(255,255,255,.12);color:rgba(244,243,239,.58);box-shadow:0 0 0 1px rgba(255,255,255,.035),0 8px 24px rgba(0,0,0,.30),0 2px 6px rgba(0,0,0,.22)}.memory-search-icon{color:rgba(244,243,239,.58)}.memory-search-input{color:var(--text-primary)}.memory-search-input::placeholder{color:rgba(244,243,239,.45)}.memory-search-clear{background:rgba(255,255,255,.25)}.topbar .icon-button{border:1px solid rgba(255,255,255,.16);box-shadow:0 1px 2px rgba(0,0,0,.25)}}
 .dialog-overlay{position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:var(--space-4);background:var(--border-strong)}.dialog{width:100%;max-width:360px;padding:var(--space-5);background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-lg)}.dialog h3{font:400 var(--text-title) var(--font-sans)}.dialog input{width:100%;margin:var(--space-4) 0;padding:var(--space-3);background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);outline:0}.dialog-actions{display:flex;justify-content:flex-end;gap:var(--space-2)}.secondary-button{padding:var(--space-2) var(--space-3);border:1px solid var(--border);border-radius:var(--radius-md)}
 .toast{position:fixed;z-index:95;left:50%;bottom:calc(env(safe-area-inset-bottom, 34px) + 92px);max-width:calc(100% - var(--space-6));padding:var(--space-2) var(--space-4);transform:translate(-50%,12px);opacity:0;pointer-events:none;background:var(--text-primary);color:var(--bg-primary);border-radius:var(--radius-full);font-size:var(--text-sm);transition:opacity var(--transition),transform var(--transition)}.toast.show{opacity:1;transform:translate(-50%,0)}
@@ -1018,23 +1022,14 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
       </div>
     </div>
   </div>
-  <!-- 寄相思：信件交换。默认收起。 -->
-  <div class="study-acc is-collapsed" id="studyLetters">
-    <button type="button" class="study-acc-head" id="studyLettersHead" aria-expanded="false" aria-controls="studyLettersBody">
-      <span class="study-acc-title">寄相思</span>
-      <span class="study-acc-sub" id="lettersCount">信件</span>
-      <span class="study-acc-chevron" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-      </span>
-    </button>
-    <div class="study-acc-body" id="studyLettersBody">
-      <div class="letters-wrap" id="lettersWrap">
-        <div class="letters-toolbar">
-          <button class="letters-write-btn" id="lettersWriteBtn">写一封信</button>
-        </div>
-        <div class="letters-list" id="lettersList"></div>
-      </div>
-    </div>
+  <!-- 寄相思：入口行。点击打开独立面板。 -->
+  <div class="study-nav-row" id="openLettersPanel">
+    <span class="study-nav-icon">💌</span>
+    <span class="study-nav-label">寄相思</span>
+    <span class="study-nav-sub" id="lettersCount">信件</span>
+    <span class="study-nav-chevron" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><polyline points="9 6 15 12 9 18"/></svg>
+    </span>
   </div>
 </section>
 
@@ -1098,6 +1093,22 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
     <div class="letter-unlock-error" id="letterUnlockError"></div>
   </div>
 </div>
+
+<!-- 寄相思：独立全屏面板 -->
+<section id="lettersPanel" class="letters-panel" aria-hidden="true">
+  <header class="letters-panel-header">
+    <button class="letters-panel-back" id="lettersPanelBack" aria-label="返回">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div class="letters-panel-title">寄相思</div>
+    <button class="letters-panel-write" id="lettersPanelWrite" aria-label="写信">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+    </button>
+  </header>
+  <div class="letters-panel-body">
+    <div class="letters-list" id="lettersList"></div>
+  </div>
+</section>
 
 <nav id="tabBar" aria-label="主导航">
   <button class="tab-item" type="button" data-tab="tidal">
@@ -3895,6 +3906,14 @@ const DIARY_ACC_KEY='reading_panel_diary';
 /* ── 寄相思 ──────────────────────────────────────────────────────────
    书房第三块手风琴。信件列表、详情 overlay、写信 overlay、解锁弹窗。 */
 let _lettersLoaded=false, _lettersData=[];
+async function loadLettersCount(){
+  try{
+    const r=await api('/api/letters');if(!r.ok)return;
+    const data=await r.json();
+    const n=(data.letters||[]).length;
+    $('lettersCount').textContent=n?`${n} 封`:'信件';
+  }catch(e){}
+}
 async function loadLetters(){
   if(_lettersLoaded)return;
   try{
@@ -3908,7 +3927,7 @@ async function loadLetters(){
 }
 function renderLettersList(){
   const el=$('lettersList');el.innerHTML='';
-  if(!_lettersData.length){el.innerHTML='<div class="letters-empty">还没有信。<br>写一封？或者等他写给你。</div>';return}
+  if(!_lettersData.length){el.innerHTML='<div class="letters-empty">还没有信。<br>点右上角的笔写一封，<br>或者等他写给你。</div>';return}
   _lettersData.forEach(lt=>{
     const card=document.createElement('div');
     card.className='letter-card'+(lt.locked?' is-locked':'')+((!lt.read_at&&!lt.locked)?' is-new':'');
@@ -4032,15 +4051,7 @@ $('letterOverlayClose').onclick=()=>{
   if(_replyPollTimer){clearInterval(_replyPollTimer);_replyPollTimer=null}
 };
 
-/* 写信 */
-$('lettersWriteBtn').onclick=()=>{
-  $('letterTitleInput').value='';$('letterContentInput').value='';
-  $('letterTimeLock').checked=false;$('letterPwdLock').checked=false;
-  $('letterUnlockAt').style.display='none';$('letterPassword').style.display='none';
-  $('letterCoverText').style.display='none';$('letterPassword').value='';
-  $('letterCoverText').value='';$('letterUnlockAt').value='';
-  $('letterWriteOverlay').hidden=false;
-};
+/* 写信关闭 */
 $('letterWriteClose').onclick=()=>{$('letterWriteOverlay').hidden=true};
 $('letterTimeLock').onchange=()=>{$('letterUnlockAt').style.display=$('letterTimeLock').checked?'':'none';_showCoverIfLocked()};
 $('letterPwdLock').onchange=()=>{$('letterPassword').style.display=$('letterPwdLock').checked?'':'none';_showCoverIfLocked()};
@@ -4111,20 +4122,24 @@ $('letterUnlockSubmit').onclick=async()=>{
   }catch(e){$('letterUnlockError').textContent='网络错误'}
 };
 
-/* 寄相思手风琴 */
-const LETTERS_ACC_KEY='reading_panel_letters';
-(()=>{
-  const acc=$('studyLetters'), head=$('studyLettersHead');
-  if(!acc||!head) return;
-  const set=(collapsed,persist)=>{
-    acc.classList.toggle('is-collapsed',collapsed);
-    head.setAttribute('aria-expanded',String(!collapsed));
-    if(persist) localStorage.setItem(LETTERS_ACC_KEY,collapsed?'collapsed':'open');
-    if(!collapsed) loadLetters();
-  };
-  if(localStorage.getItem(LETTERS_ACC_KEY)==='open') set(false,false);
-  head.addEventListener('click',()=>set(!acc.classList.contains('is-collapsed'),true));
-})();
+/* 寄相思面板 */
+$('openLettersPanel').onclick=()=>{
+  $('lettersPanel').classList.add('show');
+  $('lettersPanel').setAttribute('aria-hidden','false');
+  _lettersLoaded=false;loadLetters();
+};
+$('lettersPanelBack').onclick=()=>{
+  $('lettersPanel').classList.remove('show');
+  $('lettersPanel').setAttribute('aria-hidden','true');
+};
+$('lettersPanelWrite').onclick=()=>{
+  $('letterTitleInput').value='';$('letterContentInput').value='';
+  $('letterTimeLock').checked=false;$('letterPwdLock').checked=false;
+  $('letterUnlockAt').style.display='none';$('letterPassword').style.display='none';
+  $('letterCoverText').style.display='none';$('letterPassword').value='';
+  $('letterCoverText').value='';$('letterUnlockAt').value='';
+  $('letterWriteOverlay').hidden=false;
+};
 
 /* 起算日 2026.5.29。
 
@@ -6390,7 +6405,8 @@ function switchTab(name){
   if(name==='reading'){renderReadingCounter();if(!starmapCollapsed())openStarmap();
     /* 日记那块要是记着上次是展开的，进书房就把数据补上 */
     if(!$('studyDiary')?.classList.contains('is-collapsed'))loadDiary();
-    if(!$('studyLetters')?.classList.contains('is-collapsed'))loadLetters();}
+    /* 寄相思面板入口行的数量也刷新一下 */
+    _lettersLoaded=false;loadLettersCount();}
 }
 document.querySelectorAll('#tabBar .tab-item').forEach(t=>{t.addEventListener('click',()=>switchTab(t.dataset.tab))});
 </script>

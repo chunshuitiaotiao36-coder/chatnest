@@ -1089,7 +1089,10 @@ async def _letter_auto_reply(
     try:
         conv_id = await asyncio.to_thread(store.latest_conversation_id)
         if not conv_id:
-            conv_id = "letter-reply"
+            # 没有会话就建一个临时的，stream_chat 需要真实 conv_id
+            conv_id = await asyncio.to_thread(
+                store.ensure_conversation, None, "寄相思"
+            )
 
         # 收集原信 + 回信上下文
         original_content = original_letter.get("content", "")
