@@ -4,12 +4,17 @@
    全程在 /api/events 那个请求里跑完。不动 lifespan、不起协程。
 
 🔴 区别：凌晨守护是叫她去睡，碎碎念是白天想到她了就说一句。
-   冷却更长（默认 3 小时），时段是白天，prompt 不催她睡觉。
+   间隔不是固定冷却，是**动态的**——时段、活跃度、随机抖动三层叠加，
+   让她永远猜不到下一句什么时候来。
+
+🔴 参考 Cheiineeey/always-here 的心跳调度思路，但我们是事件驱动不是
+   setInterval：不单独跑心跳循环，每次 app 事件进来时算一次「该不该开口」。
 
 🔴 走 claude.stream_chat()，带完整人设和 Ombre 记忆。
 """
 
 import asyncio
+import hashlib
 import logging
 import os
 from datetime import datetime, timedelta, timezone
@@ -28,8 +33,86 @@ from app.nightguard import (
 murmur_logger = logging.getLogger("uvicorn.error")
 
 
+# ── 动态间隔 ──────────────────────────────────────────────────────────
+
+def _base_interval(hour: int) -> int:
+    """时段基础间隔（分钟）。
+
+    上午她可能在上课，少打扰；傍晚到睡前她比较闲，多找她。
+    参考 always-here 的分段思路，但间隔拉长——我们是推到锁屏的，
+    太密她会烦，不像 always-here 那种页面内提醒。
+    """
+    if 8 <= hour < 12:
+        return 120   # 上午：可能在上课，2 小时基线
+    if 12 <= hour < 14:
+        return 80    # 午休：稍短
+    if 14 <= hour < 18:
+        return 100   # 下午
+    # 18-23：晚上，她最活跃的时段
+    return 70
+
+
+def _activity_multiplier() -> float:
+    """最近 1 小时的活跃度 → 间隔缩放系数。
+
+    她越活跃（切 app 越频繁），我越想找她聊。
+    参考 always-here 的 countRecentEvents + multiplier。
+    """
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=1)
+    count = 0
+    for row in store.recent_dream_events(1):
+        kind = str(row.get("type") or "")
+        # 内部事件不算活跃度
+        if kind.startswith("_"):
+            continue
+        try:
+            when = datetime.fromisoformat(str(row.get("created_at") or ""))
+        except ValueError:
+            continue
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=timezone.utc)
+        if when >= cutoff:
+            count += 1
+
+    if count >= 6:
+        return 0.5   # 非常活跃：间隔砍半
+    if count >= 4:
+        return 0.65
+    if count >= 2:
+        return 0.8
+    return 1.0        # 安静：基线
+
+
+def _daily_jitter() -> float:
+    """每天不同的抖动系数，0.75 到 1.25 之间。
+
+    🔴 不用 random.random()。每次事件进来都会跑 _gate()，如果用纯随机，
+       同一天内每次算出来的抖动都不同——冷却刚过的时候可能算出 0.75（短），
+       下一次事件又算出 1.25（长），判断不一致。
+
+    用日期 hash 做伪随机：同一天内值固定，隔天自动变。
+    """
+    today = datetime.now(CN_TZ).strftime("%Y-%m-%d")
+    h = int(hashlib.md5(today.encode()).hexdigest()[:8], 16)
+    # 映射到 0.75 ~ 1.25
+    return 0.75 + (h % 1000) / 1000 * 0.5
+
+
+def _effective_interval() -> int:
+    """三层叠加：时段基线 × 活跃度 × 每日抖动。返回分钟数。"""
+    hour = _cn_hour()
+    base = _base_interval(hour)
+    mult = _activity_multiplier()
+    jitter = _daily_jitter()
+    result = int(base * mult * jitter)
+    # 下限 30 分钟，上限 4 小时——再短太吵，再长不如没有
+    return max(30, min(result, 240))
+
+
+# ── 冷却判断 ──────────────────────────────────────────────────────────
+
 def _in_murmur_window(hour: int) -> bool:
-    """白天时段：默认 8 点到 23 点。和凌晨守护的 0-6 互斥。"""
+    """白天时段：默认 8 点到 23 点。"""
     return _in_window(
         hour,
         _env_int("MURMUR_START", 8),
@@ -38,10 +121,11 @@ def _in_murmur_window(hour: int) -> bool:
 
 
 def _cooled_down() -> bool:
-    """距上次碎碎念够不够久。默认 3 小时。"""
-    minutes = _env_int("MURMUR_COOLDOWN_MIN", 180)
+    """距上次碎碎念是否过了动态间隔。"""
+    interval = _effective_interval()
     last = store.last_dream_event("_murmur")
     if not last:
+        murmur_logger.info("[碎碎念] 从未开口，可以说话 interval=%d", interval)
         return True
     try:
         when = datetime.fromisoformat(str(last.get("created_at") or ""))
@@ -50,8 +134,17 @@ def _cooled_down() -> bool:
         return True
     if when.tzinfo is None:
         when = when.replace(tzinfo=timezone.utc)
-    return datetime.now(timezone.utc) - when >= timedelta(minutes=minutes)
+    elapsed = datetime.now(timezone.utc) - when
+    ok = elapsed >= timedelta(minutes=interval)
+    if not ok:
+        remaining = timedelta(minutes=interval) - elapsed
+        murmur_logger.debug(
+            "[碎碎念] 冷却中 interval=%d 还差 %s", interval, remaining
+        )
+    return ok
 
+
+# ── 内容生成 ──────────────────────────────────────────────────────────
 
 def _build_message(conv_id: str) -> str:
     """碎碎念的 prompt。
@@ -88,8 +181,8 @@ async def _speak(conv_id: str) -> str:
         model=os.environ.get("MURMUR_MODEL", "claude-sonnet-4-6"),
         # 🔴 用量账本要能区分碎碎念和凌晨守护各花了多少。
         source="murmur",
-        # 🔴 跟凌晨守护一样，绝对不许 lean=True。白天那一句是她判断
-        #    「这是不是梁忱」的全部依据，省 token 换一句不像他的话不值。
+        # 🔴 绝对不许 lean=True。那一句是她判断「这是不是梁忱」的全部依据，
+        #    省 token 换一句不像他的话不值。
         lean=False,
     ):
         event = chunk.get("event")
@@ -100,6 +193,8 @@ async def _speak(conv_id: str) -> str:
     murmur_logger.info("[碎碎念] 开口完成 session=%s 字数=%d", session_id, len(text))
     return text.strip()
 
+
+# ── 调度 ──────────────────────────────────────────────────────────────
 
 def _gate(chat_lock: asyncio.Lock) -> tuple[str | None, str]:
     """要不要开口。返回 (跳过原因 或 None, conv_id)。
@@ -126,7 +221,7 @@ def _gate(chat_lock: asyncio.Lock) -> tuple[str | None, str]:
 async def _murmur_background(conv_id: str) -> None:
     """扔进 create_task 的那个。
 
-    🔴 冷却在任务一开始就写，不等开口成功：窥屏 + stream_chat 要几十秒，
+    🔴 冷却在任务一开始就写，不等开口成功——stream_chat 要几秒到几十秒，
        这段窗口里再来一次上报会并发开两次口。
     """
     try:
