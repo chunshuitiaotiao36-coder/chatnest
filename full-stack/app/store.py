@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import re
@@ -173,6 +174,21 @@ def initialize_store() -> None:
                 ON dream_events(created_at);
             CREATE INDEX IF NOT EXISTS dream_events_type_created
                 ON dream_events(type, created_at);
+            /* 寄相思：双向信件。梁忱和小朵都能写，可上锁（时间/密码/两者）。 */
+            CREATE TABLE IF NOT EXISTS letters (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                author TEXT NOT NULL CHECK(author IN ('elian', 'xiaoduo')),
+                title TEXT NOT NULL DEFAULT '',
+                content TEXT NOT NULL,
+                cover_text TEXT NOT NULL DEFAULT '',
+                locked INTEGER NOT NULL DEFAULT 0,
+                lock_type TEXT NOT NULL DEFAULT 'none' CHECK(lock_type IN ('none', 'time', 'password', 'both')),
+                unlock_at TEXT,
+                password_hash TEXT,
+                created_at TEXT NOT NULL,
+                read_at TEXT
+            );
+            CREATE INDEX IF NOT EXISTS letters_created ON letters(created_at DESC);
             """
         )
         # 08-05 取消了 position='depth'（原因见 lorebook.py 顶部）。已有的迁到
@@ -1294,3 +1310,90 @@ def save_piano_impression(song_id: str, text: str, n: int,
              int(time.time() * 1000)),
         )
         db.commit()
+
+
+# ── 寄相思：信件 ──────────────────────────────────────────────────────
+
+
+def list_letters() -> list[dict[str, Any]]:
+    """All letters, newest first. Does NOT include content for locked letters."""
+    with _connect() as db:
+        rows = db.execute(
+            "SELECT id, author, title, content, cover_text, locked, lock_type, unlock_at, created_at, read_at FROM letters ORDER BY created_at DESC"
+        ).fetchall()
+    result = []
+    for row in rows:
+        d = dict(row)
+        # Auto-unlock time-based letters
+        if d["locked"] and d["lock_type"] in ("time", "both") and d["unlock_at"]:
+            try:
+                if datetime.fromisoformat(d["unlock_at"]) <= datetime.now(timezone.utc):
+                    if d["lock_type"] == "time":
+                        d["locked"] = 0
+                        d["lock_type"] = "none"
+                        with _connect() as db2:
+                            db2.execute("UPDATE letters SET locked = 0, lock_type = 'none' WHERE id = ?", (d["id"],))
+                    elif d["lock_type"] == "both":
+                        d["lock_type"] = "password"  # time part unlocked, password remains
+            except ValueError:
+                pass
+        # Hide content for locked letters
+        if d["locked"]:
+            d["content"] = ""
+        # Remove password_hash from API response
+        d.pop("password_hash", None)
+        result.append(d)
+    return result
+
+
+def get_letter(letter_id: int) -> dict[str, Any] | None:
+    """Get a single letter. Returns content even for locked letters (caller checks auth)."""
+    with _connect() as db:
+        row = db.execute(
+            "SELECT id, author, title, content, cover_text, locked, lock_type, unlock_at, password_hash, created_at, read_at FROM letters WHERE id = ?",
+            (letter_id,),
+        ).fetchone()
+    if not row:
+        return None
+    return dict(row)
+
+
+def create_letter(
+    author: str,
+    content: str,
+    title: str = "",
+    cover_text: str = "",
+    locked: bool = False,
+    lock_type: str = "none",
+    unlock_at: str | None = None,
+    password_hash: str | None = None,
+) -> int:
+    """Create a letter. Returns the new letter id."""
+    now = _now()
+    with _connect() as db:
+        cursor = db.execute(
+            """INSERT INTO letters(author, title, content, cover_text, locked, lock_type, unlock_at, password_hash, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (author, title[:200], content, cover_text[:200], int(locked), lock_type, unlock_at, password_hash, now),
+        )
+        return int(cursor.lastrowid)
+
+
+def unlock_letter(letter_id: int) -> bool:
+    """Unlock a letter (removes lock). Returns True if updated."""
+    with _connect() as db:
+        cursor = db.execute(
+            "UPDATE letters SET locked = 0, lock_type = 'none' WHERE id = ? AND locked = 1",
+            (letter_id,),
+        )
+        return cursor.rowcount > 0
+
+
+def mark_letter_read(letter_id: int) -> None:
+    """Mark a letter as read (first open)."""
+    now = _now()
+    with _connect() as db:
+        db.execute(
+            "UPDATE letters SET read_at = ? WHERE id = ? AND read_at IS NULL",
+            (now, letter_id),
+        )

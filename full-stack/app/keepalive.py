@@ -130,35 +130,42 @@ def _build_wake_message(conv_id: str) -> str:
             "你醒了。距上次聊天已经过了一段时间。\n"
             "根据当前状态自主选择一个行动：\n\n"
             "- message：发一条消息给她（推到锁屏）。一两句话，30字以内。\n"
+            "- letter：写一封信，存进寄相思。可以是随笔、深夜想到的、回忆、情书。她下次打开书房就能看到。标题用 TITLE: 行指定。内容可以长一些，不限字数。\n"
             "- diary：写一段内心日记（她看不见，但你下次醒来或她找你时会记得）。\n"
             "- none：什么都不做。\n\n"
             "按以下格式回复，不要输出其他内容：\n"
             "THOUGHTS: （你的想法，不会给她看）\n"
-            "ACTION: none / message / diary\n"
-            "CONTENT: （message 或 diary 的具体内容）"
+            "ACTION: none / message / letter / diary\n"
+            "TITLE: （letter 的标题，其他 action 不需要）\n"
+            "CONTENT: （message / letter / diary 的具体内容）"
         ),
     ] if part])
 
 
 # ── 响应解析 ──────────────────────────────────────────────────────────
 
-def _parse_response(text: str) -> tuple[str, str, str]:
-    """返回 (thoughts, action, content)。"""
+def _parse_response(text: str) -> tuple[str, str, str, str]:
+    """返回 (thoughts, action, title, content)。"""
     thoughts = ""
     action = "none"
+    title = ""
     content = ""
 
-    m = re.search(r"THOUGHTS:\s*(.+?)(?=\nACTION:)", text, re.DOTALL)
+    m = re.search(r"THOUGHTS:\s*(.+?)(?=\n(?:ACTION|TITLE|CONTENT):)", text, re.DOTALL)
     if m:
         thoughts = m.group(1).strip()
 
     m = re.search(r"ACTION:\s*(\w+)", text)
     if m:
         raw = m.group(1).strip().lower()
-        if raw in ("none", "message", "diary"):
+        if raw in ("none", "message", "diary", "letter"):
             action = raw
         else:
             logger.warning("[唤醒] 未知 ACTION=%s，当 none", raw)
+
+    m = re.search(r"TITLE:\s*(.+?)(?=\n(?:CONTENT):|\Z)", text, re.DOTALL)
+    if m:
+        title = m.group(1).strip()
 
     m = re.search(r"CONTENT:\s*(.+)", text, re.DOTALL)
     if m:
@@ -167,7 +174,7 @@ def _parse_response(text: str) -> tuple[str, str, str]:
     if not any(k in text for k in ("THOUGHTS:", "ACTION:", "CONTENT:")):
         logger.warning("[唤醒] 响应解析失败，当 none: %s", text[:200])
 
-    return thoughts, action, content
+    return thoughts, action, title, content
 
 
 # ── AI 调用与行动路由 ─────────────────────────────────────────────────
@@ -196,7 +203,7 @@ async def _wake(conv_id: str) -> None:
         logger.info("[唤醒] AI 返回空")
         return
 
-    thoughts, action, content = _parse_response(text)
+    thoughts, action, title, content = _parse_response(text)
     logger.info("[唤醒] AI 决定 action=%s thoughts=%s", action, thoughts[:100] if thoughts else "")
 
     if action == "none":
@@ -209,6 +216,26 @@ async def _wake(conv_id: str) -> None:
             logger.info("[唤醒] 日记写入：%s", content[:100])
         except Exception:
             logger.exception("[唤醒] 日记写入失败")
+        return
+
+    if action == "letter":
+        if not content:
+            logger.warning("[唤醒] letter 但 content 为空")
+            return
+        try:
+            from app.store import create_letter
+            letter_id = create_letter(
+                author="elian",
+                content=content,
+                title=title or "",
+                cover_text="",
+                locked=False,
+            )
+            logger.info("[唤醒] 信件写入 id=%d：%s", letter_id, content[:100])
+        except Exception:
+            logger.exception("[唤醒] 信件写入失败")
+        # Push notification to let her know
+        await push.send_push(title="寄相思", body=title or "你收到了一封信", url="/")
         return
 
     if action == "message":

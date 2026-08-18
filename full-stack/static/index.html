@@ -169,6 +169,9 @@ html.context-menu-open,body.context-menu-open{background:var(--claude-context-di
 .profile-memory-list{gap:10px}.profile-memory-row{position:relative;overflow:hidden;border-radius:22px;background:#D54D4D;touch-action:pan-y}.profile-memory-row .profile-swipe-delete{position:absolute;right:0;top:0;bottom:0;width:96px;display:flex;align-items:center;justify-content:center;background:#D54D4D;border:0;cursor:pointer;color:#fff;font-size:var(--text-base);font-weight:600;letter-spacing:.2px}.profile-memory-row .profile-memory-card{position:relative;z-index:1;min-height:72px;padding:14px 16px;background:#f2f0ed;border:none;outline:2px solid #f2f0ed;outline-offset:-1px;box-shadow:0 1px 2px rgba(0,0,0,.025);transition:transform 180ms ease;touch-action:pan-y}.profile-memory-row.open .profile-memory-card{transform:translateX(-96px)}.profile-memory-row .profile-memory-textarea{min-height:44px;max-height:40dvh;overflow:auto;resize:none;font-size:var(--text-read);line-height:1.5;width:100%}.profile-preferences-card{background:#f2f0ed;border:1px solid rgba(32,31,29,.05);border-radius:28px;padding:24px 28px}.profile-preferences-card .profile-card-top{margin-bottom:12px}.profile-preferences-card .profile-preferences-textarea{min-height:52dvh;font-size:var(--text-read);line-height:1.5;resize:vertical}.profile-add-button{padding:17px;font-size:var(--text-base)}
 #diaryPanel{position:fixed;inset:0;z-index:80;display:none;flex-direction:column;background:#fbfaf7;color:#201f1d;overflow:hidden}#diaryPanel.show{display:flex}.diary-months{display:flex;gap:6px;padding:8px 18px 4px;overflow-x:auto;-webkit-overflow-scrolling:touch;flex:none}.diary-months::-webkit-scrollbar{display:none}.diary-month-pill{flex:none;padding:6px 14px;border:0;border-radius:999px;background:#f2f0ed;color:#77736c;font:500 var(--text-sm)/1 var(--font-sans);white-space:nowrap}.diary-month-pill.active{background:#201f1d;color:#fff}.diary-content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:10px 18px calc(env(safe-area-inset-bottom, 34px) + 60px)}.diary-date-header{font:600 var(--text-sm)/1.2 var(--font-sans);color:#77736c;padding:16px 4px 8px}.diary-entry{font:400 var(--text-read)/1.6 var(--font-sans);color:#201f1d;padding:10px 14px;border-radius:16px;background:#f2f0ed;margin-bottom:8px}.diary-empty{padding:40px 20px;text-align:center;color:#77736c;font-size:var(--text-sm)}
 @media(prefers-color-scheme: dark){#diaryPanel{background:var(--bg-primary);color:var(--text-primary)}.diary-date-header{color:var(--text-secondary)}.diary-entry{background:#2A2A28;color:var(--text-primary)}.diary-month-pill{background:#2A2A28;color:var(--text-secondary)}.diary-month-pill.active{background:var(--text-primary);color:var(--bg-primary)}}
+.letters-wrap{padding:10px 14px 20px;overflow-y:auto;-webkit-overflow-scrolling:touch}.letters-list{display:flex;flex-direction:column;gap:12px}.letter-card{position:relative;padding:18px 18px 16px;border-radius:20px;background:#f2f0ed;border:1px solid rgba(32,31,29,.05);cursor:pointer;transition:transform 120ms ease}.letter-card:active{transform:scale(.98)}.letter-card-author{font:500 var(--text-sm)/1 var(--font-sans);color:var(--accent);letter-spacing:.03em;margin-bottom:6px}.letter-card-title{font:400 16px/1.35 var(--font-sans);color:var(--text-primary);margin-bottom:4px}.letter-card-date{font:400 var(--text-sm)/1.2 var(--font-sans);color:var(--text-faint)}.letter-card-preview{margin-top:8px;font:400 var(--text-read)/1.55 var(--font-sans);color:var(--text-secondary);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.letter-card-lock{position:absolute;top:16px;right:16px;font-size:16px;opacity:.5}.letter-card.is-locked{background:linear-gradient(135deg,#f2f0ed 0%,#ede8e4 100%)}.letter-card.is-locked .letter-card-preview{font-style:italic;color:var(--text-faint)}.letter-card.is-new::after{content:'';position:absolute;top:14px;right:14px;width:8px;height:8px;border-radius:50%;background:var(--accent)}.letters-empty{padding:40px 20px;text-align:center;color:var(--text-faint);font-size:var(--text-sm);line-height:1.6}.letters-toolbar{display:flex;justify-content:flex-end;padding:0 4px 10px}.letters-write-btn{padding:8px 18px;border:0;border-radius:999px;background:var(--text-primary);color:var(--bg-primary);font:500 var(--text-sm)/1 var(--font-sans);cursor:pointer}
+.letter-overlay{position:fixed;inset:0;z-index:85;background:var(--bg-primary);display:flex;flex-direction:column;overflow:hidden;animation:letterFadeIn 200ms ease}.letter-overlay[hidden]{display:none}@keyframes letterFadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}.letter-overlay-inner{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:calc(env(safe-area-inset-top,50px) + 14px) 20px calc(env(safe-area-inset-bottom,34px) + 20px)}.letter-overlay-close{position:fixed;top:calc(env(safe-area-inset-top,50px) + 10px);right:16px;z-index:86;width:40px;height:40px;border:0;border-radius:50%;background:var(--bg-surface);display:grid;place-items:center;color:var(--text-secondary);box-shadow:var(--shadow-soft)}.letter-detail-author{font:500 var(--text-sm)/1 var(--font-sans);color:var(--accent);letter-spacing:.03em;margin-bottom:8px}.letter-detail-title{font:400 22px/1.3 var(--font-sans);color:var(--text-primary);margin-bottom:6px}.letter-detail-date{font:400 var(--text-sm)/1.2 var(--font-sans);color:var(--text-faint);margin-bottom:24px}.letter-detail-body{font:400 var(--text-read)/1.75 var(--font-sans);color:var(--text-primary);white-space:pre-wrap;word-break:break-word}.letter-write-title{font:400 20px/1.2 var(--font-sans);color:var(--text-primary);margin-bottom:20px}.letter-input{width:100%;padding:12px 16px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--bg-surface);color:var(--text-primary);font:400 var(--text-base)/1.4 var(--font-sans);outline:0;margin-bottom:12px;box-sizing:border-box}.letter-input::placeholder{color:var(--text-faint)}.letter-textarea{width:100%;min-height:200px;padding:14px 16px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--bg-surface);color:var(--text-primary);font:400 var(--text-read)/1.65 var(--font-sans);outline:0;resize:vertical;margin-bottom:12px;box-sizing:border-box}.letter-textarea::placeholder{color:var(--text-faint)}.letter-lock-section{margin-bottom:16px}.letter-lock-toggle{font:400 var(--text-base)/1.4 var(--font-sans);color:var(--text-secondary);cursor:pointer;padding:8px 0}.letter-lock-options{padding:12px 0;display:flex;flex-direction:column;gap:10px}.letter-lock-row{display:flex;align-items:center;gap:10px;font:400 var(--text-base)/1.4 var(--font-sans);color:var(--text-primary)}.letter-send-btn{width:100%;padding:15px;border:0;border-radius:999px;background:var(--text-primary);color:var(--bg-primary);font:600 var(--text-base)/1 var(--font-sans);cursor:pointer;margin-top:8px}.letter-send-btn:disabled{opacity:.35}.letter-unlock-dialog{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(320px,calc(100vw - 40px));padding:28px 24px 20px;border-radius:24px;background:var(--bg-primary);border:1px solid var(--border);box-shadow:0 20px 60px rgba(0,0,0,.18)}.letter-unlock-cover{font:400 16px/1.5 var(--font-sans);color:var(--text-primary);text-align:center;margin-bottom:16px;font-style:italic}.letter-unlock-time{font:400 var(--text-sm)/1.3 var(--font-sans);color:var(--text-faint);text-align:center;margin-bottom:12px}.letter-unlock-actions{display:flex;gap:10px;margin-top:14px}.letter-unlock-cancel,.letter-unlock-submit{flex:1;padding:12px;border:0;border-radius:999px;font:500 var(--text-base)/1 var(--font-sans);cursor:pointer}.letter-unlock-cancel{background:var(--bg-surface);color:var(--text-secondary);border:1px solid var(--border)}.letter-unlock-submit{background:var(--text-primary);color:var(--bg-primary)}.letter-unlock-error{margin-top:10px;font:400 var(--text-sm)/1.3 var(--font-sans);color:#d54d4d;text-align:center;min-height:18px}
+@media(prefers-color-scheme:dark){.letter-card{background:#2A2A28;border-color:var(--border)}.letter-card.is-locked{background:linear-gradient(135deg,#2A2A28 0%,#2E2C2A 100%)}.letters-write-btn{background:var(--text-primary);color:var(--bg-primary)}.letter-overlay{background:var(--bg-primary)}.letter-unlock-dialog{background:var(--bg-primary);border-color:var(--border);box-shadow:0 20px 60px rgba(0,0,0,.5)}}
 @media(prefers-color-scheme: dark){#memoryPanel{background:var(--bg-primary);color:var(--text-primary)}.profile-round-button,.profile-save-button,.profile-back-button{background:#2A2A28;border-color:var(--border);color:var(--text-primary);box-shadow:0 2px 8px rgba(0,0,0,.2)}.profile-save-button{color:var(--accent)}.profile-save-button:disabled{color:#6E6D66}.profile-title{color:var(--text-primary)}.profile-subtitle,.profile-section-title,.profile-help-text,.profile-nav-chevron,.profile-nav-row-icon{color:var(--text-secondary)}.profile-nav-row-note{color:var(--text-faint)}.profile-card{background:#2A2A28;border-color:var(--border);color:var(--text-primary)}.profile-nav-row{background:#2A2A28;color:var(--text-primary)}.profile-name-input,.profile-memory-textarea,.profile-preferences-textarea{color:var(--text-primary)}.profile-name-input::placeholder,.profile-memory-textarea::placeholder,.profile-preferences-textarea::placeholder{color:#6E6D66}.profile-divider{background:var(--border)}.profile-memory-row .profile-memory-card{background:#2A2A28;border:none;outline:2px solid #2A2A28;outline-offset:-1px;box-shadow:none}.profile-empty{background:#2A2A28;color:var(--text-secondary)}.profile-add-button{background:#2A2A28;color:var(--text-primary);border:1px solid rgba(255,255,255,.12)}.profile-mini-button{background:var(--border);color:var(--text-secondary)}.profile-preferences-card{background:#2A2A28;color:var(--text-primary)}.memory-search-bubble{background:rgba(42,42,40,.92);border-color:rgba(255,255,255,.12);color:rgba(244,243,239,.58);box-shadow:0 0 0 1px rgba(255,255,255,.035),0 8px 24px rgba(0,0,0,.30),0 2px 6px rgba(0,0,0,.22)}.memory-search-icon{color:rgba(244,243,239,.58)}.memory-search-input{color:var(--text-primary)}.memory-search-input::placeholder{color:rgba(244,243,239,.45)}.memory-search-clear{background:rgba(255,255,255,.25)}.topbar .icon-button{border:1px solid rgba(255,255,255,.16);box-shadow:0 1px 2px rgba(0,0,0,.25)}}
 .dialog-overlay{position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:var(--space-4);background:var(--border-strong)}.dialog{width:100%;max-width:360px;padding:var(--space-5);background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-lg)}.dialog h3{font:400 var(--text-title) var(--font-sans)}.dialog input{width:100%;margin:var(--space-4) 0;padding:var(--space-3);background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);outline:0}.dialog-actions{display:flex;justify-content:flex-end;gap:var(--space-2)}.secondary-button{padding:var(--space-2) var(--space-3);border:1px solid var(--border);border-radius:var(--radius-md)}
 .toast{position:fixed;z-index:95;left:50%;bottom:calc(env(safe-area-inset-bottom, 34px) + 92px);max-width:calc(100% - var(--space-6));padding:var(--space-2) var(--space-4);transform:translate(-50%,12px);opacity:0;pointer-events:none;background:var(--text-primary);color:var(--bg-primary);border-radius:var(--radius-full);font-size:var(--text-sm);transition:opacity var(--transition),transform var(--transition)}.toast.show{opacity:1;transform:translate(-50%,0)}
@@ -1014,7 +1017,76 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
       </div>
     </div>
   </div>
+  <!-- 寄相思：信件交换。默认收起。 -->
+  <div class="study-acc is-collapsed" id="studyLetters">
+    <button type="button" class="study-acc-head" id="studyLettersHead" aria-expanded="false" aria-controls="studyLettersBody">
+      <span class="study-acc-title">寄相思</span>
+      <span class="study-acc-sub" id="lettersCount">信件</span>
+      <span class="study-acc-chevron" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </span>
+    </button>
+    <div class="study-acc-body" id="studyLettersBody">
+      <div class="letters-wrap" id="lettersWrap">
+        <div class="letters-toolbar">
+          <button class="letters-write-btn" id="lettersWriteBtn">写一封信</button>
+        </div>
+        <div class="letters-list" id="lettersList"></div>
+      </div>
+    </div>
+  </div>
 </section>
+
+<!-- 寄相思：信件详情 overlay -->
+<div class="letter-overlay" id="letterOverlay" hidden>
+  <div class="letter-overlay-inner">
+    <button class="letter-overlay-close" id="letterOverlayClose" aria-label="关闭">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <div class="letter-detail" id="letterDetail"></div>
+  </div>
+</div>
+<!-- 寄相思：写信 overlay -->
+<div class="letter-overlay" id="letterWriteOverlay" hidden>
+  <div class="letter-overlay-inner">
+    <button class="letter-overlay-close" id="letterWriteClose" aria-label="关闭">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <div class="letter-write-form" id="letterWriteForm">
+      <h3 class="letter-write-title">写一封信</h3>
+      <input class="letter-input" id="letterTitleInput" type="text" placeholder="标题（可选）" maxlength="200">
+      <textarea class="letter-textarea" id="letterContentInput" placeholder="写下你想说的…" maxlength="20000"></textarea>
+      <details class="letter-lock-section">
+        <summary class="letter-lock-toggle">上锁</summary>
+        <div class="letter-lock-options">
+          <label class="letter-lock-row">
+            <input type="checkbox" id="letterTimeLock"> 定时解锁
+          </label>
+          <input class="letter-input" id="letterUnlockAt" type="datetime-local" style="display:none">
+          <label class="letter-lock-row">
+            <input type="checkbox" id="letterPwdLock"> 密码锁
+          </label>
+          <input class="letter-input" id="letterPassword" type="text" placeholder="设置密码" maxlength="128" style="display:none">
+          <input class="letter-input" id="letterCoverText" type="text" placeholder="封面留言（如：小猫，不许偷看）" maxlength="200" style="display:none">
+        </div>
+      </details>
+      <button class="letter-send-btn" id="letterSendBtn">寄出</button>
+    </div>
+  </div>
+</div>
+<!-- 寄相思：解锁弹窗 -->
+<div class="letter-overlay" id="letterUnlockOverlay" hidden>
+  <div class="letter-unlock-dialog">
+    <div class="letter-unlock-cover" id="letterUnlockCover"></div>
+    <div class="letter-unlock-time" id="letterUnlockTime" hidden></div>
+    <input class="letter-input" id="letterUnlockPwd" type="text" placeholder="输入密码" maxlength="128">
+    <div class="letter-unlock-actions">
+      <button class="letter-unlock-cancel" id="letterUnlockCancel">算了</button>
+      <button class="letter-unlock-submit" id="letterUnlockSubmit">开信</button>
+    </div>
+    <div class="letter-unlock-error" id="letterUnlockError"></div>
+  </div>
+</div>
 
 <nav id="tabBar" aria-label="主导航">
   <button class="tab-item" type="button" data-tab="tidal">
@@ -3809,6 +3881,160 @@ const DIARY_ACC_KEY='reading_panel_diary';
   head.addEventListener('click',()=>set(!acc.classList.contains('is-collapsed'),true));
 })();
 
+/* ── 寄相思 ──────────────────────────────────────────────────────────
+   书房第三块手风琴。信件列表、详情 overlay、写信 overlay、解锁弹窗。 */
+let _lettersLoaded=false, _lettersData=[];
+async function loadLetters(){
+  if(_lettersLoaded)return;
+  try{
+    const r=await api('/api/letters');if(!r.ok)throw Error();
+    const data=await r.json();
+    _lettersData=data.letters||[];_lettersLoaded=true;
+    const n=_lettersData.length;
+    $('lettersCount').textContent=n?`${n} 封`:'信件';
+    renderLettersList();
+  }catch(e){$('lettersCount').textContent='读取失败';}
+}
+function renderLettersList(){
+  const el=$('lettersList');el.innerHTML='';
+  if(!_lettersData.length){el.innerHTML='<div class="letters-empty">还没有信。<br>写一封？或者等他写给你。</div>';return}
+  _lettersData.forEach(lt=>{
+    const card=document.createElement('div');
+    card.className='letter-card'+(lt.locked?' is-locked':'')+((!lt.read_at&&!lt.locked)?' is-new':'');
+    const authorLabel=lt.author==='elian'?'梁忱':'小朵';
+    const dateStr=formatLetterDate(lt.created_at);
+    let inner=`<div class="letter-card-author">${authorLabel}</div>`;
+    if(lt.title)inner+=`<div class="letter-card-title">${esc(lt.title)}</div>`;
+    inner+=`<div class="letter-card-date">${dateStr}</div>`;
+    if(lt.locked){
+      inner+=`<span class="letter-card-lock">🔒</span>`;
+      if(lt.cover_text)inner+=`<div class="letter-card-preview">${esc(lt.cover_text)}</div>`;
+    }else if(lt.content){
+      inner+=`<div class="letter-card-preview">${esc(lt.content)}</div>`;
+    }
+    card.innerHTML=inner;
+    card.onclick=()=>openLetter(lt.id,lt.locked,lt);
+    el.append(card);
+  });
+}
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+function formatLetterDate(iso){
+  try{
+    const d=new Date(iso);
+    const pad=n=>String(n).padStart(2,'0');
+    return `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }catch(e){return iso||''}
+}
+async function openLetter(id,locked,preview){
+  if(locked){openUnlockDialog(id,preview);return}
+  try{
+    const r=await api(`/api/letters/${id}`);if(!r.ok)throw Error();
+    const data=await r.json();
+    showLetterDetail(data.letter);
+  }catch(e){toast('读取失败')}
+}
+function showLetterDetail(lt){
+  const el=$('letterDetail');
+  const authorLabel=lt.author==='elian'?'梁忱':'小朵';
+  el.innerHTML=`<div class="letter-detail-author">${authorLabel}</div>`
+    +(lt.title?`<div class="letter-detail-title">${esc(lt.title)}</div>`:'')
+    +`<div class="letter-detail-date">${formatLetterDate(lt.created_at)}</div>`
+    +`<div class="letter-detail-body">${esc(lt.content)}</div>`;
+  $('letterOverlay').hidden=false;
+  /* 标记已读刷新列表上的小点 */
+  if(!lt.read_at){
+    const idx=_lettersData.findIndex(l=>l.id===lt.id);
+    if(idx>=0)_lettersData[idx].read_at='now';
+    renderLettersList();
+  }
+}
+$('letterOverlayClose').onclick=()=>{$('letterOverlay').hidden=true};
+
+/* 写信 */
+$('lettersWriteBtn').onclick=()=>{
+  $('letterTitleInput').value='';$('letterContentInput').value='';
+  $('letterTimeLock').checked=false;$('letterPwdLock').checked=false;
+  $('letterUnlockAt').style.display='none';$('letterPassword').style.display='none';
+  $('letterCoverText').style.display='none';$('letterPassword').value='';
+  $('letterCoverText').value='';$('letterUnlockAt').value='';
+  $('letterWriteOverlay').hidden=false;
+};
+$('letterWriteClose').onclick=()=>{$('letterWriteOverlay').hidden=true};
+$('letterTimeLock').onchange=()=>{$('letterUnlockAt').style.display=$('letterTimeLock').checked?'':'none';_showCoverIfLocked()};
+$('letterPwdLock').onchange=()=>{$('letterPassword').style.display=$('letterPwdLock').checked?'':'none';_showCoverIfLocked()};
+function _showCoverIfLocked(){$('letterCoverText').style.display=($('letterTimeLock').checked||$('letterPwdLock').checked)?'':'none'}
+$('letterSendBtn').onclick=async()=>{
+  const content=$('letterContentInput').value.trim();
+  if(!content){toast('写点什么再寄');return}
+  const title=$('letterTitleInput').value.trim();
+  const timeLock=$('letterTimeLock').checked;
+  const pwdLock=$('letterPwdLock').checked;
+  const locked=timeLock||pwdLock;
+  let lock_type='none';
+  if(timeLock&&pwdLock)lock_type='both';
+  else if(timeLock)lock_type='time';
+  else if(pwdLock)lock_type='password';
+  const body={content,title,locked,lock_type};
+  if(timeLock){const v=$('letterUnlockAt').value;if(!v){toast('选个解锁时间');return}body.unlock_at=new Date(v).toISOString()}
+  if(pwdLock){const p=$('letterPassword').value;if(!p){toast('设个密码');return}body.password=p}
+  if(locked){body.cover_text=$('letterCoverText').value.trim()||''}
+  $('letterSendBtn').disabled=true;
+  try{
+    const r=await api('/api/letters',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!r.ok){const d=await r.json().catch(()=>({}));throw Error(d.detail||'发送失败')}
+    toast('信已寄出');$('letterWriteOverlay').hidden=true;
+    _lettersLoaded=false;loadLetters();
+  }catch(e){toast(e.message||'发送失败')}
+  finally{$('letterSendBtn').disabled=false}
+};
+
+/* 解锁弹窗 */
+let _unlockTargetId=null;
+function openUnlockDialog(id,preview){
+  _unlockTargetId=id;
+  $('letterUnlockCover').textContent=preview?.cover_text||'这封信上了锁';
+  const hasTime=preview?.lock_type==='time'||preview?.lock_type==='both';
+  $('letterUnlockTime').hidden=!hasTime;
+  if(hasTime&&preview?.unlock_at){
+    try{$('letterUnlockTime').textContent=`解锁时间：${formatLetterDate(preview.unlock_at)}`}catch(e){}
+  }
+  const needsPwd=preview?.lock_type==='password'||preview?.lock_type==='both';
+  $('letterUnlockPwd').style.display=needsPwd?'':'none';
+  $('letterUnlockPwd').value='';$('letterUnlockError').textContent='';
+  $('letterUnlockOverlay').hidden=false;
+}
+$('letterUnlockCancel').onclick=()=>{$('letterUnlockOverlay').hidden=true};
+$('letterUnlockSubmit').onclick=async()=>{
+  if(!_unlockTargetId)return;
+  const pwd=$('letterUnlockPwd').value;
+  try{
+    const r=await api(`/api/letters/${_unlockTargetId}/unlock`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pwd})});
+    const data=await r.json();
+    if(!r.ok){$('letterUnlockError').textContent=data.detail||'解锁失败';return}
+    $('letterUnlockOverlay').hidden=true;
+    if(data.letter)showLetterDetail(data.letter);
+    /* 刷新列表 */
+    const idx=_lettersData.findIndex(l=>l.id===_unlockTargetId);
+    if(idx>=0){_lettersData[idx].locked=0;_lettersData[idx].lock_type='none';_lettersData[idx].read_at='now';if(data.letter)_lettersData[idx].content=data.letter.content}
+    renderLettersList();
+  }catch(e){$('letterUnlockError').textContent='网络错误'}
+};
+
+/* 寄相思手风琴 */
+const LETTERS_ACC_KEY='reading_panel_letters';
+(()=>{
+  const acc=$('studyLetters'), head=$('studyLettersHead');
+  if(!acc||!head) return;
+  const set=(collapsed,persist)=>{
+    acc.classList.toggle('is-collapsed',collapsed);
+    head.setAttribute('aria-expanded',String(!collapsed));
+    if(persist) localStorage.setItem(LETTERS_ACC_KEY,collapsed?'collapsed':'open');
+    if(!collapsed) loadLetters();
+  };
+  if(localStorage.getItem(LETTERS_ACC_KEY)==='open') set(false,false);
+  head.addEventListener('click',()=>set(!acc.classList.contains('is-collapsed'),true));
+})();
+
 /* 起算日 2026.5.29。
 
    必须用 new Date(y, m, d) 而不是 Date.parse('2026-05-29')——后者按
@@ -6072,7 +6298,8 @@ function switchTab(name){
        if(pianoAudio){pianoDrawer(false);pianoSetAnimating(false)}}
   if(name==='reading'){renderReadingCounter();if(!starmapCollapsed())openStarmap();
     /* 日记那块要是记着上次是展开的，进书房就把数据补上 */
-    if(!$('studyDiary')?.classList.contains('is-collapsed'))loadDiary();}
+    if(!$('studyDiary')?.classList.contains('is-collapsed'))loadDiary();
+    if(!$('studyLetters')?.classList.contains('is-collapsed'))loadLetters();}
 }
 document.querySelectorAll('#tabBar .tab-item').forEach(t=>{t.addEventListener('click',()=>switchTab(t.dataset.tab))});
 </script>

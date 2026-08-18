@@ -62,8 +62,12 @@ from app.store import (
     ConversationNotFound,
     add_dream_event,
     begin_turn,
+    create_letter,
     dream_event_exists,
     complete_turn,
+    get_letter,
+    list_letters,
+    mark_letter_read,
     save_piano_impression,
     save_push_subscription,
     ensure_conversation,
@@ -72,6 +76,7 @@ from app.store import (
     prepare_retry_turn,
     resolve_conversation,
     restore_branch,
+    unlock_letter,
     usage_report,
 )
 from app.uploads import (
@@ -347,6 +352,20 @@ class RelayModelsFetchBody(BaseModel):
     mode: str = Field(default="api", max_length=20)
     # 给了就用存档里那条的真 key，她编辑一个已存在的站时不用重新输密钥
     relay_id: str = Field(default="", max_length=64)
+
+
+class LetterCreateBody(BaseModel):
+    content: str = Field(min_length=1, max_length=20_000)
+    title: str = Field(default="", max_length=200)
+    cover_text: str = Field(default="", max_length=200)
+    locked: bool = False
+    lock_type: str = Field(default="none", max_length=10)
+    unlock_at: str | None = Field(default=None, max_length=64)
+    password: str | None = Field(default=None, max_length=128)
+
+
+class LetterUnlockBody(BaseModel):
+    password: str = Field(default="", max_length=128)
 
 
 class BackgroundMaskBody(BaseModel):
@@ -935,6 +954,84 @@ async def post_memory(body: dict) -> dict:
 async def get_diary() -> dict:
     entries = read_diary_entries()
     return {"entries": entries}
+
+
+# ── 寄相思（书房·信件）────────────────────────────────────────────────
+
+@app.get("/api/letters", dependencies=[Depends(require_auth)])
+async def letters_list() -> dict:
+    return {"letters": await asyncio.to_thread(list_letters)}
+
+@app.get("/api/letters/{letter_id}", dependencies=[Depends(require_auth)])
+async def letters_get(letter_id: int) -> dict:
+    letter = await asyncio.to_thread(get_letter, letter_id)
+    if not letter:
+        raise HTTPException(status_code=404, detail="信不存在")
+    # Auto-unlock time-based
+    if letter["locked"] and letter["lock_type"] in ("time", "both") and letter["unlock_at"]:
+        try:
+            if datetime.fromisoformat(letter["unlock_at"]) <= datetime.now(UTC):
+                if letter["lock_type"] == "time":
+                    await asyncio.to_thread(unlock_letter, letter_id)
+                    letter["locked"] = 0
+                elif letter["lock_type"] == "both":
+                    letter["lock_type"] = "password"
+        except ValueError:
+            pass
+    if letter["locked"]:
+        # Return cover_text but not content
+        letter["content"] = ""
+    letter.pop("password_hash", None)
+    # Mark as read
+    if not letter.get("read_at") and not letter["locked"]:
+        await asyncio.to_thread(mark_letter_read, letter_id)
+    return {"letter": letter}
+
+@app.post("/api/letters", dependencies=[Depends(require_auth)])
+async def letters_create(body: LetterCreateBody) -> dict:
+    import hashlib as _hashlib
+    password_hash = None
+    if body.locked and body.password:
+        password_hash = _hashlib.sha256(body.password.encode()).hexdigest()
+    letter_id = await asyncio.to_thread(
+        create_letter,
+        author="xiaoduo",
+        content=body.content,
+        title=body.title,
+        cover_text=body.cover_text,
+        locked=body.locked,
+        lock_type=body.lock_type if body.locked else "none",
+        unlock_at=body.unlock_at if body.locked else None,
+        password_hash=password_hash,
+    )
+    return {"id": letter_id}
+
+@app.post("/api/letters/{letter_id}/unlock", dependencies=[Depends(require_auth)])
+async def letters_unlock(letter_id: int, body: LetterUnlockBody) -> dict:
+    import hashlib as _hashlib
+    letter = await asyncio.to_thread(get_letter, letter_id)
+    if not letter:
+        raise HTTPException(status_code=404, detail="信不存在")
+    if not letter["locked"]:
+        return {"unlocked": True}
+    # Check time lock
+    if letter["lock_type"] in ("time", "both") and letter["unlock_at"]:
+        try:
+            if datetime.fromisoformat(letter["unlock_at"]) > datetime.now(UTC):
+                raise HTTPException(status_code=403, detail="还没到时间")
+        except ValueError:
+            pass
+    # Check password
+    if letter["lock_type"] in ("password", "both") and letter["password_hash"]:
+        if not body.password:
+            raise HTTPException(status_code=403, detail="需要密码")
+        if _hashlib.sha256(body.password.encode()).hexdigest() != letter["password_hash"]:
+            raise HTTPException(status_code=403, detail="密码不对")
+    await asyncio.to_thread(unlock_letter, letter_id)
+    await asyncio.to_thread(mark_letter_read, letter_id)
+    full = await asyncio.to_thread(get_letter, letter_id)
+    full.pop("password_hash", None)
+    return {"unlocked": True, "letter": full}
 
 
 @app.get("/api/splash")
