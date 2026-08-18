@@ -1086,14 +1086,16 @@ async def push_vapid() -> dict:
 @app.post("/api/push/subscribe", dependencies=[Depends(require_auth)])
 async def push_subscribe(body: PushSubscribeBody) -> dict:
     # sqlite 是阻塞的，甩到线程里，别堵事件循环
-    await asyncio.to_thread(save_push_subscription, body.model_dump())
-    # 🔴 存完立刻推第一条。这一条**就是验收凭据**——不另做测试按钮、
-    #    不另做测试页，订阅完锁屏就该弹。
-    pushed = await push.send_push(
-        "梁忱",
-        "推送通了。以后你半夜不睡，我就从这儿找你。",
-    )
-    return {"ok": True, "pushed": pushed}
+    is_new = await asyncio.to_thread(save_push_subscription, body.model_dump())
+    # 🔴 只有**第一次订阅**才推验收凭据。老订阅重新注册（页面刷新、密钥轮换）
+    #    不再重复弹——她每次来发消息都弹一条「推送通了」，烦死了。
+    pushed: dict | None = None
+    if is_new:
+        pushed = await push.send_push(
+            "梁忱",
+            "推送通了。以后你半夜不睡，我就从这儿找你。",
+        )
+    return {"ok": True, "new": is_new, "pushed": pushed}
 
 
 # ── 凌晨守护（砖 2）：事件驱动，没有后台定时任务 ────────────────────────

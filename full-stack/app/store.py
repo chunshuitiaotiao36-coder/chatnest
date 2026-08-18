@@ -941,13 +941,20 @@ def record_usage(entry: dict[str, Any]) -> None:
 # ---------- 推送订阅 ---------------------------------------------------------
 
 
-def save_push_subscription(entry: dict[str, Any]) -> None:
+def save_push_subscription(entry: dict[str, Any]) -> bool:
     """存一条订阅。同一个 endpoint 重复订阅就更新密钥，不新增行。
 
     重新授权 / 换 UA 时浏览器会给出同一个 endpoint 但新的 p256dh，
     所以冲突时必须覆盖密钥，顺带把 fail_count 清零——它又活了。
+
+    返回 True = 新订阅（endpoint 从没出现过），False = 老订阅更新密钥。
     """
+    endpoint = str(entry.get("endpoint") or "")
     with _connect() as db:
+        existing = db.execute(
+            "SELECT 1 FROM push_subscriptions WHERE endpoint = ?",
+            (endpoint,),
+        ).fetchone()
         db.execute(
             """
             INSERT INTO push_subscriptions(
@@ -961,13 +968,14 @@ def save_push_subscription(entry: dict[str, Any]) -> None:
                 last_fail_at = NULL
             """,
             (
-                str(entry.get("endpoint") or ""),
+                endpoint,
                 str(entry.get("p256dh") or ""),
                 str(entry.get("auth") or ""),
                 str(entry.get("ua") or ""),
                 _now(),
             ),
         )
+        return existing is None
 
 
 def list_push_subscriptions() -> list[dict[str, Any]]:
