@@ -222,6 +222,12 @@ def initialize_store() -> None:
                 ADD COLUMN edited INTEGER NOT NULL DEFAULT 0
                 """
             )
+        letter_columns = {
+            row["name"]
+            for row in db.execute("PRAGMA table_info(letters)").fetchall()
+        }
+        if letter_columns and "parent_id" not in letter_columns:
+            db.execute("ALTER TABLE letters ADD COLUMN parent_id INTEGER")
         branch_columns = {
             row["name"]
             for row in db.execute("PRAGMA table_info(message_branches)").fetchall()
@@ -1357,10 +1363,10 @@ def save_piano_impression(song_id: str, text: str, n: int,
 
 
 def list_letters() -> list[dict[str, Any]]:
-    """All letters, newest first. Does NOT include content for locked letters."""
+    """Top-level letters (not replies), newest first. Does NOT include content for locked letters."""
     with _connect() as db:
         rows = db.execute(
-            "SELECT id, author, title, content, cover_text, locked, lock_type, unlock_at, created_at, read_at FROM letters ORDER BY created_at DESC"
+            "SELECT id, author, title, content, cover_text, locked, lock_type, unlock_at, created_at, read_at FROM letters WHERE parent_id IS NULL ORDER BY created_at DESC"
         ).fetchall()
     result = []
     for row in rows:
@@ -1408,16 +1414,27 @@ def create_letter(
     lock_type: str = "none",
     unlock_at: str | None = None,
     password_hash: str | None = None,
+    parent_id: int | None = None,
 ) -> int:
     """Create a letter. Returns the new letter id."""
     now = _now()
     with _connect() as db:
         cursor = db.execute(
-            """INSERT INTO letters(author, title, content, cover_text, locked, lock_type, unlock_at, password_hash, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (author, title[:200], content, cover_text[:200], int(locked), lock_type, unlock_at, password_hash, now),
+            """INSERT INTO letters(author, title, content, cover_text, locked, lock_type, unlock_at, password_hash, created_at, parent_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (author, title[:200], content, cover_text[:200], int(locked), lock_type, unlock_at, password_hash, now, parent_id),
         )
         return int(cursor.lastrowid)
+
+
+def list_replies(parent_id: int) -> list[dict[str, Any]]:
+    """Get all replies to a letter, oldest first."""
+    with _connect() as db:
+        rows = db.execute(
+            "SELECT id, author, title, content, created_at, parent_id FROM letters WHERE parent_id = ? ORDER BY created_at ASC",
+            (parent_id,),
+        ).fetchall()
+    return [dict(row) for row in rows]
 
 
 def unlock_letter(letter_id: int) -> bool:

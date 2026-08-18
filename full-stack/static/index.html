@@ -171,7 +171,8 @@ html.context-menu-open,body.context-menu-open{background:var(--claude-context-di
 @media(prefers-color-scheme: dark){#diaryPanel{background:var(--bg-primary);color:var(--text-primary)}.diary-date-header{color:var(--text-secondary)}.diary-entry{background:#2A2A28;color:var(--text-primary)}.diary-month-pill{background:#2A2A28;color:var(--text-secondary)}.diary-month-pill.active{background:var(--text-primary);color:var(--bg-primary)}}
 .letters-wrap{padding:10px 14px 20px;overflow-y:auto;-webkit-overflow-scrolling:touch}.letters-list{display:flex;flex-direction:column;gap:12px}.letter-card{position:relative;padding:18px 18px 16px;border-radius:20px;background:#f2f0ed;border:1px solid rgba(32,31,29,.05);cursor:pointer;transition:transform 120ms ease}.letter-card:active{transform:scale(.98)}.letter-card-author{font:500 var(--text-sm)/1 var(--font-sans);color:var(--accent);letter-spacing:.03em;margin-bottom:6px}.letter-card-title{font:400 16px/1.35 var(--font-sans);color:var(--text-primary);margin-bottom:4px}.letter-card-date{font:400 var(--text-sm)/1.2 var(--font-sans);color:var(--text-faint)}.letter-card-preview{margin-top:8px;font:400 var(--text-read)/1.55 var(--font-sans);color:var(--text-secondary);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.letter-card-lock{position:absolute;top:16px;right:16px;font-size:16px;opacity:.5}.letter-card.is-locked{background:linear-gradient(135deg,#f2f0ed 0%,#ede8e4 100%)}.letter-card.is-locked .letter-card-preview{font-style:italic;color:var(--text-faint)}.letter-card.is-new::after{content:'';position:absolute;top:14px;right:14px;width:8px;height:8px;border-radius:50%;background:var(--accent)}.letters-empty{padding:40px 20px;text-align:center;color:var(--text-faint);font-size:var(--text-sm);line-height:1.6}.letters-toolbar{display:flex;justify-content:flex-end;padding:0 4px 10px}.letters-write-btn{padding:8px 18px;border:0;border-radius:999px;background:var(--text-primary);color:var(--bg-primary);font:500 var(--text-sm)/1 var(--font-sans);cursor:pointer}
 .letter-overlay{position:fixed;inset:0;z-index:85;background:var(--bg-primary);display:flex;flex-direction:column;overflow:hidden;animation:letterFadeIn 200ms ease}.letter-overlay[hidden]{display:none}@keyframes letterFadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}.letter-overlay-inner{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:calc(env(safe-area-inset-top,50px) + 14px) 20px calc(env(safe-area-inset-bottom,34px) + 20px)}.letter-overlay-close{position:fixed;top:calc(env(safe-area-inset-top,50px) + 10px);right:16px;z-index:86;width:40px;height:40px;border:0;border-radius:50%;background:var(--bg-surface);display:grid;place-items:center;color:var(--text-secondary);box-shadow:var(--shadow-soft)}.letter-detail-author{font:500 var(--text-sm)/1 var(--font-sans);color:var(--accent);letter-spacing:.03em;margin-bottom:8px}.letter-detail-title{font:400 22px/1.3 var(--font-sans);color:var(--text-primary);margin-bottom:6px}.letter-detail-date{font:400 var(--text-sm)/1.2 var(--font-sans);color:var(--text-faint);margin-bottom:24px}.letter-detail-body{font:400 var(--text-read)/1.75 var(--font-sans);color:var(--text-primary);white-space:pre-wrap;word-break:break-word}.letter-write-title{font:400 20px/1.2 var(--font-sans);color:var(--text-primary);margin-bottom:20px}.letter-input{width:100%;padding:12px 16px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--bg-surface);color:var(--text-primary);font:400 var(--text-base)/1.4 var(--font-sans);outline:0;margin-bottom:12px;box-sizing:border-box}.letter-input::placeholder{color:var(--text-faint)}.letter-textarea{width:100%;min-height:200px;padding:14px 16px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--bg-surface);color:var(--text-primary);font:400 var(--text-read)/1.65 var(--font-sans);outline:0;resize:vertical;margin-bottom:12px;box-sizing:border-box}.letter-textarea::placeholder{color:var(--text-faint)}.letter-lock-section{margin-bottom:16px}.letter-lock-toggle{font:400 var(--text-base)/1.4 var(--font-sans);color:var(--text-secondary);cursor:pointer;padding:8px 0}.letter-lock-options{padding:12px 0;display:flex;flex-direction:column;gap:10px}.letter-lock-row{display:flex;align-items:center;gap:10px;font:400 var(--text-base)/1.4 var(--font-sans);color:var(--text-primary)}.letter-send-btn{width:100%;padding:15px;border:0;border-radius:999px;background:var(--text-primary);color:var(--bg-primary);font:600 var(--text-base)/1 var(--font-sans);cursor:pointer;margin-top:8px}.letter-send-btn:disabled{opacity:.35}.letter-unlock-dialog{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(320px,calc(100vw - 40px));padding:28px 24px 20px;border-radius:24px;background:var(--bg-primary);border:1px solid var(--border);box-shadow:0 20px 60px rgba(0,0,0,.18)}.letter-unlock-cover{font:400 16px/1.5 var(--font-sans);color:var(--text-primary);text-align:center;margin-bottom:16px;font-style:italic}.letter-unlock-time{font:400 var(--text-sm)/1.3 var(--font-sans);color:var(--text-faint);text-align:center;margin-bottom:12px}.letter-unlock-actions{display:flex;gap:10px;margin-top:14px}.letter-unlock-cancel,.letter-unlock-submit{flex:1;padding:12px;border:0;border-radius:999px;font:500 var(--text-base)/1 var(--font-sans);cursor:pointer}.letter-unlock-cancel{background:var(--bg-surface);color:var(--text-secondary);border:1px solid var(--border)}.letter-unlock-submit{background:var(--text-primary);color:var(--bg-primary)}.letter-unlock-error{margin-top:10px;font:400 var(--text-sm)/1.3 var(--font-sans);color:#d54d4d;text-align:center;min-height:18px}
-@media(prefers-color-scheme:dark){.letter-card{background:#2A2A28;border-color:var(--border)}.letter-card.is-locked{background:linear-gradient(135deg,#2A2A28 0%,#2E2C2A 100%)}.letters-write-btn{background:var(--text-primary);color:var(--bg-primary)}.letter-overlay{background:var(--bg-primary)}.letter-unlock-dialog{background:var(--bg-primary);border-color:var(--border);box-shadow:0 20px 60px rgba(0,0,0,.5)}}
+.letter-replies-section{margin-top:32px;border-top:1px solid var(--border);padding-top:20px}.letter-replies-title{font:500 var(--text-sm)/1 var(--font-sans);color:var(--text-faint);letter-spacing:.04em;text-transform:uppercase;margin-bottom:16px}.letter-reply-item{padding:16px;border-radius:16px;background:#f2f0ed;margin-bottom:10px}.letter-reply-item.is-elian{background:rgba(var(--accent-rgb,139,115,85),.08)}.letter-reply-author{font:500 var(--text-sm)/1 var(--font-sans);color:var(--accent);margin-bottom:4px}.letter-reply-date{font:400 12px/1 var(--font-sans);color:var(--text-faint);margin-bottom:8px}.letter-reply-body{font:400 var(--text-read)/1.65 var(--font-sans);color:var(--text-primary);white-space:pre-wrap;word-break:break-word}.letter-reply-form{margin-top:20px}.letter-reply-textarea{width:100%;min-height:100px;padding:14px 16px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--bg-surface);color:var(--text-primary);font:400 var(--text-read)/1.55 var(--font-sans);outline:0;resize:vertical;box-sizing:border-box}.letter-reply-textarea::placeholder{color:var(--text-faint)}.letter-reply-send{margin-top:10px;padding:10px 24px;border:0;border-radius:999px;background:var(--text-primary);color:var(--bg-primary);font:500 var(--text-sm)/1 var(--font-sans);cursor:pointer;float:right}.letter-reply-send:disabled{opacity:.35}.letter-reply-waiting{margin-top:12px;font:400 var(--text-sm)/1.4 var(--font-sans);color:var(--text-faint);font-style:italic;text-align:center}.letter-reply-waiting::after{content:'';animation:replyDots 1.2s steps(4) infinite}@keyframes replyDots{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
+@media(prefers-color-scheme:dark){.letter-card{background:#2A2A28;border-color:var(--border)}.letter-card.is-locked{background:linear-gradient(135deg,#2A2A28 0%,#2E2C2A 100%)}.letters-write-btn{background:var(--text-primary);color:var(--bg-primary)}.letter-overlay{background:var(--bg-primary)}.letter-unlock-dialog{background:var(--bg-primary);border-color:var(--border);box-shadow:0 20px 60px rgba(0,0,0,.5)}.letter-reply-item{background:#2A2A28}.letter-reply-item.is-elian{background:rgba(139,115,85,.12)}}
 @media(prefers-color-scheme: dark){#memoryPanel{background:var(--bg-primary);color:var(--text-primary)}.profile-round-button,.profile-save-button,.profile-back-button{background:#2A2A28;border-color:var(--border);color:var(--text-primary);box-shadow:0 2px 8px rgba(0,0,0,.2)}.profile-save-button{color:var(--accent)}.profile-save-button:disabled{color:#6E6D66}.profile-title{color:var(--text-primary)}.profile-subtitle,.profile-section-title,.profile-help-text,.profile-nav-chevron,.profile-nav-row-icon{color:var(--text-secondary)}.profile-nav-row-note{color:var(--text-faint)}.profile-card{background:#2A2A28;border-color:var(--border);color:var(--text-primary)}.profile-nav-row{background:#2A2A28;color:var(--text-primary)}.profile-name-input,.profile-memory-textarea,.profile-preferences-textarea{color:var(--text-primary)}.profile-name-input::placeholder,.profile-memory-textarea::placeholder,.profile-preferences-textarea::placeholder{color:#6E6D66}.profile-divider{background:var(--border)}.profile-memory-row .profile-memory-card{background:#2A2A28;border:none;outline:2px solid #2A2A28;outline-offset:-1px;box-shadow:none}.profile-empty{background:#2A2A28;color:var(--text-secondary)}.profile-add-button{background:#2A2A28;color:var(--text-primary);border:1px solid rgba(255,255,255,.12)}.profile-mini-button{background:var(--border);color:var(--text-secondary)}.profile-preferences-card{background:#2A2A28;color:var(--text-primary)}.memory-search-bubble{background:rgba(42,42,40,.92);border-color:rgba(255,255,255,.12);color:rgba(244,243,239,.58);box-shadow:0 0 0 1px rgba(255,255,255,.035),0 8px 24px rgba(0,0,0,.30),0 2px 6px rgba(0,0,0,.22)}.memory-search-icon{color:rgba(244,243,239,.58)}.memory-search-input{color:var(--text-primary)}.memory-search-input::placeholder{color:rgba(244,243,239,.45)}.memory-search-clear{background:rgba(255,255,255,.25)}.topbar .icon-button{border:1px solid rgba(255,255,255,.16);box-shadow:0 1px 2px rgba(0,0,0,.25)}}
 .dialog-overlay{position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:var(--space-4);background:var(--border-strong)}.dialog{width:100%;max-width:360px;padding:var(--space-5);background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-lg)}.dialog h3{font:400 var(--text-title) var(--font-sans)}.dialog input{width:100%;margin:var(--space-4) 0;padding:var(--space-3);background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);outline:0}.dialog-actions{display:flex;justify-content:flex-end;gap:var(--space-2)}.secondary-button{padding:var(--space-2) var(--space-3);border:1px solid var(--border);border-radius:var(--radius-md)}
 .toast{position:fixed;z-index:95;left:50%;bottom:calc(env(safe-area-inset-bottom, 34px) + 92px);max-width:calc(100% - var(--space-6));padding:var(--space-2) var(--space-4);transform:translate(-50%,12px);opacity:0;pointer-events:none;background:var(--text-primary);color:var(--bg-primary);border-radius:var(--radius-full);font-size:var(--text-sm);transition:opacity var(--transition),transform var(--transition)}.toast.show{opacity:1;transform:translate(-50%,0)}
@@ -1044,6 +1045,16 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
     <div class="letter-detail" id="letterDetail"></div>
+    <div class="letter-replies-section" id="letterRepliesSection" hidden>
+      <div class="letter-replies-title">回信</div>
+      <div id="letterRepliesList"></div>
+      <div class="letter-reply-waiting" id="letterReplyWaiting" hidden>他正在写回信</div>
+      <div class="letter-reply-form">
+        <textarea class="letter-reply-textarea" id="letterReplyInput" placeholder="写回信…" maxlength="10000"></textarea>
+        <button class="letter-reply-send" id="letterReplySend">寄出</button>
+        <div style="clear:both"></div>
+      </div>
+    </div>
   </div>
 </div>
 <!-- 寄相思：写信 overlay -->
@@ -3933,7 +3944,9 @@ async function openLetter(id,locked,preview){
     showLetterDetail(data.letter);
   }catch(e){toast('读取失败')}
 }
+let _currentLetterId=null, _replyPollTimer=null;
 function showLetterDetail(lt){
+  _currentLetterId=lt.id;
   const el=$('letterDetail');
   const authorLabel=lt.author==='elian'?'梁忱':'小朵';
   el.innerHTML=`<div class="letter-detail-author">${authorLabel}</div>`
@@ -3947,8 +3960,77 @@ function showLetterDetail(lt){
     if(idx>=0)_lettersData[idx].read_at='now';
     renderLettersList();
   }
+  /* 加载回信 */
+  $('letterReplyInput').value='';
+  $('letterReplyWaiting').hidden=true;
+  loadReplies(lt.id);
 }
-$('letterOverlayClose').onclick=()=>{$('letterOverlay').hidden=true};
+async function loadReplies(letterId){
+  try{
+    const r=await api(`/api/letters/${letterId}/replies`);
+    if(!r.ok)throw Error();
+    const data=await r.json();
+    const replies=data.replies||[];
+    const list=$('letterRepliesList');
+    list.innerHTML='';
+    replies.forEach(rp=>{
+      const who=rp.author==='elian'?'梁忱':'小朵';
+      const div=document.createElement('div');
+      div.className='letter-reply-item'+(rp.author==='elian'?' is-elian':'');
+      div.innerHTML=`<div class="letter-reply-author">${who}</div>`
+        +`<div class="letter-reply-date">${formatLetterDate(rp.created_at)}</div>`
+        +`<div class="letter-reply-body">${esc(rp.content)}</div>`;
+      list.append(div);
+    });
+    _replyCountBefore=replies.length;
+    $('letterRepliesSection').hidden=false;
+  }catch(e){$('letterRepliesSection').hidden=true}
+}
+$('letterReplySend').onclick=async()=>{
+  const content=$('letterReplyInput').value.trim();
+  if(!content){toast('写点什么再寄');return}
+  if(!_currentLetterId)return;
+  $('letterReplySend').disabled=true;
+  try{
+    const r=await api(`/api/letters/${_currentLetterId}/reply`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content})});
+    if(!r.ok){const d=await r.json().catch(()=>({}));throw Error(d.detail||'发送失败')}
+    toast('回信已寄出');
+    $('letterReplyInput').value='';
+    loadReplies(_currentLetterId);
+    /* 等梁忱回信，轮询 */
+    $('letterReplyWaiting').hidden=false;
+    _startReplyPoll(_currentLetterId);
+  }catch(e){toast(e.message||'发送失败')}
+  finally{$('letterReplySend').disabled=false}
+};
+let _replyCountBefore=0;
+function _startReplyPoll(letterId){
+  if(_replyPollTimer)clearInterval(_replyPollTimer);
+  /* 记住发送前的回信数，等新的出现 */
+  const countBefore=_replyCountBefore;
+  let polls=0;
+  _replyPollTimer=setInterval(async()=>{
+    polls++;
+    try{
+      const r=await api(`/api/letters/${letterId}/replies`);
+      if(!r.ok)return;
+      const data=await r.json();
+      const replies=data.replies||[];
+      if(replies.length>countBefore+1){
+        /* 比她刚发的那条还多了一条 → 梁忱回了 */
+        loadReplies(letterId);
+        $('letterReplyWaiting').hidden=true;
+        clearInterval(_replyPollTimer);_replyPollTimer=null;
+      }
+    }catch(e){}
+    if(polls>=30){$('letterReplyWaiting').hidden=true;clearInterval(_replyPollTimer);_replyPollTimer=null}
+  },3000);
+}
+$('letterOverlayClose').onclick=()=>{
+  $('letterOverlay').hidden=true;
+  _currentLetterId=null;
+  if(_replyPollTimer){clearInterval(_replyPollTimer);_replyPollTimer=null}
+};
 
 /* 写信 */
 $('lettersWriteBtn').onclick=()=>{

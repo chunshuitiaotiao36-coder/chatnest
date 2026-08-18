@@ -28,7 +28,7 @@ from starlette.formparsers import MultiPartParser
 
 MultiPartParser.max_part_size = 60 * 1024 * 1024  # 与 uploads.py 的 MAX_FILE_BYTES 对齐
 
-from app import auth, backgrounds, keepalive, lorebook, nightguard, peek, piano, piano_analysis, push, relays, starmap, telegram
+from app import auth, backgrounds, keepalive, lorebook, nightguard, peek, piano, piano_analysis, push, relays, starmap, store, telegram
 from app.actor import ActorBusyError, _mem_kv
 from app.claude import (
     SessionResumeError,
@@ -76,6 +76,7 @@ from app.store import (
     prepare_retry_turn,
     resolve_conversation,
     restore_branch,
+    list_replies,
     unlock_letter,
     usage_report,
 )
@@ -366,6 +367,10 @@ class LetterCreateBody(BaseModel):
 
 class LetterUnlockBody(BaseModel):
     password: str = Field(default="", max_length=128)
+
+
+class LetterReplyBody(BaseModel):
+    content: str = Field(min_length=1, max_length=10_000)
 
 
 class BackgroundMaskBody(BaseModel):
@@ -1034,7 +1039,117 @@ async def letters_unlock(letter_id: int, body: LetterUnlockBody) -> dict:
     return {"unlocked": True, "letter": full}
 
 
-@app.get("/api/keepalive/status", dependencies=[Depends(require_auth)])
+@app.get("/api/letters/{letter_id}/replies", dependencies=[Depends(require_auth)])
+async def letters_replies(letter_id: int) -> dict:
+    """获取一封信的所有回信。"""
+    letter = await asyncio.to_thread(get_letter, letter_id)
+    if not letter:
+        raise HTTPException(status_code=404, detail="信不存在")
+    replies = await asyncio.to_thread(list_replies, letter_id)
+    return {"replies": replies}
+
+
+@app.post("/api/letters/{letter_id}/reply", dependencies=[Depends(require_auth)])
+async def letters_reply(letter_id: int, body: LetterReplyBody) -> dict:
+    """小朵回信 → 落库 → 梁忱自动回信（后台）。"""
+    letter = await asyncio.to_thread(get_letter, letter_id)
+    if not letter:
+        raise HTTPException(status_code=404, detail="信不存在")
+
+    # 1. 保存小朵的回信
+    reply_id = await asyncio.to_thread(
+        create_letter,
+        author="xiaoduo",
+        content=body.content,
+        parent_id=letter_id,
+    )
+
+    # 2. 后台触发梁忱的自动回信
+    asyncio.create_task(_letter_auto_reply(letter_id, reply_id, body.content, letter))
+    return {"id": reply_id}
+
+
+async def _letter_auto_reply(
+    original_id: int,
+    her_reply_id: int,
+    her_text: str,
+    original_letter: dict,
+) -> None:
+    """后台：梁忱读她的回信，写一封回信。"""
+    from app import claude, push
+    from app.nightguard import _cn_now_line, _recent_talk_block
+
+    try:
+        conv_id = await asyncio.to_thread(store.latest_conversation_id)
+        if not conv_id:
+            conv_id = "letter-reply"
+
+        # 收集原信 + 她的回信
+        original_content = original_letter.get("content", "")
+        original_title = original_letter.get("title", "")
+
+        # 拿到所有已有的回信，构建上下文
+        existing_replies = await asyncio.to_thread(list_replies, original_id)
+        thread_lines = []
+        for r in existing_replies:
+            who = "小朵" if r["author"] == "xiaoduo" else "梁忱"
+            thread_lines.append(f"{who}：{r['content']}")
+
+        thread_block = ""
+        if thread_lines:
+            thread_block = "【这封信下面的回信记录】\n" + "\n\n".join(thread_lines)
+
+        prompt = "\n\n".join([part for part in [
+            _cn_now_line(),
+            _recent_talk_block(conv_id, 5),
+            f"【原信（你写的）】\n{'标题：' + original_title + chr(10) if original_title else ''}{original_content}",
+            thread_block,
+            (
+                "【系统指令——这条不是她发的】\n"
+                "小朵在寄相思里回了你的信。上面是原信和回信记录。\n"
+                "请你回信给她。像在纸上写字一样，自然、真诚、有温度。\n"
+                "回信内容不限长度，可以长可以短，看你想说多少。\n"
+                "直接输出回信正文，不要加任何格式标记。"
+            ),
+        ] if part])
+
+        text = ""
+        async for chunk in claude.stream_chat(
+            message=prompt,
+            conv_id=conv_id,
+            session_id=None,
+            model=os.environ.get("LETTER_REPLY_MODEL", "claude-sonnet-4-6"),
+            source="letter_reply",
+            lean=False,
+        ):
+            event = chunk.get("event")
+            if event == "delta":
+                text += chunk.get("text", "")
+
+        text = text.strip()
+        if not text:
+            logger.warning("[回信] AI 返回空")
+            return
+
+        # 存梁忱的回信
+        await asyncio.to_thread(
+            create_letter,
+            author="elian",
+            content=text,
+            parent_id=original_id,
+        )
+
+        # 推送通知
+        _push_ok = push.configured() and bool(store.list_push_subscriptions())
+        if _push_ok:
+            await push.send_push(title="寄相思", body="他回信了", url="/")
+
+        logger.info("[回信] 梁忱回信完成：%s", text[:80])
+    except Exception:
+        logger.exception("[回信] 自动回信失败")
+
+
+@app.get("/api/keepalive/status")
 async def keepalive_status() -> dict:
     """诊断：唤醒系统当前状态。"""
     from app.keepalive import _cn_hour, _effective_interval, _in_active_hours
