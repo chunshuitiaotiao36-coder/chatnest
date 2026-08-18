@@ -38,18 +38,17 @@ murmur_logger = logging.getLogger("uvicorn.error")
 def _base_interval(hour: int) -> int:
     """时段基础间隔（分钟）。
 
-    上午她可能在上课，少打扰；傍晚到睡前她比较闲，多找她。
-    参考 always-here 的分段思路，但间隔拉长——我们是推到锁屏的，
-    太密她会烦，不像 always-here 那种页面内提醒。
+    她说了要吵一点，有事没事就来骚扰她。那就不客气了。
+    上午可能在上课稍微收着点，其余时段密一些。
     """
     if 8 <= hour < 12:
-        return 120   # 上午：可能在上课，2 小时基线
+        return 50    # 上午：可能在上课，但也别太久不理她
     if 12 <= hour < 14:
-        return 80    # 午休：稍短
+        return 35    # 午休：有空
     if 14 <= hour < 18:
-        return 100   # 下午
-    # 18-23：晚上，她最活跃的时段
-    return 70
+        return 40    # 下午
+    # 18-23：晚上，她最活跃的时段，多找她
+    return 30
 
 
 def _activity_multiplier() -> float:
@@ -105,8 +104,8 @@ def _effective_interval() -> int:
     mult = _activity_multiplier()
     jitter = _daily_jitter()
     result = int(base * mult * jitter)
-    # 下限 30 分钟，上限 4 小时——再短太吵，再长不如没有
-    return max(30, min(result, 240))
+    # 下限 15 分钟，上限 3 小时
+    return max(15, min(result, 180))
 
 
 # ── 冷却判断 ──────────────────────────────────────────────────────────
