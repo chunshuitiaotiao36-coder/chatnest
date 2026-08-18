@@ -43,8 +43,8 @@ def _base_interval(hour: int) -> int:
         return 65    # 下午
     if 18 <= hour < 23:
         return 45    # 晚上，最活跃
-    # 23-01：深夜收尾
-    return 55
+    # 23-03：深夜，她是夜猫子，这段时间还醒着
+    return 50
 
 
 def _activity_multiplier() -> float:
@@ -99,11 +99,11 @@ def _effective_interval() -> int:
 # ── 时段判断 ──────────────────────────────────────────────────────────
 
 def _in_active_hours(hour: int) -> bool:
-    """活跃时段：默认 8 点到次日 1 点（跨午夜）。"""
+    """活跃时段：默认 8 点到次日 3 点（跨午夜）。小朵是夜猫子。"""
     return _in_window(
         hour,
         _env_int("KEEPALIVE_START", 8),
-        _env_int("KEEPALIVE_END", 1),
+        _env_int("KEEPALIVE_END", 3),
     )
 
 
