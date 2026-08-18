@@ -30,9 +30,11 @@ for path_name in ["MEMORY_FILE", "PROFILE_FILE", "MEMORIES_DIR", "DB_DIR", "STAT
         globals()[path_name] = ROOT / path
 
 COLLECTION = os.environ.get("MEMORY_SEARCH_COLLECTION", "memories")
-CHUNK_MAX = int(os.environ.get("MEMORY_CHUNK_MAX", "500"))
+CHUNK_MAX = int(os.environ.get("MEMORY_CHUNK_MAX", "3000"))
 MAX_FILE_CHARS = int(os.environ.get("MEMORY_MAX_FILE_CHARS", "200000"))
 HEADER_RE = re.compile(r"^(#{1,6})\s+(.+)$")
+CHAPTER_RE = re.compile(r"^第[一二三四五六七八九十百零\d]+章\s*[·：:]*\s*")
+SECTION_RE = re.compile(r"^【(.+?)】")
 
 
 @dataclass
@@ -70,8 +72,25 @@ def split_text(text: str) -> list[tuple[str, str]]:
                 stack.pop()
             stack.append((level, title))
             cur_path = list(stack)
-        else:
-            cur_body.append(line)
+            continue
+        # 中文章节标记 (第X章 · xxx)
+        if CHAPTER_RE.match(line):
+            flush()
+            cur_body.clear()
+            stack.clear()
+            stack.append((2, line.strip()))
+            cur_path = list(stack)
+            continue
+        # 方括号段落 (【重要设定更新】)
+        sec_match = SECTION_RE.match(line)
+        if sec_match:
+            flush()
+            cur_body.clear()
+            stack.clear()
+            stack.append((2, sec_match.group(1).strip()))
+            cur_path = list(stack)
+            continue
+        cur_body.append(line)
     flush()
 
     if not sections and text.strip():
