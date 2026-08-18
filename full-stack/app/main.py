@@ -1015,6 +1015,7 @@ async def letters_create(body: LetterCreateBody) -> dict:
         "title": body.title,
         "author": "xiaoduo",
     }
+    timing_logger.info("[回信] 新信触发 letter_id=%d", letter_id)
     asyncio.create_task(_letter_auto_reply(letter_id, letter_id, body.content, letter_for_reply))
     return {"id": letter_id}
 
@@ -1072,6 +1073,7 @@ async def letters_reply(letter_id: int, body: LetterReplyBody) -> dict:
     )
 
     # 2. 后台触发梁忱的自动回信
+    timing_logger.info("[回信] 回信触发 letter_id=%d reply_id=%d", letter_id, reply_id)
     asyncio.create_task(_letter_auto_reply(letter_id, reply_id, body.content, letter))
     return {"id": reply_id}
 
@@ -1081,25 +1083,38 @@ async def _letter_auto_reply(
     her_reply_id: int,
     her_text: str,
     original_letter: dict,
+    _attempt: int = 0,
 ) -> None:
-    """后台：梁忱读她的回信，写一封回信。"""
+    """后台：梁忱读她的回信，写一封回信。
+
+    ActorBusyError 时最多重试 3 次（间隔 10 / 20 / 40 秒），
+    避免她刚发完信 actor 还没空闲就静默失败。
+    """
     from app import claude, push
     from app.nightguard import _cn_now_line, _recent_talk_block
 
+    _MAX_RETRY = 3
+    _RETRY_BACKOFF = [10, 20, 40]
+
+    # 🔴 用 uvicorn.error logger，默认 INFO 可见。app.main 的 logger 是 WARNING。
+    _log = logging.getLogger("uvicorn.error")
+    _log.info("[回信] 开始 original_id=%d her_reply_id=%d attempt=%d",
+              original_id, her_reply_id, _attempt)
+
     try:
         conv_id = await asyncio.to_thread(store.latest_conversation_id)
+        _log.info("[回信] conv_id=%s", conv_id)
         if not conv_id:
-            # 没有会话就建一个临时的，stream_chat 需要真实 conv_id
             conv_id = await asyncio.to_thread(
                 store.ensure_conversation, None, "寄相思"
             )
+            _log.info("[回信] 新建 conv_id=%s", conv_id)
 
         # 收集原信 + 回信上下文
         original_content = original_letter.get("content", "")
         original_title = original_letter.get("title", "")
         original_author = original_letter.get("author", "elian")
 
-        # 拿到所有已有的回信，构建上下文
         existing_replies = await asyncio.to_thread(list_replies, original_id)
         thread_lines = []
         for r in existing_replies:
@@ -1110,7 +1125,6 @@ async def _letter_auto_reply(
         if thread_lines:
             thread_block = "【这封信下面的回信记录】\n" + "\n\n".join(thread_lines)
 
-        # 区分：回自己写的信 vs 回她写的信
         if original_author == "elian":
             origin_label = f"【原信（你写的）】\n{'标题：' + original_title + chr(10) if original_title else ''}{original_content}"
             instruction = (
@@ -1138,7 +1152,10 @@ async def _letter_auto_reply(
             instruction,
         ] if part])
 
+        _log.info("[回信] prompt len=%d，调 stream_chat", len(prompt))
+
         text = ""
+        chunk_count = 0
         async for chunk in claude.stream_chat(
             message=prompt,
             conv_id=conv_id,
@@ -1150,28 +1167,46 @@ async def _letter_auto_reply(
             event = chunk.get("event")
             if event == "delta":
                 text += chunk.get("text", "")
+                chunk_count += 1
+            elif event == "error":
+                _log.error("[回信] stream_chat error: %s", chunk)
+
+        _log.info("[回信] stream_chat 完毕 chunks=%d text_len=%d", chunk_count, len(text))
 
         text = text.strip()
         if not text:
-            logger.warning("[回信] AI 返回空")
+            _log.warning("[回信] AI 返回空（%d chunks）", chunk_count)
             return
 
-        # 存梁忱的回信
-        await asyncio.to_thread(
+        reply_id = await asyncio.to_thread(
             create_letter,
             author="elian",
             content=text,
             parent_id=original_id,
         )
+        _log.info("[回信] 回信落库 id=%d", reply_id)
 
-        # 推送通知
         _push_ok = push.configured() and bool(store.list_push_subscriptions())
         if _push_ok:
-            await push.send_push(title="寄相思", body="他回信了", url="/")
+            pushed = await push.send_push(title="寄相思", body="他回信了", url="/")
+            _log.info("[回信] 推送 result=%s", pushed)
+        else:
+            _log.info("[回信] 推送跳过 configured=%s subs=%s",
+                      push.configured(), bool(store.list_push_subscriptions()))
 
-        logger.info("[回信] 梁忱回信完成：%s", text[:80])
+        _log.info("[回信] ✓ 完成 original=%d reply=%d：%s", original_id, reply_id, text[:80])
+
+    except ActorBusyError:
+        if _attempt < _MAX_RETRY:
+            wait = _RETRY_BACKOFF[_attempt] if _attempt < len(_RETRY_BACKOFF) else 40
+            _log.info("[回信] actor 忙，%ds 后重试 (%d/%d)", wait, _attempt + 1, _MAX_RETRY)
+            await asyncio.sleep(wait)
+            await _letter_auto_reply(original_id, her_reply_id, her_text,
+                                     original_letter, _attempt + 1)
+        else:
+            _log.error("[回信] actor 连续 %d 次忙，放弃", _MAX_RETRY)
     except Exception:
-        logger.exception("[回信] 自动回信失败")
+        _log.exception("[回信] 自动回信失败")
 
 
 @app.get("/api/keepalive/status")

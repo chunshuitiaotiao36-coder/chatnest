@@ -1397,7 +1397,7 @@ def get_letter(letter_id: int) -> dict[str, Any] | None:
     """Get a single letter. Returns content even for locked letters (caller checks auth)."""
     with _connect() as db:
         row = db.execute(
-            "SELECT id, author, title, content, cover_text, locked, lock_type, unlock_at, password_hash, created_at, read_at FROM letters WHERE id = ?",
+            "SELECT id, author, title, content, cover_text, locked, lock_type, unlock_at, password_hash, created_at, read_at, parent_id FROM letters WHERE id = ?",
             (letter_id,),
         ).fetchone()
     if not row:
