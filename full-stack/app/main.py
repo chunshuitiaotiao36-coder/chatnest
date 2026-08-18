@@ -28,7 +28,7 @@ from starlette.formparsers import MultiPartParser
 
 MultiPartParser.max_part_size = 60 * 1024 * 1024  # 与 uploads.py 的 MAX_FILE_BYTES 对齐
 
-from app import auth, backgrounds, lorebook, nightguard, peek, piano, piano_analysis, push, relays, starmap, telegram
+from app import auth, backgrounds, keepalive, lorebook, nightguard, peek, piano, piano_analysis, push, relays, starmap, telegram
 from app.actor import ActorBusyError, _mem_kv
 from app.claude import (
     SessionResumeError,
@@ -119,9 +119,12 @@ async def lifespan(app: FastAPI):
     # 别等她点开琴房看见空歌单才去猜是哪儿断了。
     piano.startup_check()
     piano_analysis.startup_check()
+    # ── 自动唤醒：服务端定时器 ──
+    ka_task = asyncio.create_task(keepalive.keepalive_loop(chat_lock))
     try:
         yield
     finally:
+        ka_task.cancel()
         await piano.aclose()
         await telegram.stop(tg_task)
         await registry.stop()

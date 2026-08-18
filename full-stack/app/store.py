@@ -1115,6 +1115,79 @@ def save_nightguard_message(conv_id: str, text: str, source_id: str) -> int | No
         return int(cursor.lastrowid)
 
 
+def last_user_message_time() -> datetime | None:
+    """最近一条 role='user' 的消息时间。keepalive 用来算距上次聊天多久了。"""
+    with _connect() as db:
+        row = db.execute(
+            "SELECT timestamp FROM messages WHERE role = 'user' ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+    if not row:
+        return None
+    try:
+        return datetime.fromisoformat(row["timestamp"])
+    except (ValueError, KeyError):
+        return None
+
+
+def pending_keepalive_messages(conv_id: str) -> list[dict]:
+    """source_id 以 'keepalive:' 或 'nightguard:' 开头、且还没被认领的 assistant 消息。
+    加上 _diary 类型的 dream_events。用于聊天时注入上下文。"""
+    results = []
+    with _connect() as db:
+        rows = db.execute(
+            """SELECT text, source_id, timestamp FROM messages
+               WHERE conv_id = ? AND role = 'assistant'
+               AND (source_id LIKE 'keepalive:%' OR source_id LIKE 'nightguard:%' OR source_id LIKE 'murmur:%')
+               AND source_id NOT LIKE '%:consumed'
+               ORDER BY id""",
+            (conv_id,),
+        ).fetchall()
+        for row in rows:
+            results.append({
+                "type": "message",
+                "text": row["text"],
+                "source_id": row["source_id"],
+                "timestamp": row["timestamp"],
+            })
+        diary_rows = db.execute(
+            """SELECT value, created_at FROM dream_events
+               WHERE type = '_diary'
+               ORDER BY id""",
+        ).fetchall()
+        for row in diary_rows:
+            results.append({
+                "type": "diary",
+                "text": row["value"],
+                "timestamp": row["created_at"],
+            })
+    return results
+
+
+def mark_keepalive_consumed(conv_id: str) -> int:
+    """把 pending 的 keepalive/nightguard 消息的 source_id 加 ':consumed' 后缀。
+    返回标记数量。"""
+    count = 0
+    with _connect() as db:
+        rows = db.execute(
+            """SELECT id, source_id FROM messages
+               WHERE conv_id = ? AND role = 'assistant'
+               AND (source_id LIKE 'keepalive:%' OR source_id LIKE 'nightguard:%' OR source_id LIKE 'murmur:%')
+               AND source_id NOT LIKE '%:consumed'""",
+            (conv_id,),
+        ).fetchall()
+        for row in rows:
+            db.execute(
+                "UPDATE messages SET source_id = ? WHERE id = ?",
+                (row["source_id"] + ":consumed", row["id"]),
+            )
+            count += 1
+        diary_count = db.execute(
+            "UPDATE dream_events SET type = '_diary_consumed' WHERE type = '_diary'"
+        ).rowcount
+        count += diary_count
+    return count
+
+
 def usage_report(
     days: int = 7,
     limit: int = 50,
