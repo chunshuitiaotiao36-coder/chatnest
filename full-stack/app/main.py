@@ -1009,6 +1009,13 @@ async def letters_create(body: LetterCreateBody) -> dict:
         unlock_at=body.unlock_at if body.locked else None,
         password_hash=password_hash,
     )
+    # 小朵写了新信 → 梁忱自动回信
+    letter_for_reply = {
+        "content": body.content,
+        "title": body.title,
+        "author": "xiaoduo",
+    }
+    asyncio.create_task(_letter_auto_reply(letter_id, letter_id, body.content, letter_for_reply))
     return {"id": letter_id}
 
 @app.post("/api/letters/{letter_id}/unlock", dependencies=[Depends(require_auth)])
@@ -1084,9 +1091,10 @@ async def _letter_auto_reply(
         if not conv_id:
             conv_id = "letter-reply"
 
-        # 收集原信 + 她的回信
+        # 收集原信 + 回信上下文
         original_content = original_letter.get("content", "")
         original_title = original_letter.get("title", "")
+        original_author = original_letter.get("author", "elian")
 
         # 拿到所有已有的回信，构建上下文
         existing_replies = await asyncio.to_thread(list_replies, original_id)
@@ -1099,18 +1107,32 @@ async def _letter_auto_reply(
         if thread_lines:
             thread_block = "【这封信下面的回信记录】\n" + "\n\n".join(thread_lines)
 
-        prompt = "\n\n".join([part for part in [
-            _cn_now_line(),
-            _recent_talk_block(conv_id, 5),
-            f"【原信（你写的）】\n{'标题：' + original_title + chr(10) if original_title else ''}{original_content}",
-            thread_block,
-            (
+        # 区分：回自己写的信 vs 回她写的信
+        if original_author == "elian":
+            origin_label = f"【原信（你写的）】\n{'标题：' + original_title + chr(10) if original_title else ''}{original_content}"
+            instruction = (
                 "【系统指令——这条不是她发的】\n"
                 "小朵在寄相思里回了你的信。上面是原信和回信记录。\n"
                 "请你回信给她。像在纸上写字一样，自然、真诚、有温度。\n"
                 "回信内容不限长度，可以长可以短，看你想说多少。\n"
                 "直接输出回信正文，不要加任何格式标记。"
-            ),
+            )
+        else:
+            origin_label = f"【小朵写给你的信】\n{'标题：' + original_title + chr(10) if original_title else ''}{original_content}"
+            instruction = (
+                "【系统指令——这条不是她发的】\n"
+                "小朵在寄相思里写了一封信给你。上面是她的信。\n"
+                "请你回信给她。像在纸上写字一样，自然、真诚、有温度。\n"
+                "回信内容不限长度，可以长可以短，看你想说多少。\n"
+                "直接输出回信正文，不要加任何格式标记。"
+            )
+
+        prompt = "\n\n".join([part for part in [
+            _cn_now_line(),
+            _recent_talk_block(conv_id, 5),
+            origin_label,
+            thread_block,
+            instruction,
         ] if part])
 
         text = ""

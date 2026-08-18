@@ -4063,9 +4063,18 @@ $('letterSendBtn').onclick=async()=>{
   $('letterSendBtn').disabled=true;
   try{
     const r=await api('/api/letters',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    if(!r.ok){const d=await r.json().catch(()=>({}));throw Error(d.detail||'发送失败')}
+    const res=await r.json().catch(()=>({}));
+    if(!r.ok)throw Error(res.detail||'发送失败');
     toast('信已寄出');$('letterWriteOverlay').hidden=true;
     _lettersLoaded=false;loadLetters();
+    /* 打开刚写的信，等梁忱回信 */
+    if(res.id){
+      const lt={id:res.id,author:'xiaoduo',title,content,created_at:new Date().toISOString(),read_at:'now'};
+      showLetterDetail(lt);
+      $('letterReplyWaiting').hidden=false;
+      _replyCountBefore=0;
+      _startReplyPoll(res.id);
+    }
   }catch(e){toast(e.message||'发送失败')}
   finally{$('letterSendBtn').disabled=false}
 };
