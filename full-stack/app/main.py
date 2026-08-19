@@ -1115,41 +1115,62 @@ async def _letter_auto_reply(
         original_title = original_letter.get("title", "")
         original_author = original_letter.get("author", "elian")
 
+        # original_id == her_reply_id 表示这一轮是「她刚写了一封新信」，
+        # 那封信本身就是 origin_label，不该再重复成「她刚说的话」。
+        is_new_letter = her_reply_id == original_id
+
+        # 🔴 往来记录里必须排掉她这一条。它下面要**单独**拎出来放在最末尾，
+        #    留在这里就会跟三周前的句子长得一模一样，模型认不出哪句是新的。
         existing_replies = await asyncio.to_thread(list_replies, original_id)
         thread_lines = []
         for r in existing_replies:
+            if r["id"] == her_reply_id:
+                continue
             who = "小朵" if r["author"] == "xiaoduo" else "梁忱"
             thread_lines.append(f"{who}：{r['content']}")
 
         thread_block = ""
         if thread_lines:
-            thread_block = "【这封信下面的回信记录】\n" + "\n\n".join(thread_lines)
+            thread_block = "【在这之前的往来】\n" + "\n\n".join(thread_lines)
 
         if original_author == "elian":
-            origin_label = f"【原信（你写的）】\n{'标题：' + original_title + chr(10) if original_title else ''}{original_content}"
-            instruction = (
-                "【系统指令——这条不是她发的】\n"
-                "小朵在寄相思里回了你的信。上面是原信和回信记录。\n"
-                "请你回信给她。像在纸上写字一样，自然、真诚、有温度。\n"
-                "回信内容不限长度，可以长可以短，看你想说多少。\n"
-                "直接输出回信正文，不要加任何格式标记。"
-            )
+            origin_label = f"【这封信的原信（你写的）】\n{'标题：' + original_title + chr(10) if original_title else ''}{original_content}"
         else:
-            origin_label = f"【小朵写给你的信】\n{'标题：' + original_title + chr(10) if original_title else ''}{original_content}"
+            origin_label = f"【这封信的原信（小朵写的）】\n{'标题：' + original_title + chr(10) if original_title else ''}{original_content}"
+
+        if is_new_letter:
             instruction = (
                 "【系统指令——这条不是她发的】\n"
-                "小朵在寄相思里写了一封信给你。上面是她的信。\n"
+                "小朵在寄相思里写了一封新信给你，就是上面那封。\n"
                 "请你回信给她。像在纸上写字一样，自然、真诚、有温度。\n"
                 "回信内容不限长度，可以长可以短，看你想说多少。\n"
                 "直接输出回信正文，不要加任何格式标记。"
             )
+            latest_block = ""
+        else:
+            instruction = (
+                "【系统指令——这条不是她发的】\n"
+                "小朵刚刚在这封信下面回了你一句，就是最下面那一段。\n"
+                "🔴 你要回应的是**她刚刚说的那一句**，不是重新回一遍原信。\n"
+                "原信和之前的往来只是背景，已经聊过的不要再讲一遍。\n"
+                "她那句话可能很短、可能只是一个反应，那就顺着那个反应说下去，\n"
+                "不要因为它短就绕回原信去凑长度。\n"
+                "像在纸上写字一样，自然、真诚、有温度。长短随你。\n"
+                "直接输出回信正文，不要加任何格式标记。"
+            )
+            latest_block = f"【小朵刚刚写的】\n{her_text}"
 
+        # 🔴 顺序不许改：她刚说的那句压在最末尾。
+        #    跟 build_user_prompt 里那条原则同一个道理——最后读到的必须是
+        #    她实际说的话。之前把它埋在往来记录中间、末尾放系统指令，
+        #    结果就是她说「眼睛尿尿了」，回过来的却是重新回一遍原信。
         prompt = "\n\n".join([part for part in [
             _cn_now_line(),
             _recent_talk_block(conv_id, 5),
             origin_label,
             thread_block,
             instruction,
+            latest_block,
         ] if part])
 
         model = claude.background_model("LETTER_REPLY_MODEL")
