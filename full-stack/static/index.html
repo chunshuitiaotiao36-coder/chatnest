@@ -170,13 +170,13 @@ html.context-menu-open,body.context-menu-open{background:var(--claude-context-di
 #diaryPanel{position:fixed;inset:0;z-index:80;display:none;flex-direction:column;background:#fbfaf7;color:#201f1d;overflow:hidden}#diaryPanel.show{display:flex}.diary-months{display:flex;gap:6px;padding:8px 18px 4px;overflow-x:auto;-webkit-overflow-scrolling:touch;flex:none}.diary-months::-webkit-scrollbar{display:none}.diary-month-pill{flex:none;padding:6px 14px;border:0;border-radius:999px;background:#f2f0ed;color:#77736c;font:500 var(--text-sm)/1 var(--font-sans);white-space:nowrap}.diary-month-pill.active{background:#201f1d;color:#fff}.diary-content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:10px 18px calc(env(safe-area-inset-bottom, 34px) + 60px)}.diary-date-header{font:600 var(--text-sm)/1.2 var(--font-sans);color:#77736c;padding:16px 4px 8px}.diary-entry{font:400 var(--text-read)/1.6 var(--font-sans);color:#201f1d;padding:10px 14px;border-radius:16px;background:#f2f0ed;margin-bottom:8px}.diary-empty{padding:40px 20px;text-align:center;color:#77736c;font-size:var(--text-sm)}
 @media(prefers-color-scheme: dark){#diaryPanel{background:var(--bg-primary);color:var(--text-primary)}.diary-date-header{color:var(--text-secondary)}.diary-entry{background:#2A2A28;color:var(--text-primary)}.diary-month-pill{background:#2A2A28;color:var(--text-secondary)}.diary-month-pill.active{background:var(--text-primary);color:var(--bg-primary)}}
 /* 书房入口行 */
-.study-nav-row{display:flex;align-items:center;gap:10px;padding:14px 18px;margin:6px 14px;border-radius:16px;background:#f2f0ed;cursor:pointer;transition:transform 120ms ease}.study-nav-row:active{transform:scale(.98)}.study-nav-icon{font-size:20px;flex:none}.study-nav-label{font:500 15px/1 var(--font-sans);color:var(--text-primary);flex:1}.study-nav-sub{font:400 var(--text-sm)/1 var(--font-sans);color:var(--text-faint)}.study-nav-chevron{flex:none;color:var(--text-faint)}
+.moments-panel{position:fixed;inset:0;z-index:82;background:var(--bg-primary);display:none;flex-direction:column;overflow:hidden}.moments-panel.show{display:flex}.moments-panel-header{display:flex;align-items:center;gap:8px;padding:calc(env(safe-area-inset-top,50px) + 8px) 14px 10px;flex:none;border-bottom:1px solid var(--border)}.moments-panel-back,.moments-panel-write{width:36px;height:36px;display:grid;place-items:center;flex:none;border-radius:50%;color:var(--text-primary)}.moments-panel-back:active,.moments-panel-write:active{background:rgba(0,0,0,.05)}.moments-panel-title{flex:1;font:500 18px/1 var(--font-sans);color:var(--text-primary)}.moments-panel-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:8px 14px calc(env(safe-area-inset-bottom,34px) + 20px)}.moment-card{padding:16px 0;border-bottom:1px solid var(--border)}.moment-card:last-child{border-bottom:0}.moment-head{display:flex;align-items:baseline;gap:8px;margin-bottom:6px}.moment-author{font:500 15px/1.2 var(--font-sans);color:#8B7355}.moment-author.is-me{color:var(--text-secondary)}.moment-time{font:400 12px/1.2 var(--font-sans);color:var(--text-faint)}.moment-content{font:400 15px/1.65 var(--font-sans);color:var(--text-primary);white-space:pre-wrap;word-break:break-word}.moment-actions{display:flex;align-items:center;gap:16px;margin-top:10px}.moment-act{display:inline-flex;align-items:center;gap:5px;font:400 13px/1 var(--font-sans);color:var(--text-faint);padding:4px 0}.moment-act:active{opacity:.55}.moment-act.liked{color:#C4645E}.moment-act svg{width:16px;height:16px}.moment-thread{margin-top:10px;padding:10px 12px;border-radius:12px;background:#f2f0ed}.moment-thread:empty{display:none}.moment-cmt{font:400 14px/1.6 var(--font-sans);color:var(--text-primary);word-break:break-word;padding:2px 0}.moment-cmt .who{color:#8B7355;font-weight:500}.moment-cmt .who.is-me{color:var(--text-secondary)}.moment-cmt-form{display:none;gap:8px;margin-top:8px}.moment-cmt-form.show{display:flex}.moment-cmt-input{flex:1;min-width:0;padding:8px 12px;border:1px solid var(--border);border-radius:16px;background:var(--bg-primary);color:var(--text-primary);font:400 14px/1.4 var(--font-sans);resize:none}.moment-cmt-send{flex:none;padding:0 14px;border-radius:16px;background:var(--text-primary);color:var(--bg-primary);font:500 13px/34px var(--font-sans);height:34px}.moment-waiting{font:400 13px/1.4 var(--font-sans);color:var(--text-faint);padding:6px 0}.moment-compose{display:none;flex-direction:column;gap:10px;padding:14px 0 4px}.moment-compose.show{display:flex}.moment-compose textarea{width:100%;min-height:96px;padding:12px 14px;border:1px solid var(--border);border-radius:14px;background:var(--bg-primary);color:var(--text-primary);font:400 15px/1.6 var(--font-sans);resize:vertical}.moment-compose-bar{display:flex;justify-content:flex-end;gap:8px}.moment-compose-send{padding:0 20px;height:38px;border-radius:19px;background:var(--text-primary);color:var(--bg-primary);font:500 14px/38px var(--font-sans)}.moment-compose-cancel{padding:0 16px;height:38px;border-radius:19px;color:var(--text-faint);font:400 14px/38px var(--font-sans)}.moments-empty{padding:60px 20px;text-align:center;font:400 14px/1.7 var(--font-sans);color:var(--text-faint)}.study-nav-dot{display:none;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#C4645E;color:#fff;font:500 11px/18px var(--font-sans);text-align:center;flex:none}.study-nav-dot.show{display:block}.study-nav-row{display:flex;align-items:center;gap:10px;padding:14px 18px;margin:6px 14px;border-radius:16px;background:#f2f0ed;cursor:pointer;transition:transform 120ms ease}.study-nav-row:active{transform:scale(.98)}.study-nav-icon{font-size:20px;flex:none}.study-nav-label{font:500 15px/1 var(--font-sans);color:var(--text-primary);flex:1}.study-nav-sub{font:400 var(--text-sm)/1 var(--font-sans);color:var(--text-faint)}.study-nav-chevron{flex:none;color:var(--text-faint)}
 /* 寄相思全屏面板 */
 .letters-panel{position:fixed;inset:0;z-index:82;background:var(--bg-primary);display:none;flex-direction:column;overflow:hidden}.letters-panel.show{display:flex}.letters-panel-header{display:flex;align-items:center;gap:8px;padding:calc(env(safe-area-inset-top,50px) + 8px) 14px 10px;flex:none;border-bottom:1px solid var(--border)}.letters-panel-back{width:40px;height:40px;border:0;border-radius:50%;background:transparent;display:grid;place-items:center;color:var(--text-secondary);cursor:pointer;flex:none}.letters-panel-title{flex:1;font:500 18px/1 var(--font-sans);color:var(--text-primary)}.letters-panel-write{width:40px;height:40px;border:0;border-radius:50%;background:transparent;display:grid;place-items:center;color:var(--text-secondary);cursor:pointer;flex:none}.letters-panel-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 14px calc(env(safe-area-inset-bottom,34px) + 20px)}
 .letters-list{display:flex;flex-direction:column;gap:12px}.letter-card{position:relative;padding:18px 18px 16px;border-radius:20px;background:#f2f0ed;border:1px solid rgba(32,31,29,.05);cursor:pointer;transition:transform 120ms ease}.letter-card:active{transform:scale(.98)}.letter-card-author{font:500 var(--text-sm)/1 var(--font-sans);color:var(--accent);letter-spacing:.03em;margin-bottom:6px}.letter-card-title{font:400 16px/1.35 var(--font-sans);color:var(--text-primary);margin-bottom:4px}.letter-card-date{font:400 var(--text-sm)/1.2 var(--font-sans);color:var(--text-faint)}.letter-card-preview{margin-top:8px;font:400 var(--text-read)/1.55 var(--font-sans);color:var(--text-secondary);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.letter-card-lock{position:absolute;top:16px;right:16px;font-size:16px;opacity:.5}.letter-card.is-locked{background:linear-gradient(135deg,#f2f0ed 0%,#ede8e4 100%)}.letter-card.is-locked .letter-card-preview{font-style:italic;color:var(--text-faint)}.letter-card.is-new::after{content:'';position:absolute;top:14px;right:14px;width:8px;height:8px;border-radius:50%;background:var(--accent)}.letters-empty{padding:40px 20px;text-align:center;color:var(--text-faint);font-size:var(--text-sm);line-height:1.6}
 .letter-overlay{position:fixed;inset:0;z-index:85;background:var(--bg-primary);display:flex;flex-direction:column;overflow:hidden;animation:letterFadeIn 200ms ease}.letter-overlay[hidden]{display:none}@keyframes letterFadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}.letter-overlay-inner{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:calc(env(safe-area-inset-top,50px) + 14px) 20px calc(env(safe-area-inset-bottom,34px) + 20px)}.letter-overlay-close{position:fixed;top:calc(env(safe-area-inset-top,50px) + 10px);right:16px;z-index:86;width:40px;height:40px;border:0;border-radius:50%;background:var(--bg-surface);display:grid;place-items:center;color:var(--text-secondary);box-shadow:var(--shadow-soft)}.letter-detail-author{font:500 var(--text-sm)/1 var(--font-sans);color:var(--accent);letter-spacing:.03em;margin-bottom:8px}.letter-detail-title{font:400 22px/1.3 var(--font-sans);color:var(--text-primary);margin-bottom:6px}.letter-detail-date{font:400 var(--text-sm)/1.2 var(--font-sans);color:var(--text-faint);margin-bottom:24px}.letter-detail-body{font:400 var(--text-read)/1.75 var(--font-sans);color:var(--text-primary);white-space:pre-wrap;word-break:break-word}.letter-write-title{font:400 20px/1.2 var(--font-sans);color:var(--text-primary);margin-bottom:20px}.letter-input{width:100%;padding:12px 16px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--bg-surface);color:var(--text-primary);font:400 var(--text-base)/1.4 var(--font-sans);outline:0;margin-bottom:12px;box-sizing:border-box}.letter-input::placeholder{color:var(--text-faint)}.letter-textarea{width:100%;min-height:200px;padding:14px 16px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--bg-surface);color:var(--text-primary);font:400 var(--text-read)/1.65 var(--font-sans);outline:0;resize:vertical;margin-bottom:12px;box-sizing:border-box}.letter-textarea::placeholder{color:var(--text-faint)}.letter-lock-section{margin-bottom:16px}.letter-lock-toggle{font:400 var(--text-base)/1.4 var(--font-sans);color:var(--text-secondary);cursor:pointer;padding:8px 0}.letter-lock-options{padding:12px 0;display:flex;flex-direction:column;gap:10px}.letter-lock-row{display:flex;align-items:center;gap:10px;font:400 var(--text-base)/1.4 var(--font-sans);color:var(--text-primary)}.letter-send-btn{width:100%;padding:15px;border:0;border-radius:999px;background:var(--text-primary);color:var(--bg-primary);font:600 var(--text-base)/1 var(--font-sans);cursor:pointer;margin-top:8px}.letter-send-btn:disabled{opacity:.35}.letter-unlock-dialog{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(320px,calc(100vw - 40px));padding:28px 24px 20px;border-radius:24px;background:var(--bg-primary);border:1px solid var(--border);box-shadow:0 20px 60px rgba(0,0,0,.18)}.letter-unlock-cover{font:400 16px/1.5 var(--font-sans);color:var(--text-primary);text-align:center;margin-bottom:16px;font-style:italic}.letter-unlock-time{font:400 var(--text-sm)/1.3 var(--font-sans);color:var(--text-faint);text-align:center;margin-bottom:12px}.letter-unlock-actions{display:flex;gap:10px;margin-top:14px}.letter-unlock-cancel,.letter-unlock-submit{flex:1;padding:12px;border:0;border-radius:999px;font:500 var(--text-base)/1 var(--font-sans);cursor:pointer}.letter-unlock-cancel{background:var(--bg-surface);color:var(--text-secondary);border:1px solid var(--border)}.letter-unlock-submit{background:var(--text-primary);color:var(--bg-primary)}.letter-unlock-error{margin-top:10px;font:400 var(--text-sm)/1.3 var(--font-sans);color:#d54d4d;text-align:center;min-height:18px}
 .letter-replies-section{margin-top:32px;border-top:1px solid var(--border);padding-top:20px}.letter-replies-title{font:500 var(--text-sm)/1 var(--font-sans);color:var(--text-faint);letter-spacing:.04em;text-transform:uppercase;margin-bottom:16px}.letter-reply-item{padding:16px;border-radius:16px;background:#f2f0ed;margin-bottom:10px}.letter-reply-item.is-elian{background:rgba(var(--accent-rgb,139,115,85),.08)}.letter-reply-author{font:500 var(--text-sm)/1 var(--font-sans);color:var(--accent);margin-bottom:4px}.letter-reply-date{font:400 12px/1 var(--font-sans);color:var(--text-faint);margin-bottom:8px}.letter-reply-body{font:400 var(--text-read)/1.65 var(--font-sans);color:var(--text-primary);white-space:pre-wrap;word-break:break-word}.letter-reply-form{margin-top:20px}.letter-reply-textarea{width:100%;min-height:100px;padding:14px 16px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--bg-surface);color:var(--text-primary);font:400 var(--text-read)/1.55 var(--font-sans);outline:0;resize:vertical;box-sizing:border-box}.letter-reply-textarea::placeholder{color:var(--text-faint)}.letter-reply-send{margin-top:10px;padding:10px 24px;border:0;border-radius:999px;background:var(--text-primary);color:var(--bg-primary);font:500 var(--text-sm)/1 var(--font-sans);cursor:pointer;float:right}.letter-reply-send:disabled{opacity:.35}.letter-reply-waiting{margin-top:12px;font:400 var(--text-sm)/1.4 var(--font-sans);color:var(--text-faint);font-style:italic;text-align:center}.letter-reply-waiting::after{content:'';animation:replyDots 1.2s steps(4) infinite}@keyframes replyDots{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
-@media(prefers-color-scheme:dark){.study-nav-row{background:#2A2A28}.letters-panel{background:var(--bg-primary)}.letters-panel-header{border-color:var(--border)}.letter-card{background:#2A2A28;border-color:var(--border)}.letter-card.is-locked{background:linear-gradient(135deg,#2A2A28 0%,#2E2C2A 100%)}.letter-overlay{background:var(--bg-primary)}.letter-unlock-dialog{background:var(--bg-primary);border-color:var(--border);box-shadow:0 20px 60px rgba(0,0,0,.5)}.letter-reply-item{background:#2A2A28}.letter-reply-item.is-elian{background:rgba(139,115,85,.12)}}
+@media(prefers-color-scheme:dark){.moments-panel{background:var(--bg-primary)}.moments-panel-header{border-color:var(--border)}.moments-panel-back:active,.moments-panel-write:active{background:rgba(255,255,255,.06)}.moment-card{border-color:var(--border)}.moment-thread{background:#2A2A28}.moment-cmt-input,.moment-compose textarea{background:#232321;border-color:var(--border)}}@media(prefers-color-scheme:dark){.study-nav-row{background:#2A2A28}.letters-panel{background:var(--bg-primary)}.letters-panel-header{border-color:var(--border)}.letter-card{background:#2A2A28;border-color:var(--border)}.letter-card.is-locked{background:linear-gradient(135deg,#2A2A28 0%,#2E2C2A 100%)}.letter-overlay{background:var(--bg-primary)}.letter-unlock-dialog{background:var(--bg-primary);border-color:var(--border);box-shadow:0 20px 60px rgba(0,0,0,.5)}.letter-reply-item{background:#2A2A28}.letter-reply-item.is-elian{background:rgba(139,115,85,.12)}}
 @media(prefers-color-scheme: dark){#memoryPanel{background:var(--bg-primary);color:var(--text-primary)}.profile-round-button,.profile-save-button,.profile-back-button{background:#2A2A28;border-color:var(--border);color:var(--text-primary);box-shadow:0 2px 8px rgba(0,0,0,.2)}.profile-save-button{color:var(--accent)}.profile-save-button:disabled{color:#6E6D66}.profile-title{color:var(--text-primary)}.profile-subtitle,.profile-section-title,.profile-help-text,.profile-nav-chevron,.profile-nav-row-icon{color:var(--text-secondary)}.profile-nav-row-note{color:var(--text-faint)}.profile-card{background:#2A2A28;border-color:var(--border);color:var(--text-primary)}.profile-nav-row{background:#2A2A28;color:var(--text-primary)}.profile-name-input,.profile-memory-textarea,.profile-preferences-textarea{color:var(--text-primary)}.profile-name-input::placeholder,.profile-memory-textarea::placeholder,.profile-preferences-textarea::placeholder{color:#6E6D66}.profile-divider{background:var(--border)}.profile-memory-row .profile-memory-card{background:#2A2A28;border:none;outline:2px solid #2A2A28;outline-offset:-1px;box-shadow:none}.profile-empty{background:#2A2A28;color:var(--text-secondary)}.profile-add-button{background:#2A2A28;color:var(--text-primary);border:1px solid rgba(255,255,255,.12)}.profile-mini-button{background:var(--border);color:var(--text-secondary)}.profile-preferences-card{background:#2A2A28;color:var(--text-primary)}.memory-search-bubble{background:rgba(42,42,40,.92);border-color:rgba(255,255,255,.12);color:rgba(244,243,239,.58);box-shadow:0 0 0 1px rgba(255,255,255,.035),0 8px 24px rgba(0,0,0,.30),0 2px 6px rgba(0,0,0,.22)}.memory-search-icon{color:rgba(244,243,239,.58)}.memory-search-input{color:var(--text-primary)}.memory-search-input::placeholder{color:rgba(244,243,239,.45)}.memory-search-clear{background:rgba(255,255,255,.25)}.topbar .icon-button{border:1px solid rgba(255,255,255,.16);box-shadow:0 1px 2px rgba(0,0,0,.25)}}
 .dialog-overlay{position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:var(--space-4);background:var(--border-strong)}.dialog{width:100%;max-width:360px;padding:var(--space-5);background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-lg)}.dialog h3{font:400 var(--text-title) var(--font-sans)}.dialog input{width:100%;margin:var(--space-4) 0;padding:var(--space-3);background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);outline:0}.dialog-actions{display:flex;justify-content:flex-end;gap:var(--space-2)}.secondary-button{padding:var(--space-2) var(--space-3);border:1px solid var(--border);border-radius:var(--radius-md)}
 .toast{position:fixed;z-index:95;left:50%;bottom:calc(env(safe-area-inset-bottom, 34px) + 92px);max-width:calc(100% - var(--space-6));padding:var(--space-2) var(--space-4);transform:translate(-50%,12px);opacity:0;pointer-events:none;background:var(--text-primary);color:var(--bg-primary);border-radius:var(--radius-full);font-size:var(--text-sm);transition:opacity var(--transition),transform var(--transition)}.toast.show{opacity:1;transform:translate(-50%,0)}
@@ -1022,6 +1022,16 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
       </div>
     </div>
   </div>
+  <!-- 朋友圈：入口行。未读数字只在有我发的新动态时出现。 -->
+  <div class="study-nav-row" id="openMomentsPanel">
+    <span class="study-nav-icon">🌊</span>
+    <span class="study-nav-label">朋友圈</span>
+    <span class="study-nav-dot" id="momentsDot"></span>
+    <span class="study-nav-sub" id="momentsSub">动态</span>
+    <span class="study-nav-chevron" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><polyline points="9 6 15 12 9 18"/></svg>
+    </span>
+  </div>
   <!-- 寄相思：入口行。点击打开独立面板。 -->
   <div class="study-nav-row" id="openLettersPanel">
     <span class="study-nav-icon">💌</span>
@@ -1107,6 +1117,29 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
   </header>
   <div class="letters-panel-body">
     <div class="letters-list" id="lettersList"></div>
+  </div>
+</section>
+
+<!-- 朋友圈：独立全屏面板 -->
+<section id="momentsPanel" class="moments-panel" aria-hidden="true">
+  <header class="moments-panel-header">
+    <button class="moments-panel-back" id="momentsPanelBack" aria-label="返回">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div class="moments-panel-title">朋友圈</div>
+    <button class="moments-panel-write" id="momentsPanelWrite" aria-label="发一条">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+    </button>
+  </header>
+  <div class="moments-panel-body">
+    <div class="moment-compose" id="momentCompose">
+      <textarea id="momentComposeText" placeholder="说点什么…" maxlength="2000"></textarea>
+      <div class="moment-compose-bar">
+        <button class="moment-compose-cancel" id="momentComposeCancel">算了</button>
+        <button class="moment-compose-send" id="momentComposeSend">发出去</button>
+      </div>
+    </div>
+    <div id="momentsList"></div>
   </div>
 </section>
 
@@ -3906,6 +3939,153 @@ const DIARY_ACC_KEY='reading_panel_diary';
 /* ── 寄相思 ──────────────────────────────────────────────────────────
    书房第三块手风琴。信件列表、详情 overlay、写信 overlay、解锁弹窗。 */
 let _lettersLoaded=false, _lettersData=[];
+/* ── 朋友圈 ──────────────────────────────────────────────────
+   跟寄相思共用 esc / formatLetterDate / api / toast。
+   刷新策略：面板开着的时候 30 秒轮询一次。他路过是后台定时器决定的，
+   前端只负责把结果捞上来——不要在这里触发生成。 */
+let _momentsPoll=null;
+let _composeOpen=false;
+
+function momentCardHtml(m){
+  const mine=m.author==='xiaoduo';
+  const who=mine?'小朵':'梁忱';
+  const cmts=(m.comments||[]).map(c=>{
+    const cm=c.author==='xiaoduo';
+    return `<div class="moment-cmt"><span class="who${cm?'':' is-me'}">${cm?'小朵':'梁忱'}</span>：${esc(c.content)}</div>`;
+  });
+  /* 他对她的动态的初次评论也进评论区显示，位置排在最前 */
+  if(m.reply_content){
+    cmts.unshift(`<div class="moment-cmt"><span class="who is-me">梁忱</span>：${esc(m.reply_content)}</div>`);
+  }
+  /* 等他路过：她发的、还没回的，给一句状态，别让她以为坏了 */
+  const waiting=(mine&&m.reply_status==='pending')
+    ?'<div class="moment-waiting">他还没刷到这条</div>':'';
+  const heLiked=m.elian_liked?'<span class="moment-act liked">♥ 他赞过</span>':'';
+  const sheLiked=m.xiaoduo_liked?' liked':'';
+
+  return `<div class="moment-card" data-id="${m.id}">
+    <div class="moment-head">
+      <span class="moment-author${mine?'':' is-me'}">${who}</span>
+      <span class="moment-time">${formatLetterDate(m.created_at)}</span>
+    </div>
+    <div class="moment-content">${esc(m.content)}</div>
+    <div class="moment-actions">
+      ${mine?heLiked:`<button class="moment-act${sheLiked}" data-act="like" data-id="${m.id}">♥ ${m.xiaoduo_liked?'已赞':'赞'}</button>`}
+      <button class="moment-act" data-act="cmt" data-id="${m.id}">💬 说点什么</button>
+    </div>
+    ${waiting}
+    <div class="moment-thread">${cmts.join('')}</div>
+    <div class="moment-cmt-form" data-form="${m.id}">
+      <input class="moment-cmt-input" data-input="${m.id}" placeholder="说点什么…" maxlength="2000">
+      <button class="moment-cmt-send" data-send="${m.id}">发</button>
+    </div>
+  </div>`;
+}
+
+async function loadMoments(){
+  try{
+    const r=await api('/api/moments');if(!r.ok)return;
+    const data=await r.json();
+    const list=data.entries||[];
+    $('momentsList').innerHTML=list.length
+      ? list.map(momentCardHtml).join('')
+      : '<div class="moments-empty">还没有人说话。<br>点右上角的 ＋ 发第一条。</div>';
+  }catch(e){}
+}
+
+async function loadMomentsUnread(){
+  try{
+    const r=await api('/api/moments/unread');if(!r.ok)return;
+    const n=(await r.json()).count||0;
+    const dot=$('momentsDot');
+    dot.textContent=n>99?'99+':String(n);
+    dot.classList.toggle('show',n>0);
+    $('momentsSub').textContent=n?'他说了话':'动态';
+  }catch(e){}
+}
+
+/* 事件委托：卡片是整片重绘的，逐个绑定会在重绘后全部失效 */
+$('momentsList').addEventListener('click',async(e)=>{
+  const btn=e.target.closest('[data-act]');
+  if(btn){
+    const id=btn.dataset.id;
+    if(btn.dataset.act==='like'){
+      const on=!btn.classList.contains('liked');
+      btn.classList.toggle('liked',on);
+      btn.textContent=`♥ ${on?'已赞':'赞'}`;
+      try{await api(`/api/moments/${id}/like`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({liked:on})})}catch(err){}
+      return;
+    }
+    if(btn.dataset.act==='cmt'){
+      const form=document.querySelector(`[data-form="${id}"]`);
+      form?.classList.toggle('show');
+      if(form?.classList.contains('show'))document.querySelector(`[data-input="${id}"]`)?.focus();
+      return;
+    }
+  }
+  const send=e.target.closest('[data-send]');
+  if(send){
+    const id=send.dataset.send;
+    const input=document.querySelector(`[data-input="${id}"]`);
+    const text=(input?.value||'').trim();
+    if(!text)return;
+    send.disabled=true;
+    try{
+      const r=await api(`/api/moments/${id}/comments`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:text})});
+      if(!r.ok)throw Error();
+      input.value='';
+      await loadMoments();
+    }catch(err){toast&&toast('没发出去')}
+    finally{send.disabled=false}
+  }
+});
+
+/* 发一条 */
+$('momentsPanelWrite').onclick=()=>{
+  _composeOpen=!_composeOpen;
+  $('momentCompose').classList.toggle('show',_composeOpen);
+  if(_composeOpen)$('momentComposeText').focus();
+};
+$('momentComposeCancel').onclick=()=>{
+  _composeOpen=false;
+  $('momentCompose').classList.remove('show');
+  $('momentComposeText').value='';
+};
+$('momentComposeSend').onclick=async()=>{
+  const text=$('momentComposeText').value.trim();
+  if(!text)return;
+  const btn=$('momentComposeSend');btn.disabled=true;
+  try{
+    const r=await api('/api/moments',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:text})});
+    if(!r.ok)throw Error();
+    $('momentComposeText').value='';
+    _composeOpen=false;
+    $('momentCompose').classList.remove('show');
+    await loadMoments();
+  }catch(e){toast&&toast('没发出去')}
+  finally{btn.disabled=false}
+};
+
+/* 面板开合 */
+$('openMomentsPanel').onclick=async()=>{
+  $('momentsPanel').classList.add('show');
+  $('momentsPanel').setAttribute('aria-hidden','false');
+  await loadMoments();
+  /* 拉开就算看过了，红点清掉 */
+  try{await api('/api/moments/seen',{method:'POST'})}catch(e){}
+  loadMomentsUnread();
+  /* 他路过是后台定时器决定的，前端只是隔一会儿捞一次 */
+  clearInterval(_momentsPoll);
+  _momentsPoll=setInterval(loadMoments,30000);
+};
+$('momentsPanelBack').onclick=()=>{
+  $('momentsPanel').classList.remove('show');
+  $('momentsPanel').setAttribute('aria-hidden','true');
+  clearInterval(_momentsPoll);_momentsPoll=null;
+  _composeOpen=false;
+  $('momentCompose').classList.remove('show');
+};
+
 async function loadLettersCount(){
   try{
     const r=await api('/api/letters');if(!r.ok)return;
@@ -6406,7 +6586,9 @@ function switchTab(name){
     /* 日记那块要是记着上次是展开的，进书房就把数据补上 */
     if(!$('studyDiary')?.classList.contains('is-collapsed'))loadDiary();
     /* 寄相思面板入口行的数量也刷新一下 */
-    _lettersLoaded=false;loadLettersCount();}
+    _lettersLoaded=false;loadLettersCount();
+    /* 朋友圈红点：进书房就刷。他发动态不推送，这个数字是她唯一的信号 */
+    loadMomentsUnread();}
 }
 document.querySelectorAll('#tabBar .tab-item').forEach(t=>{t.addEventListener('click',()=>switchTab(t.dataset.tab))});
 </script>
