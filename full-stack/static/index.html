@@ -143,7 +143,7 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}textar
 .msg-user .bubble>div:not(.message-attachments),.msg-claude .md,.msg-claude .md *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .msg-user.msg-pressing .bubble{opacity:.75;transition:opacity 120ms}.msg-claude.msg-pressing{opacity:.75;transition:opacity 120ms}
 #input,textarea,input{-webkit-user-select:text;user-select:text}
-.msg-claude .md{font-family:var(--font-sans);font-size:var(--text-read);word-break:break-word}.msg-claude .md.md-split{margin-top:1.05em}
+.msg-claude .md{font-family:var(--font-sans);font-size:var(--text-read);word-break:break-word}.msg-claude .md.md-split{margin-top:1.05em}.avatar{flex:none;border-radius:50%;background-size:cover;background-position:center;display:grid;place-items:center;color:#fff;font-family:var(--font-serif,Georgia,serif);font-weight:400;letter-spacing:0;overflow:hidden;user-select:none}.avatar.has-img{color:transparent}.moments-cover{position:relative;margin:-8px -14px 0;height:38vh;min-height:220px;background:linear-gradient(160deg,#E8DDD4,#D9C9BE);background-size:cover;background-position:center;overflow:hidden}.moments-cover:after{content:'';position:absolute;inset:0;background:linear-gradient(to bottom,transparent 40%,rgba(0,0,0,.42))}.moments-cover-edit{position:absolute;top:calc(env(safe-area-inset-top,50px) + 6px);right:14px;z-index:3;width:34px;height:34px;border-radius:50%;border:0;display:grid;place-items:center;background:rgba(0,0,0,.32);color:#fff;backdrop-filter:blur(8px)}.moments-cover-edit svg{width:17px;height:17px}.moments-identity{position:absolute;left:16px;right:16px;bottom:14px;z-index:2;display:flex;align-items:flex-end;gap:12px}.moments-identity-text{flex:1;min-width:0;padding-bottom:3px}.moments-identity-name{font:500 17px/1.25 var(--font-sans);color:#fff;text-shadow:0 1px 8px rgba(0,0,0,.45)}.moments-identity-sig{margin-top:4px;font:400 12px/1.45 var(--font-sans);color:rgba(255,255,255,.82);text-shadow:0 1px 6px rgba(0,0,0,.4);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.moments-faces{flex:none;display:flex;align-items:center}.moments-faces .avatar{border:2.5px solid rgba(255,255,255,.92);box-shadow:0 3px 12px rgba(0,0,0,.28)}.moments-faces .avatar+.avatar{margin-left:-13px}.moment-card{display:flex;gap:11px}.moment-body{flex:1;min-width:0}
 /* 空 md(submitted/thinking 阶段还没正文)整个不渲染 → cursor 也不出现 */
 .msg-claude .md:empty{display:none}
 /* cursor 只对【非空 md + streaming row】生效:isStreaming && content.length > 0 */
@@ -441,7 +441,7 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
 
     <section class="home-group">
       <div class="home-group-title">外观</div>
-      <button class="profile-nav-row" id="openAppearanceDetail"><span class="profile-nav-row-icon" data-profile-icon="appearance"></span><span class="profile-nav-row-title">主题与背景<span class="profile-nav-row-note">深浅色、背景图、图标、分条说话</span></span><span class="profile-nav-chevron">›</span></button>
+      <button class="profile-nav-row" id="openAppearanceDetail"><span class="profile-nav-row-icon" data-profile-icon="appearance"></span><span class="profile-nav-row-title">主题与背景<span class="profile-nav-row-note">头像、背景、图标、说话方式</span></span><span class="profile-nav-chevron">›</span></button>
     </section>
   </div>
 
@@ -526,6 +526,41 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
         </div>
       </div>
       <input type="file" id="iconFileInput" accept="image/*" hidden>
+      <input type="file" id="avatarFileInput" accept="image/*" hidden>
+
+      <div class="profile-section-title">头像</div>
+      <div class="profile-card">
+        <div class="bg-slot-row">
+          <div class="bg-slot-info" style="display:flex;align-items:center;gap:12px">
+            <span id="avatarPreviewXiaoduo"></span>
+            <div>
+              <div class="bg-slot-name">你的头像</div>
+              <div class="bg-slot-state" id="avatarStateXiaoduo">还没设</div>
+            </div>
+          </div>
+          <div class="bg-slot-actions">
+            <button type="button" class="profile-mini-button" id="avatarPickXiaoduo">选择</button>
+            <button type="button" class="profile-mini-button profile-danger hidden" id="avatarClearXiaoduo">清除</button>
+          </div>
+        </div>
+        <div class="profile-divider"></div>
+        <div class="bg-slot-row">
+          <div class="bg-slot-info" style="display:flex;align-items:center;gap:12px">
+            <span id="avatarPreviewElian"></span>
+            <div>
+              <div class="bg-slot-name">他的头像</div>
+              <div class="bg-slot-state" id="avatarStateElian">还没设</div>
+            </div>
+          </div>
+          <div class="bg-slot-actions">
+            <button type="button" class="profile-mini-button" id="avatarPickElian">选择</button>
+            <button type="button" class="profile-mini-button profile-danger hidden" id="avatarClearElian">清除</button>
+          </div>
+        </div>
+        <div class="profile-help-text">
+          聊天、朋友圈、以后的日记和琴房都用这一份。没设的时候显示名字里那个字。
+        </div>
+      </div>
 
       <div class="profile-section-title">说话方式</div>
       <div class="profile-card">
@@ -1215,6 +1250,22 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
     </button>
   </header>
   <div class="fsheet-body">
+    <!-- 封面 + 双头像 + 签名。朋友圈是我们共享的一面墙，所以头部体现的是
+         「我们」而不是某一个人——两个头像并置，签名一句公共的。 -->
+    <div class="moments-cover" id="momentsCover">
+      <button class="moments-cover-edit" id="momentsCoverEdit" aria-label="换封面">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+      </button>
+      <div class="moments-identity">
+        <div class="moments-identity-text">
+          <div class="moments-identity-name">忱 ♡ 朵</div>
+          <div class="moments-identity-sig" id="momentsSignature"></div>
+        </div>
+        <div class="moments-faces" id="momentsFaces"></div>
+      </div>
+    </div>
+    <input type="file" id="coverFileInput" accept="image/*" hidden>
+
     <div class="moment-compose" id="momentCompose">
       <textarea id="momentComposeText" placeholder="说点什么…" maxlength="2000"></textarea>
       <div class="moment-compose-bar">
@@ -1573,6 +1624,128 @@ $('iconClear').onclick=async()=>{
     await loadIconState();
     toast('回到默认图标了');
   }catch{toast('清除失败')}
+};
+
+/* ---- 头像 / 封面 / 签名 -------------------------------------------------
+   头像是**全站共用的一份身份**：朋友圈换了聊天里也得换，不然就是两个人。
+   所以这一层不属于任何页面，谁要用谁调 avatarUrl()。
+
+   🔴 图走 blob: 不走 CSS url() 直连。文件接口挂着 require_auth，
+   CSS 发的请求带不上 Bearer——跟背景图那套同一个道理（见 applyBgSlot）。 */
+let facesState={xiaoduo:{set:false,v:0},elian:{set:false,v:0},cover:{set:false,v:0},signature:''};
+const _faceBlob={xiaoduo:{url:'',v:-1},elian:{url:'',v:-1},cover:{url:'',v:-1}};
+
+async function loadFaces(){
+  try{
+    const r=await api('/api/faces'); if(!r.ok)return facesState;
+    facesState=await r.json();
+  }catch(e){}
+  return facesState;
+}
+
+/* 取回一张图的 blob URL。已经取过且版本没变就直接复用——
+   头像会在时间线上出现几十次，每次都重新 fetch 是白付流量。 */
+async function faceUrl(slot){
+  const s=facesState[slot]||{set:false,v:0};
+  if(!s.set)return '';
+  const cur=_faceBlob[slot];
+  if(cur.url&&cur.v===s.v)return cur.url;
+  try{
+    const r=await api(`/api/faces/file/${slot}?v=${s.v}`);
+    if(!r.ok)throw 0;
+    const url=URL.createObjectURL(await r.blob());
+    if(cur.url)URL.revokeObjectURL(cur.url);
+    cur.url=url;cur.v=s.v;
+    return url;
+  }catch(e){return ''}
+}
+
+/* 没设头像时的兜底：名字第一个字 + 各自的底色。
+   不用默认头像图——一张灰色小人像比一个字更没有人味。 */
+function faceFallback(who){
+  return who==='elian'
+    ? {text:'忱',bg:'var(--study-accent)'}
+    : {text:'朵',bg:'#8B7355'};
+}
+
+/* 造一个头像元素。同步返回，图异步补上——时间线渲染不能等网络。 */
+function avatarEl(who,size=36){
+  const el=document.createElement('div');
+  el.className='avatar';
+  el.style.width=el.style.height=`${size}px`;
+  const fb=faceFallback(who);
+  el.style.background=fb.bg;
+  el.textContent=fb.text;
+  el.style.fontSize=`${Math.round(size*0.42)}px`;
+  faceUrl(who).then(url=>{
+    if(!url)return;
+    el.textContent='';
+    el.style.backgroundImage=`url('${url}')`;
+    el.classList.add('has-img');
+  });
+  return el;
+}
+
+/* ---- 头像设置 ---------------------------------------------------------
+   两个 slot 共用一套逻辑，别为「她的」和「他的」各写一份。 */
+const _AV_LABEL={xiaoduo:'Xiaoduo',elian:'Elian'};
+
+async function loadAvatarSettings(){
+  await loadFaces();
+  for(const who of ['xiaoduo','elian']){
+    const L=_AV_LABEL[who];
+    const set=!!(facesState[who]&&facesState[who].set);
+    $(`avatarState${L}`).textContent=set?'已设置':'还没设';
+    $(`avatarClear${L}`).classList.toggle('hidden',!set);
+    const box=$(`avatarPreview${L}`);
+    box.innerHTML='';
+    box.append(avatarEl(who,40));
+  }
+}
+
+async function uploadAvatar(who,file){
+  const L=_AV_LABEL[who];
+  $(`avatarState${L}`).textContent='处理中…';
+  try{
+    /* 头像裁方 + 压到 512：显示最大也就 46px，再大是白传 */
+    const blob=await _shrinkToJpeg(file,512,0.88,true);
+    const fd=new FormData();
+    fd.append('file',new File([blob],`${who}.jpg`,{type:'image/jpeg'}));
+    const r=await api(`/api/faces/${who}`,{method:'POST',body:fd});
+    if(!r.ok)throw new Error(String(r.status));
+    facesState=await r.json();
+    _faceBlob[who].v=-1;              /* 强制重取 */
+    await loadAvatarSettings();
+    toast('头像换好了');
+  }catch(e){
+    await loadAvatarSettings();
+    toast(String(e.message)==='413'?'图太大了':'头像没换上');
+  }
+}
+
+['xiaoduo','elian'].forEach(who=>{
+  const L=_AV_LABEL[who];
+  $(`avatarPick${L}`).onclick=()=>{
+    const inp=$('avatarFileInput');
+    inp.dataset.who=who;
+    inp.click();
+  };
+  $(`avatarClear${L}`).onclick=async()=>{
+    try{
+      const r=await api(`/api/faces/${who}`,{method:'DELETE'});
+      if(!r.ok)throw 0;
+      facesState=await r.json();
+      _faceBlob[who].v=-1;
+      await loadAvatarSettings();
+      toast('回到默认了');
+    }catch{toast('清除失败')}
+  };
+});
+$('avatarFileInput').onchange=e=>{
+  const f=e.target.files&&e.target.files[0];
+  const who=e.target.dataset.who;
+  e.target.value='';
+  if(f&&who) uploadAvatar(who,f);
 };
 
 /* ---- 分条说话 ---------------------------------------------------------
@@ -3295,7 +3468,7 @@ $('profileBackFromMemories').onclick=()=>showProfilePage('profileDetailPage');$(
 $('openProfileDetail').onclick=()=>showProfilePage('profileDetailPage');
 $('openRelayDetail').onclick=()=>showProfilePage('relayPage');
 $('openUsageDetail').onclick=()=>showProfilePage('usagePage');
-$('openAppearanceDetail').onclick=()=>{showProfilePage('appearancePage');loadIconState();loadSplitMode();};
+$('openAppearanceDetail').onclick=()=>{showProfilePage('appearancePage');loadIconState();loadSplitMode();loadAvatarSettings();};
 $('profileBackFromDetail').onclick=()=>showProfilePage('profileHome');
 $('profileBackFromRelay').onclick=()=>showProfilePage('profileHome');
 $('profileBackFromUsage').onclick=()=>showProfilePage('profileHome');
@@ -4203,6 +4376,8 @@ function momentCardHtml(m){
   const sheLiked=m.xiaoduo_liked?' liked':'';
 
   return `<div class="moment-card" data-id="${m.id}">
+    <span class="moment-avatar-slot" data-who="${m.author==='xiaoduo'?'xiaoduo':'elian'}"></span>
+    <div class="moment-body">
     <div class="moment-head">
       <span class="moment-author${mine?'':' is-me'}">${who}</span>
       <span class="moment-time">${formatLetterDate(m.created_at)}</span>
@@ -4218,6 +4393,7 @@ function momentCardHtml(m){
       <input class="moment-cmt-input" data-input="${m.id}" placeholder="说点什么…" maxlength="2000">
       <button class="moment-cmt-send" data-send="${m.id}">发</button>
     </div>
+    </div>
   </div>`;
 }
 
@@ -4229,7 +4405,77 @@ async function loadMoments(){
     $('momentsList').innerHTML=list.length
       ? list.map(momentCardHtml).join('')
       : '<div class="moments-empty">还没有人说话。<br>点右上角的 ＋ 发第一条。</div>';
+    /* 头像用 DOM 塞进去，不拼进 HTML 字符串：blob: URL 拼进 innerHTML
+       会被当成普通文本转义，而且每张都要重新 fetch。 */
+    $('momentsList').querySelectorAll('.moment-avatar-slot').forEach(slot=>{
+      slot.replaceWith(avatarEl(slot.dataset.who,38));
+    });
   }catch(e){}
+}
+
+/* 封面 + 双头像 + 签名 */
+async function renderMomentsHeader(){
+  await loadFaces();
+  const cover=$('momentsCover');
+  const url=await faceUrl('cover');
+  cover.style.backgroundImage=url?`url('${url}')`:'';
+  const sig=(facesState.signature||'').trim();
+  $('momentsSignature').textContent=sig||'还没写签名，点这儿写一句';
+  const faces=$('momentsFaces');
+  faces.innerHTML='';
+  faces.append(avatarEl('elian',46),avatarEl('xiaoduo',46));
+}
+
+$('momentsCoverEdit').onclick=()=>$('coverFileInput').click();
+$('coverFileInput').onchange=async e=>{
+  const f=e.target.files&&e.target.files[0];
+  e.target.value='';
+  if(!f)return;
+  try{
+    /* 封面是大图，压到 1600 再传——原图动辄几 MB，她流量不是免费的 */
+    const blob=await _shrinkToJpeg(f,1600,0.85);
+    const fd=new FormData();
+    fd.append('file',new File([blob],'cover.jpg',{type:'image/jpeg'}));
+    const r=await api('/api/faces/cover',{method:'POST',body:fd});
+    if(!r.ok)throw new Error(String(r.status));
+    facesState=await r.json();
+    _faceBlob.cover.v=-1;          /* 版本变了，强制重取 */
+    await renderMomentsHeader();
+    toast('封面换好了');
+  }catch(err){toast(String(err.message)==='413'?'图太大了':'封面没换上')}
+};
+
+/* 签名：点一下就地编辑 */
+$('momentsSignature').onclick=async()=>{
+  const cur=(facesState.signature||'').trim();
+  const next=prompt('写一句签名',cur);
+  if(next===null)return;
+  try{
+    const r=await api('/api/faces/signature',{method:'PUT',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify({text:next})});
+    if(!r.ok)throw 0;
+    facesState=await r.json();
+    await renderMomentsHeader();
+  }catch{toast('签名没存上')}
+};
+
+/* 图片压缩：封面和头像共用。头像方形、封面按长边。 */
+async function _shrinkToJpeg(file,maxDim,quality,square=false){
+  const bmp=await createImageBitmap(file);
+  let sx=0,sy=0,sw=bmp.width,sh=bmp.height;
+  if(square){
+    const side=Math.min(bmp.width,bmp.height);
+    sx=Math.round((bmp.width-side)/2);sy=Math.round((bmp.height-side)/2);
+    sw=sh=side;
+  }
+  let w=sw,h=sh;
+  if(w>maxDim||h>maxDim){const k=Math.min(maxDim/w,maxDim/h);w=Math.round(w*k);h=Math.round(h*k)}
+  const cvs=document.createElement('canvas');cvs.width=w;cvs.height=h;
+  cvs.getContext('2d').drawImage(bmp,sx,sy,sw,sh,0,0,w,h);
+  bmp.close();
+  const blob=await new Promise(ok=>cvs.toBlob(ok,'image/jpeg',quality));
+  if(!blob)throw new Error('encode failed');
+  return blob;
 }
 
 /* ── 红点 ──────────────────────────────────────────────────────────
@@ -4328,6 +4574,8 @@ $('momentComposeSend').onclick=async()=>{
 $('openMomentsPanel').onclick=async()=>{
   $('momentsPanel').classList.add('show');
   $('momentsPanel').setAttribute('aria-hidden','false');
+  await loadFaces();          /* 🔴 先于 loadMoments：avatarEl 读 facesState */
+  renderMomentsHeader();
   await loadMoments();
   /* 拉开就算看过了，红点清掉 */
   try{await api('/api/moments/seen',{method:'POST'})}catch(e){}

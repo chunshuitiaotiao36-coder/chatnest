@@ -28,7 +28,7 @@ from starlette.formparsers import MultiPartParser
 
 MultiPartParser.max_part_size = 60 * 1024 * 1024  # 与 uploads.py 的 MAX_FILE_BYTES 对齐
 
-from app import appicon, auth, backgrounds, keepalive, lorebook, moments, nightguard, peek, piano, piano_analysis, push, relays, starmap, store, telegram
+from app import appicon, auth, backgrounds, faces, keepalive, lorebook, moments, nightguard, peek, piano, piano_analysis, push, relays, starmap, store, telegram
 from app.actor import ActorBusyError, _mem_kv
 from app.claude import (
     SessionResumeError,
@@ -493,6 +493,59 @@ async def app_icon(name: str) -> FileResponse:
         # 图标换得不频繁，但换了要能刷掉。一天足够，iOS 装到主屏之后
         # 那份是它自己的副本，本来也不会自动更新。
         headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
+class SignatureBody(BaseModel):
+    text: str = Field(default="", max_length=faces.SIGNATURE_MAX)
+
+
+@app.get("/api/faces", dependencies=[Depends(require_auth)])
+async def faces_state() -> dict:
+    """头像 / 朋友圈封面 / 个性签名的状态。一次拿齐。"""
+    return await asyncio.to_thread(faces.get_state)
+
+
+@app.post("/api/faces/{slot}", dependencies=[Depends(require_auth)])
+async def faces_upload(slot: str, file: UploadFile = File(...)) -> dict:
+    if not faces.valid_slot(slot):
+        raise HTTPException(status_code=404, detail="unknown slot")
+    if file.content_type not in faces.ALLOWED_TYPES:
+        raise HTTPException(status_code=415, detail="unsupported image type")
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="empty file")
+    if len(data) > faces.MAX_BYTES:
+        raise HTTPException(status_code=413, detail="图太大了")
+    return await asyncio.to_thread(faces.store, slot, data)
+
+
+@app.delete("/api/faces/{slot}", dependencies=[Depends(require_auth)])
+async def faces_clear(slot: str) -> dict:
+    if not faces.valid_slot(slot):
+        raise HTTPException(status_code=404, detail="unknown slot")
+    return await asyncio.to_thread(faces.clear, slot)
+
+
+@app.put("/api/faces/signature", dependencies=[Depends(require_auth)])
+async def faces_signature(body: SignatureBody) -> dict:
+    return await asyncio.to_thread(faces.set_signature, body.text)
+
+
+# 🔴 保留 require_auth，理由跟 background_file 那条一样：外层 basic auth
+#    只在 AUTH_MODE=both 时启用，默认模式下它是空转的，不能当访问控制。
+#    前端 fetch 带 Bearer 取回后转 blob: URL 再用，不走 CSS url() 直连。
+@app.get("/api/faces/file/{slot}", dependencies=[Depends(require_auth)])
+async def faces_file(slot: str) -> FileResponse:
+    if not faces.valid_slot(slot):
+        raise HTTPException(status_code=404, detail="unknown slot")
+    path = await asyncio.to_thread(faces.file_path, slot)
+    if path is None:
+        raise HTTPException(status_code=404, detail="not set")
+    return FileResponse(
+        path,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "private, max-age=31536000, immutable"},
     )
 
 
