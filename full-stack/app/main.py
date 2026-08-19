@@ -527,6 +527,16 @@ async def faces_clear(slot: str) -> dict:
     return await asyncio.to_thread(faces.clear, slot)
 
 
+class FaceShapeBody(BaseModel):
+    shape: str = Field(pattern="^(circle|rounded|squircle)$")
+
+
+@app.put("/api/faces/shape", dependencies=[Depends(require_auth)])
+async def faces_shape(body: FaceShapeBody) -> dict:
+    """头像形状。存服务端而不是 localStorage——换个设备打开该是同一个样子。"""
+    return await asyncio.to_thread(faces.set_shape, body.shape)
+
+
 @app.put("/api/faces/signature", dependencies=[Depends(require_auth)])
 async def faces_signature(body: SignatureBody) -> dict:
     return await asyncio.to_thread(faces.set_signature, body.text)

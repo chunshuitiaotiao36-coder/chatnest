@@ -30,6 +30,11 @@ MAX_BYTES = 5 * 1024 * 1024        # 前端已经压过，这里只兜底
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp"}
 SIGNATURE_MAX = 120
 
+# 头像形状。她说圆的有点丑，要能自己切。
+# 存在 meta 里而不是 localStorage：换个设备打开该是同一个样子。
+SHAPES = ("circle", "rounded", "squircle")
+DEFAULT_SHAPE = "rounded"
+
 
 def valid_slot(slot: str) -> bool:
     return slot in SLOTS
@@ -65,6 +70,8 @@ def get_state() -> dict:
         for slot in SLOTS
     }
     out["signature"] = str(meta.get("signature") or "")
+    shape = str(meta.get("shape") or DEFAULT_SHAPE)
+    out["shape"] = shape if shape in SHAPES else DEFAULT_SHAPE
     return out
 
 
@@ -93,6 +100,15 @@ def clear(slot: str) -> dict:
         pass
     meta = _load_meta()
     meta.pop(slot, None)
+    _save_meta(meta)
+    return get_state()
+
+
+def set_shape(shape: str) -> dict:
+    if shape not in SHAPES:
+        raise ValueError("unknown shape")
+    meta = _load_meta()
+    meta["shape"] = shape
     _save_meta(meta)
     return get_state()
 

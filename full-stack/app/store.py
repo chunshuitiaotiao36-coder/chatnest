@@ -205,6 +205,9 @@ def initialize_store() -> None:
                 reply_content TEXT NOT NULL DEFAULT '',
                 replied_at TEXT,
                 seen_at TEXT,
+                -- 他对她动态的初次评论有没有被看过。跟 seen_at 分开：
+                -- seen_at 说的是「这条动态本身」，这个说的是「他的回应」。
+                reply_seen_at TEXT,
                 created_at TEXT NOT NULL
             );
             CREATE INDEX IF NOT EXISTS moments_created ON moments(created_at DESC);
@@ -218,6 +221,7 @@ def initialize_store() -> None:
                 reply_due_at TEXT,
                 reply_status TEXT NOT NULL DEFAULT 'none'
                     CHECK(reply_status IN ('none', 'pending', 'done')),
+                seen_at TEXT,
                 created_at TEXT NOT NULL
             );
             CREATE INDEX IF NOT EXISTS moment_comments_moment
@@ -263,6 +267,24 @@ def initialize_store() -> None:
         }
         if letter_columns and "parent_id" not in letter_columns:
             db.execute("ALTER TABLE letters ADD COLUMN parent_id INTEGER")
+
+        # 08-19 红点漏了两类，补两列。原来只数「他发的动态」，于是他给她的
+        # 动态留了评论、或者在评论链里回了她，外面一个红点都不亮——
+        # 而信和动态都不推送，红点是她唯一的信号源。
+        moment_columns = {
+            row["name"]
+            for row in db.execute("PRAGMA table_info(moments)").fetchall()
+        }
+        if moment_columns and "reply_seen_at" not in moment_columns:
+            # 他对她动态的初次评论：那是更新 moments 这一行的字段，
+            # 不是新增一行，所以按 author 数永远数不到它。
+            db.execute("ALTER TABLE moments ADD COLUMN reply_seen_at TEXT")
+        comment_columns = {
+            row["name"]
+            for row in db.execute("PRAGMA table_info(moment_comments)").fetchall()
+        }
+        if comment_columns and "seen_at" not in comment_columns:
+            db.execute("ALTER TABLE moment_comments ADD COLUMN seen_at TEXT")
         branch_columns = {
             row["name"]
             for row in db.execute("PRAGMA table_info(message_branches)").fetchall()
@@ -1571,7 +1593,7 @@ def save_moment_reply(moment_id: int, liked: bool, reply_content: str) -> None:
         db.execute(
             """UPDATE moments
                SET elian_liked = ?, reply_content = ?, replied_at = ?,
-                   reply_status = 'done'
+                   reply_status = 'done', reply_seen_at = NULL
                WHERE id = ?""",
             (int(liked), reply_content, _now(), moment_id),
         )
@@ -1591,21 +1613,54 @@ def due_moments(limit: int = 3) -> list[dict[str, Any]]:
 
 
 def mark_moments_seen() -> None:
-    """她拉开朋友圈 = 我发的动态都算看过了，小红点清掉。"""
+    """她拉开朋友圈 = 他说的话都算看见了。
+
+    三处一起标，跟 moments_unread_count() 数的那三类一一对应——
+    漏一处就会出现「红点清不掉」。
+    """
+    now = _now()
     with _connect() as db:
         db.execute(
             "UPDATE moments SET seen_at = ? WHERE author = 'elian' AND seen_at IS NULL",
-            (_now(),),
+            (now,),
+        )
+        db.execute(
+            "UPDATE moments SET reply_seen_at = ? "
+            "WHERE author = 'xiaoduo' AND reply_content != '' AND reply_seen_at IS NULL",
+            (now,),
+        )
+        db.execute(
+            "UPDATE moment_comments SET seen_at = ? "
+            "WHERE author = 'elian' AND seen_at IS NULL",
+            (now,),
         )
 
 
 def moments_unread_count() -> int:
-    """导航行上那个数字：我发了但她还没看过的动态。"""
+    """导航行上那个数字：他说了话但她还没看见的条数。
+
+    🔴 三类都要数，少一类红点就不亮。08-19 的 bug 就是只数了第一类：
+      1. 他自己发的动态（moments 里 author='elian' 的行）
+      2. 他对她动态的初次评论（moments.reply_content，**更新字段不是新增行**，
+         所以按 author 数永远数不到）
+      3. 他在评论链里的回复（在 moment_comments 那张表里）
+
+    信和动态都不推送，这个数字是她唯一的信号源，宁可多查两条 SQL。
+    """
     with _connect() as db:
-        row = db.execute(
-            "SELECT COUNT(*) AS n FROM moments WHERE author = 'elian' AND seen_at IS NULL"
-        ).fetchone()
-    return int(row["n"]) if row else 0
+        posts = db.execute(
+            "SELECT COUNT(*) AS n FROM moments "
+            "WHERE author = 'elian' AND seen_at IS NULL"
+        ).fetchone()["n"]
+        replies = db.execute(
+            "SELECT COUNT(*) AS n FROM moments "
+            "WHERE author = 'xiaoduo' AND reply_content != '' AND reply_seen_at IS NULL"
+        ).fetchone()["n"]
+        comments = db.execute(
+            "SELECT COUNT(*) AS n FROM moment_comments "
+            "WHERE author = 'elian' AND seen_at IS NULL"
+        ).fetchone()["n"]
+    return int(posts) + int(replies) + int(comments)
 
 
 def create_moment_comment(

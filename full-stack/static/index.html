@@ -143,7 +143,7 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}textar
 .msg-user .bubble>div:not(.message-attachments),.msg-claude .md,.msg-claude .md *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .msg-user.msg-pressing .bubble{opacity:.75;transition:opacity 120ms}.msg-claude.msg-pressing{opacity:.75;transition:opacity 120ms}
 #input,textarea,input{-webkit-user-select:text;user-select:text}
-.msg-claude .md{font-family:var(--font-sans);font-size:var(--text-read);word-break:break-word}.msg-claude .md.md-split{margin-top:1.05em}.avatar{flex:none;border-radius:50%;background-size:cover;background-position:center;display:grid;place-items:center;color:#fff;font-family:var(--font-serif,Georgia,serif);font-weight:400;letter-spacing:0;overflow:hidden;user-select:none}.avatar.has-img{color:transparent}.moments-cover{position:relative;margin:-8px -14px 0;height:38vh;min-height:220px;background:linear-gradient(160deg,#E8DDD4,#D9C9BE);background-size:cover;background-position:center;overflow:hidden}.moments-cover:after{content:'';position:absolute;inset:0;background:linear-gradient(to bottom,transparent 40%,rgba(0,0,0,.42))}.moments-cover-edit{position:absolute;top:calc(env(safe-area-inset-top,50px) + 6px);right:14px;z-index:3;width:34px;height:34px;border-radius:50%;border:0;display:grid;place-items:center;background:rgba(0,0,0,.32);color:#fff;backdrop-filter:blur(8px)}.moments-cover-edit svg{width:17px;height:17px}.moments-identity{position:absolute;left:16px;right:16px;bottom:14px;z-index:2;display:flex;align-items:flex-end;gap:12px}.moments-identity-text{flex:1;min-width:0;padding-bottom:3px}.moments-identity-name{font:500 17px/1.25 var(--font-sans);color:#fff;text-shadow:0 1px 8px rgba(0,0,0,.45)}.moments-identity-sig{margin-top:4px;font:400 12px/1.45 var(--font-sans);color:rgba(255,255,255,.82);text-shadow:0 1px 6px rgba(0,0,0,.4);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.moments-faces{flex:none;display:flex;align-items:center}.moments-faces .avatar{border:2.5px solid rgba(255,255,255,.92);box-shadow:0 3px 12px rgba(0,0,0,.28)}.moments-faces .avatar+.avatar{margin-left:-13px}.moment-card{display:flex;gap:11px}.moment-body{flex:1;min-width:0}
+.msg-claude .md{font-family:var(--font-sans);font-size:var(--text-read);word-break:break-word}.msg-claude .md.md-split{margin-top:1.05em}.avatar{flex:none;border-radius:var(--avatar-radius,26%);background-size:cover;background-position:center;display:grid;place-items:center;color:#fff;font-family:var(--font-serif,Georgia,serif);font-weight:400;letter-spacing:0;overflow:hidden;user-select:none}.avatar.has-img{color:transparent}body[data-avatar-shape="circle"]{--avatar-radius:50%}body[data-avatar-shape="rounded"]{--avatar-radius:26%}body[data-avatar-shape="squircle"]{--avatar-radius:34%}.seg{display:flex;gap:4px;padding:3px;border-radius:999px;background:var(--study-press,rgba(0,0,0,.05))}.seg-item{flex:1;padding:8px 6px;border:0;border-radius:999px;background:none;font:400 13px/1.2 var(--font-sans);color:var(--text-secondary);transition:background 140ms ease}.seg-item.on{background:var(--bg-primary);color:var(--text-primary);font-weight:500;box-shadow:0 1px 4px rgba(0,0,0,.08)}.moments-cover{position:relative;margin:-8px -14px 0;height:38vh;min-height:220px;background:linear-gradient(160deg,#E8DDD4,#D9C9BE);background-size:cover;background-position:center;overflow:hidden}.moments-cover:after{content:'';position:absolute;inset:0;background:linear-gradient(to bottom,transparent 40%,rgba(0,0,0,.42))}.moments-cover-edit{position:absolute;top:calc(env(safe-area-inset-top,50px) + 6px);right:14px;z-index:3;width:34px;height:34px;border-radius:50%;border:0;display:grid;place-items:center;background:rgba(0,0,0,.32);color:#fff;backdrop-filter:blur(8px)}.moments-cover-edit svg{width:17px;height:17px}.moments-identity{position:absolute;left:16px;right:16px;bottom:14px;z-index:2;display:flex;align-items:flex-end;gap:12px}.moments-identity-text{flex:1;min-width:0;padding-bottom:3px}.moments-identity-name{font:500 17px/1.25 var(--font-sans);color:#fff;text-shadow:0 1px 8px rgba(0,0,0,.45)}.moments-identity-sig{margin-top:4px;font:400 12px/1.45 var(--font-sans);color:rgba(255,255,255,.82);text-shadow:0 1px 6px rgba(0,0,0,.4);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.moments-faces{flex:none;display:flex;align-items:center}.moments-faces .avatar{border:2.5px solid rgba(255,255,255,.92);box-shadow:0 3px 12px rgba(0,0,0,.28)}.moments-faces .avatar+.avatar{margin-left:-13px}.moment-card{display:flex;gap:11px}.moment-body{flex:1;min-width:0}
 /* 空 md(submitted/thinking 阶段还没正文)整个不渲染 → cursor 也不出现 */
 .msg-claude .md:empty{display:none}
 /* cursor 只对【非空 md + streaming row】生效:isStreaming && content.length > 0 */
@@ -556,6 +556,13 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
             <button type="button" class="profile-mini-button" id="avatarPickElian">选择</button>
             <button type="button" class="profile-mini-button profile-danger hidden" id="avatarClearElian">清除</button>
           </div>
+        </div>
+        <div class="profile-divider"></div>
+        <div class="bg-slot-name" style="margin-bottom:9px">形状</div>
+        <div class="seg" id="avatarShapeSeg">
+          <button type="button" class="seg-item" data-shape="circle">圆形</button>
+          <button type="button" class="seg-item" data-shape="rounded">圆角</button>
+          <button type="button" class="seg-item" data-shape="squircle">方圆</button>
         </div>
         <div class="profile-help-text">
           聊天、朋友圈、以后的日记和琴房都用这一份。没设的时候显示名字里那个字。
@@ -1639,8 +1646,19 @@ async function loadFaces(){
   try{
     const r=await api('/api/faces'); if(!r.ok)return facesState;
     facesState=await r.json();
+    applyAvatarShape();
   }catch(e){}
   return facesState;
+}
+
+/* 形状挂在 body 上，所有头像通过 --avatar-radius 跟着变——
+   不逐个改元素样式：头像散落在朋友圈、设置、以后的日记里，
+   一个变量比到处 querySelectorAll 可靠。 */
+function applyAvatarShape(){
+  document.body.dataset.avatarShape=facesState.shape||'rounded';
+  document.querySelectorAll('#avatarShapeSeg .seg-item').forEach(b=>{
+    b.classList.toggle('on',b.dataset.shape===(facesState.shape||'rounded'));
+  });
 }
 
 /* 取回一张图的 blob URL。已经取过且版本没变就直接复用——
@@ -1741,6 +1759,22 @@ async function uploadAvatar(who,file){
     }catch{toast('清除失败')}
   };
 });
+$('avatarShapeSeg').addEventListener('click',async e=>{
+  const btn=e.target.closest('.seg-item'); if(!btn)return;
+  const shape=btn.dataset.shape;
+  const prev=facesState.shape;
+  facesState.shape=shape;applyAvatarShape();     /* 乐观更新，看着立刻变 */
+  try{
+    const r=await api('/api/faces/shape',{method:'PUT',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify({shape})});
+    if(!r.ok)throw 0;
+    facesState=await r.json();applyAvatarShape();
+  }catch{
+    facesState.shape=prev;applyAvatarShape();
+    toast('形状没改上');
+  }
+});
+
 $('avatarFileInput').onchange=e=>{
   const f=e.target.files&&e.target.files[0];
   const who=e.target.dataset.who;
