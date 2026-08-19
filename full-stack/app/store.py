@@ -1656,3 +1656,32 @@ def mark_comment_replied(comment_id: int) -> None:
             "UPDATE moment_comments SET reply_status = 'done' WHERE id = ?",
             (comment_id,),
         )
+
+
+def letters_unread_count() -> int:
+    """他写的、她还没打开过的信。
+
+    read_at 是「第一次打开」时写的（mark_letter_read），本来就有，
+    这里只是把它当角标数来用。
+
+    只数顶层的信：parent_id 不为空的是回信，回信的未读状态跟着它挂的
+    那封信走——她点开一封信就看见了整条往来，不该再单独计一次。
+    """
+    with _connect() as db:
+        row = db.execute(
+            """SELECT COUNT(*) AS n FROM letters
+               WHERE author = 'elian' AND read_at IS NULL AND parent_id IS NULL"""
+        ).fetchone()
+    return int(row["n"]) if row else 0
+
+
+def letters_mark_all_read() -> None:
+    """她拉开寄相思面板 = 门口的信都取走了。
+
+    连回信一起标掉：面板里她看见的就是全部。
+    """
+    with _connect() as db:
+        db.execute(
+            "UPDATE letters SET read_at = ? WHERE author = 'elian' AND read_at IS NULL",
+            (_now(),),
+        )

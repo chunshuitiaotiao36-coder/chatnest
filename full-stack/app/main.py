@@ -1228,14 +1228,8 @@ async def _letter_auto_reply(
         )
         _log.info("[回信] 回信落库 id=%d", reply_id)
 
-        _push_ok = push.configured() and bool(store.list_push_subscriptions())
-        if _push_ok:
-            pushed = await push.send_push(title="寄相思", body="他回信了", url="/")
-            _log.info("[回信] 推送 result=%s", pushed)
-        else:
-            _log.info("[回信] 推送跳过 configured=%s subs=%s",
-                      push.configured(), bool(store.list_push_subscriptions()))
-
+        # 🔴 回信不推送，走红点。跟 keepalive 那条信是同一个道理：
+        #    寄相思是邮箱，不是电话。
         _log.info("[回信] ✓ 完成 original=%d reply=%d：%s", original_id, reply_id, text[:80])
 
     except ActorBusyError:
@@ -1270,6 +1264,33 @@ async def moments_list(limit: int = 20, before_id: int | None = None) -> dict:
         # context_note 是我给自己留的线索，不出接口
         item.pop("context_note", None)
     return {"entries": entries}
+
+
+@app.get("/api/badges", dependencies=[Depends(require_auth)])
+async def badges() -> dict:
+    """一次拿齐所有红点。
+
+    前端要在 tab 栏画一个汇总红点、再在书房里画两个分项红点。分两个接口拉
+    就会出现「tab 上有红点、进去两行都是干净的」那半秒——两次请求之间他
+    正好写了一封信。一次拿齐，三个数字必然自洽。
+
+    信和动态都不推送（见各自的注释），所以这个接口是她唯一的信号源，
+    它必须便宜到可以随便轮询：两条 COUNT，走的都是现成索引。
+    """
+    letters = await asyncio.to_thread(store.letters_unread_count)
+    moments_n = await asyncio.to_thread(store.moments_unread_count)
+    return {
+        "letters": letters,
+        "moments": moments_n,
+        "total": letters + moments_n,
+    }
+
+
+@app.post("/api/letters/read-all", dependencies=[Depends(require_auth)])
+async def letters_read_all() -> dict:
+    """她拉开寄相思 = 门口的信都取走了。"""
+    await asyncio.to_thread(store.letters_mark_all_read)
+    return {"ok": True}
 
 
 @app.get("/api/moments/unread", dependencies=[Depends(require_auth)])

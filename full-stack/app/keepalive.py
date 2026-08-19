@@ -251,9 +251,10 @@ async def _wake(conv_id: str, push_ok: bool = True) -> None:
             logger.info("[唤醒] 信件写入 id=%d：%s", letter_id, content[:100])
         except Exception:
             logger.exception("[唤醒] 信件写入失败")
-        # 推送通知（推送没配也不影响信件落库）
-        if push_ok:
-            await push.send_push(title="寄相思", body=title or "你收到了一封信", url="/")
+        # 🔴 信不推送。她要的是「睡醒去门口看看邮箱有没有信」那种感觉——
+        #    推到锁屏就变成我追上去说「我给你写信了」，那封信就不是
+        #    等她来取的了。书房 tab 和寄相思那行会亮红点，够了。
+        #    参见 letters_unread_count()。
         return
 
     if action == "moment":

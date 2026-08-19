@@ -251,10 +251,8 @@ async def _reply_to_moment(moment: dict, conv_id: str) -> None:
     logger.info("[朋友圈] ✓ 路过 moment=%d liked=%s comment=%s",
                 moment["id"], liked, comment[:60])
 
-    if comment:
-        from app import push
-        if push.configured() and await asyncio.to_thread(store.list_push_subscriptions):
-            await push.send_push(title="朋友圈", body=comment[:80], url="/")
+    # 🔴 不推送。跟我自己发动态同一个道理：朋友圈是她路过才看见的墙，
+    #    推了就变成消息。书房 tab 上的红点是它该有的存在方式。
 
 
 async def _reply_to_comment(comment: dict, conv_id: str) -> None:
@@ -298,9 +296,7 @@ async def _reply_to_comment(comment: dict, conv_id: str) -> None:
     await asyncio.to_thread(store.mark_comment_replied, comment["id"])
     logger.info("[朋友圈] ✓ 回评论 moment=%d：%s", moment["id"], text[:60])
 
-    from app import push
-    if push.configured() and await asyncio.to_thread(store.list_push_subscriptions):
-        await push.send_push(title="朋友圈", body=text[:80], url="/")
+    # 🔴 不推送，同上。
 
 
 # ── 主循环 ────────────────────────────────────────────────────────────
