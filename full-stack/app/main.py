@@ -1216,6 +1216,7 @@ async def _letter_auto_reply(
 @app.get("/api/keepalive/status")
 async def keepalive_status() -> dict:
     """诊断：唤醒系统当前状态。"""
+    from app import claude  # 模块级不 import：避开启动期的循环依赖
     from app.keepalive import _cn_hour, _effective_interval, _in_active_hours
     hour = _cn_hour()
     interval = _effective_interval()
@@ -1224,7 +1225,31 @@ async def keepalive_status() -> dict:
     push_configured = push.configured()
     subs = await asyncio.to_thread(store.list_push_subscriptions)
     conv = await asyncio.to_thread(store.latest_conversation_id)
+
+    # 后台三条线各自会挑到哪个模型 + 当前走的是哪条线路。
+    # 她切线路之后想确认「回信会不会跟着走」时，不必去翻 Coolify 日志。
+    # 只回 id/name/mode，api_key 一个字节都不出这个进程。
+    try:
+        _active = relays.get_active_summary()
+        relay_info = {
+            "name": _active.get("name"),
+            "mode": _active.get("mode"),
+            "models": [m["id"] for m in _active.get("models", []) if m.get("id")],
+        }
+    except Exception:
+        relay_info = {"name": None, "mode": None, "models": []}
+    background_models = {
+        key: claude.background_model(env)
+        for key, env in (
+            ("letter_reply", "LETTER_REPLY_MODEL"),
+            ("keepalive", "KEEPALIVE_MODEL"),
+            ("nightguard", "NIGHT_GUARD_MODEL"),
+        )
+    }
+
     return {
+        "relay": relay_info,
+        "background_models": background_models,
         "cn_hour": hour,
         "in_active_hours": _in_active_hours(hour),
         "effective_interval_min": interval,
