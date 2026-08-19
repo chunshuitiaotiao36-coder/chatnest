@@ -325,6 +325,14 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
 <script src="/marked.min.js?v=2"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css">
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js"></script>
+<!-- 🔴 导航栏焊死块。独立成一个 <style>、放在 head 最后、全部 !important。
+     理由：主样式表里 #tabBar{position:fixed;bottom:0} 本身是对的（注释和括号都
+     配平、没有任何规则覆盖它、html/body 上也没有 transform 之类制造 containing
+     block 的属性），可它在真机上就是没生效。查不动了，那就不给任何东西掀翻它的
+     机会。这块只管「钉在哪」，长相仍然归上面的主样式表管。 -->
+<style>
+#tabBar{position:fixed!important;left:0!important;right:0!important;bottom:0!important;top:auto!important;transform:none!important;z-index:81!important}
+</style>
 </head>
 <body>
 <div id="bgLayer" aria-hidden="true"></div>
@@ -7573,7 +7581,26 @@ function syncTabbarHeight(){
   const h=bar.offsetHeight;
   if(h>0) document.documentElement.style.setProperty('--tabbar-h',h+'px');
 }
-addEventListener('resize',syncTabbarHeight);addEventListener('orientationchange',()=>setTimeout(syncTabbarHeight,300));addEventListener('pageshow',()=>setTimeout(syncTabbarHeight,0));if(window.visualViewport)window.visualViewport.addEventListener('resize',syncTabbarHeight);
+/* ───────── 焊死 ─────────
+   不信任样式表能落地：量一次，导航栏底边没贴着视口底就用 inline style 按回去。
+   inline style 压过任何样式表规则，这是最后一道。
+   🔴 用 bottom/top，不用 transform——iOS Safari 对 fixed 元素加 transform 会把它
+   踢出视口坐标系，e2b2ccc 那次的 --tabbar-fix 就是这么飘到屏幕中间的。 */
+function weldTabbar(){
+  const bar=$('tabBar'); if(!bar)return;
+  if(getComputedStyle(bar).display==='none')return;
+  const gap=document.documentElement.clientHeight-bar.getBoundingClientRect().bottom;
+  if(Math.abs(gap)<=1)return;                  /* 已经贴底就不碰 */
+  [['position','fixed'],['left','0'],['right','0'],['bottom','0'],
+   ['top','auto'],['transform','none']].forEach(([k,v])=>bar.style.setProperty(k,v,'important'));
+}
+function syncAndWeld(){syncTabbarHeight();weldTabbar()}
+addEventListener('resize',syncAndWeld);
+addEventListener('orientationchange',()=>setTimeout(syncAndWeld,300));
+addEventListener('pageshow',()=>setTimeout(syncAndWeld,0));
+addEventListener('load',()=>[0,120,400,1000].forEach(t=>setTimeout(syncAndWeld,t)));
+if(window.visualViewport){window.visualViewport.addEventListener('resize',syncAndWeld);
+                          window.visualViewport.addEventListener('scroll',weldTabbar)}
 
 /* ───────── 真机诊断：长按底部导航栏 1.2 秒 ─────────
    08-19 这一天，云端 Chromium 三次给出与她真机相反的结论：env(safe-area-inset-top)
@@ -7582,7 +7609,7 @@ addEventListener('resize',syncTabbarHeight);addEventListener('orientationchange'
    让她的手机把数据直接摆出来。
    长按导航栏任意位置 1.2 秒弹出，点一下关掉，什么都不留。
    BUILD 那一行最要紧：一眼看出手机上跑的到底是不是最新那版，还是 PWA 缓存里的旧页面。 */
-const BUILD='2026-08-19 · 导航栏常驻不隐藏';
+const BUILD='2026-08-19 · 导航栏焊死 v2';
 
 function _tbDiag(){
   const bar=$('tabBar'), out=[];
@@ -7595,6 +7622,19 @@ function _tbDiag(){
   const sat=probe.getBoundingClientRect().height;
   probe.remove();
 
+  /* 一行人话结论，放最上面——不用自己解读下面那堆数字 */
+  if(bar){
+    const cs0=getComputedStyle(bar), r0=bar.getBoundingClientRect();
+    const vh0=document.documentElement.clientHeight, g=Math.round(vh0-r0.bottom);
+    const shrunk=Math.round(screen.height-vh0);
+    let v;
+    if(cs0.position!=='fixed') v='✗ 导航栏没在 fixed 定位上（现在是 '+cs0.position+'）——样式表没落地，焊死也没跑起来';
+    else if(Math.abs(g)>1)     v='✗ 是 fixed，但离屏幕底还差 '+g+'px';
+    else if(shrunk>60)         v='△ 导航栏贴底了，但布局视口比屏幕矮 '+shrunk+'px——整个页面被压小了';
+    else                       v='✓ 导航栏钉在底部，视口也是满的';
+    out.push(v);
+    out.push('');
+  }
   out.push('BUILD   '+BUILD);
   out.push('standalone   '+(navigator.standalone===true||matchMedia('(display-mode:standalone)').matches));
   out.push('');
@@ -7711,7 +7751,7 @@ function switchTab(name){
   currentTab=name;
   if(name!=='chat')closeDrawer();
   if(name==='chats')loadChatsPage();
-  syncTabbarHeight();
+  syncAndWeld();
   if(name==='home')openHomeProfile().catch(()=>toast('Profile 加载失败'));
   /* 琴房：进来才拉歌单，别在开屏时白打一次。音频元素挂在 tab 里，
      切走时 tab 是 display:none——不影响 <audio> 继续放。
