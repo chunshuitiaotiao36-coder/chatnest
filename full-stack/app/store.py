@@ -189,6 +189,41 @@ def initialize_store() -> None:
                 read_at TEXT
             );
             CREATE INDEX IF NOT EXISTS letters_created ON letters(created_at DESC);
+
+            CREATE TABLE IF NOT EXISTS moments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                author TEXT NOT NULL CHECK(author IN ('elian', 'xiaoduo')),
+                content TEXT NOT NULL,
+                context_note TEXT NOT NULL DEFAULT '',
+                images TEXT NOT NULL DEFAULT '[]',
+                image_description TEXT NOT NULL DEFAULT '',
+                reply_due_at TEXT,
+                reply_status TEXT NOT NULL DEFAULT 'none'
+                    CHECK(reply_status IN ('none', 'pending', 'done')),
+                elian_liked INTEGER NOT NULL DEFAULT 0,
+                xiaoduo_liked INTEGER NOT NULL DEFAULT 0,
+                reply_content TEXT NOT NULL DEFAULT '',
+                replied_at TEXT,
+                seen_at TEXT,
+                created_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS moments_created ON moments(created_at DESC);
+            CREATE INDEX IF NOT EXISTS moments_due ON moments(reply_status, reply_due_at);
+
+            CREATE TABLE IF NOT EXISTS moment_comments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                moment_id INTEGER NOT NULL REFERENCES moments(id) ON DELETE CASCADE,
+                author TEXT NOT NULL CHECK(author IN ('elian', 'xiaoduo')),
+                content TEXT NOT NULL,
+                reply_due_at TEXT,
+                reply_status TEXT NOT NULL DEFAULT 'none'
+                    CHECK(reply_status IN ('none', 'pending', 'done')),
+                created_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS moment_comments_moment
+                ON moment_comments(moment_id, created_at);
+            CREATE INDEX IF NOT EXISTS moment_comments_due
+                ON moment_comments(reply_status, reply_due_at);
             """
         )
         # 08-05 取消了 position='depth'（原因见 lorebook.py 顶部）。已有的迁到
@@ -1454,4 +1489,170 @@ def mark_letter_read(letter_id: int) -> None:
         db.execute(
             "UPDATE letters SET read_at = ? WHERE id = ? AND read_at IS NULL",
             (now, letter_id),
+        )
+
+
+# ── 朋友圈（Moments）───────────────────────────────────────────────────
+#
+# 跟寄相思的分工，这条线不能糊：
+#   信有收件人，动态没有。信是写给她的，动态是我一个人站在那儿想了想留下的
+#   一句话。她刷到就刷到，没刷到我也不知道。糊了这条，动态就会退化成短信，
+#   而短信她已经有寄相思了。
+#
+# context_note 是她看不见的内部备注：我发这条的时候在想什么。三天后她在底下
+# 评论一句，我早忘了当时的语境，这段备注帮我想起来。
+#
+# reply_due_at / reply_status 是「我什么时候路过」。不到点一个 token 都不花。
+
+
+def create_moment(
+    author: str,
+    content: str,
+    context_note: str = "",
+    reply_due_at: str | None = None,
+    reply_status: str = "none",
+) -> int:
+    """发一条动态。返回 id。
+
+    她发的：reply_status='pending' + reply_due_at，等我路过。
+    我发的：reply_status='none'，我不用回自己的动态。
+    """
+    now = _now()
+    with _connect() as db:
+        cursor = db.execute(
+            """INSERT INTO moments(author, content, context_note, reply_due_at,
+                                   reply_status, created_at)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (author, content, context_note, reply_due_at, reply_status, now),
+        )
+        return int(cursor.lastrowid)
+
+
+def list_moments(limit: int = 20, before_id: int | None = None) -> list[dict[str, Any]]:
+    """时间线，倒序。before_id 用来往下翻。"""
+    with _connect() as db:
+        if before_id:
+            rows = db.execute(
+                """SELECT * FROM moments WHERE id < ?
+                   ORDER BY created_at DESC, id DESC LIMIT ?""",
+                (before_id, limit),
+            ).fetchall()
+        else:
+            rows = db.execute(
+                "SELECT * FROM moments ORDER BY created_at DESC, id DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def get_moment(moment_id: int) -> dict[str, Any] | None:
+    with _connect() as db:
+        row = db.execute("SELECT * FROM moments WHERE id = ?", (moment_id,)).fetchone()
+    return dict(row) if row else None
+
+
+def set_moment_like(moment_id: int, who: str, liked: bool) -> None:
+    """点赞。who 是点赞的人：'elian' 或 'xiaoduo'。
+
+    对称命名，不要退回 liked / xxx_liked 那种一边有名字一边没有的写法——
+    以后加第三种互动时会分不清 liked 到底是谁点的。
+    """
+    column = "elian_liked" if who == "elian" else "xiaoduo_liked"
+    with _connect() as db:
+        db.execute(
+            f"UPDATE moments SET {column} = ? WHERE id = ?",
+            (int(liked), moment_id),
+        )
+
+
+def save_moment_reply(moment_id: int, liked: bool, reply_content: str) -> None:
+    """我路过她的动态之后：点没点赞、留了什么。"""
+    with _connect() as db:
+        db.execute(
+            """UPDATE moments
+               SET elian_liked = ?, reply_content = ?, replied_at = ?,
+                   reply_status = 'done'
+               WHERE id = ?""",
+            (int(liked), reply_content, _now(), moment_id),
+        )
+
+
+def due_moments(limit: int = 3) -> list[dict[str, Any]]:
+    """到点该路过的动态。"""
+    with _connect() as db:
+        rows = db.execute(
+            """SELECT * FROM moments
+               WHERE reply_status = 'pending' AND reply_due_at IS NOT NULL
+                 AND reply_due_at <= ?
+               ORDER BY reply_due_at ASC LIMIT ?""",
+            (_now(), limit),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def mark_moments_seen() -> None:
+    """她拉开朋友圈 = 我发的动态都算看过了，小红点清掉。"""
+    with _connect() as db:
+        db.execute(
+            "UPDATE moments SET seen_at = ? WHERE author = 'elian' AND seen_at IS NULL",
+            (_now(),),
+        )
+
+
+def moments_unread_count() -> int:
+    """导航行上那个数字：我发了但她还没看过的动态。"""
+    with _connect() as db:
+        row = db.execute(
+            "SELECT COUNT(*) AS n FROM moments WHERE author = 'elian' AND seen_at IS NULL"
+        ).fetchone()
+    return int(row["n"]) if row else 0
+
+
+def create_moment_comment(
+    moment_id: int,
+    author: str,
+    content: str,
+    reply_due_at: str | None = None,
+    reply_status: str = "none",
+) -> int:
+    now = _now()
+    with _connect() as db:
+        cursor = db.execute(
+            """INSERT INTO moment_comments(moment_id, author, content,
+                                           reply_due_at, reply_status, created_at)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (moment_id, author, content, reply_due_at, reply_status, now),
+        )
+        return int(cursor.lastrowid)
+
+
+def list_moment_comments(moment_id: int) -> list[dict[str, Any]]:
+    """评论链，时间正序——模型看到的要是一段完整对话。"""
+    with _connect() as db:
+        rows = db.execute(
+            """SELECT * FROM moment_comments WHERE moment_id = ?
+               ORDER BY created_at ASC, id ASC""",
+            (moment_id,),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def due_moment_comments(limit: int = 3) -> list[dict[str, Any]]:
+    """到点该回的评论。"""
+    with _connect() as db:
+        rows = db.execute(
+            """SELECT * FROM moment_comments
+               WHERE author = 'xiaoduo' AND reply_status = 'pending'
+                 AND reply_due_at IS NOT NULL AND reply_due_at <= ?
+               ORDER BY reply_due_at ASC LIMIT ?""",
+            (_now(), limit),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def mark_comment_replied(comment_id: int) -> None:
+    with _connect() as db:
+        db.execute(
+            "UPDATE moment_comments SET reply_status = 'done' WHERE id = ?",
+            (comment_id,),
         )

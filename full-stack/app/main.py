@@ -28,7 +28,7 @@ from starlette.formparsers import MultiPartParser
 
 MultiPartParser.max_part_size = 60 * 1024 * 1024  # 与 uploads.py 的 MAX_FILE_BYTES 对齐
 
-from app import auth, backgrounds, keepalive, lorebook, nightguard, peek, piano, piano_analysis, push, relays, starmap, store, telegram
+from app import auth, backgrounds, keepalive, lorebook, moments, nightguard, peek, piano, piano_analysis, push, relays, starmap, store, telegram
 from app.actor import ActorBusyError, _mem_kv
 from app.claude import (
     SessionResumeError,
@@ -127,9 +127,14 @@ async def lifespan(app: FastAPI):
     piano_analysis.startup_check()
     # ── 自动唤醒：服务端定时器 ──
     ka_task = asyncio.create_task(keepalive.keepalive_loop(chat_lock))
+    # ── 朋友圈：自己一条轻量循环 ──
+    # 不跟 keepalive 合并：那条是 30-150 分钟的粗粒度，评论要 3-10 分钟。
+    # 这条 60 秒一跳，但没到期的时候只是一条 SQL，不起子进程。
+    mo_task = asyncio.create_task(moments.moments_loop())
     try:
         yield
     finally:
+        mo_task.cancel()
         ka_task.cancel()
         await piano.aclose()
         await telegram.stop(tg_task)
@@ -371,6 +376,18 @@ class LetterUnlockBody(BaseModel):
 
 class LetterReplyBody(BaseModel):
     content: str = Field(min_length=1, max_length=10_000)
+
+
+class MomentCreateBody(BaseModel):
+    content: str = Field(min_length=1, max_length=2_000)
+
+
+class MomentLikeBody(BaseModel):
+    liked: bool = True
+
+
+class MomentCommentBody(BaseModel):
+    content: str = Field(min_length=1, max_length=2_000)
 
 
 class BackgroundMaskBody(BaseModel):
@@ -1232,6 +1249,74 @@ async def _letter_auto_reply(
             _log.error("[回信] actor 连续 %d 次忙，放弃", _MAX_RETRY)
     except Exception:
         _log.exception("[回信] 自动回信失败")
+
+
+# ── 朋友圈 ────────────────────────────────────────────────────────────
+#
+# 没有「刷新时顺手生成回复」那种惰性触发。参考实现那么做是因为它没有常驻
+# 进程，而且他们自己把它列为坑一（发完锁屏就永远等不到回复）。我们的
+# moments_loop 在后台跑着，GET 只负责读。
+
+
+@app.get("/api/moments", dependencies=[Depends(require_auth)])
+async def moments_list(limit: int = 20, before_id: int | None = None) -> dict:
+    """时间线。每条带上它的评论链。"""
+    limit = max(1, min(limit, 50))
+    entries = await asyncio.to_thread(store.list_moments, limit, before_id)
+    for item in entries:
+        item["comments"] = await asyncio.to_thread(
+            store.list_moment_comments, item["id"]
+        )
+        # context_note 是我给自己留的线索，不出接口
+        item.pop("context_note", None)
+    return {"entries": entries}
+
+
+@app.get("/api/moments/unread", dependencies=[Depends(require_auth)])
+async def moments_unread() -> dict:
+    """导航行上那个数字。单独一个轻接口，不用拉整条时间线。"""
+    return {"count": await asyncio.to_thread(store.moments_unread_count)}
+
+
+@app.post("/api/moments/seen", dependencies=[Depends(require_auth)])
+async def moments_seen() -> dict:
+    await asyncio.to_thread(store.mark_moments_seen)
+    return {"ok": True}
+
+
+@app.post("/api/moments", dependencies=[Depends(require_auth)])
+async def moments_create(body: MomentCreateBody) -> dict:
+    """她发一条动态 → 排一个「我路过」的时间点。"""
+    moment_id = await asyncio.to_thread(
+        store.create_moment, "xiaoduo", body.content
+    )
+    due = await asyncio.to_thread(moments.schedule_reply_for_moment, moment_id)
+    timing_logger.info("[朋友圈] 小朵发了动态 id=%d，我 %s 路过", moment_id, due)
+    return {"id": moment_id}
+
+
+@app.post("/api/moments/{moment_id}/like", dependencies=[Depends(require_auth)])
+async def moments_like(moment_id: int, body: MomentLikeBody) -> dict:
+    """她给我的动态点赞。纯本地操作，不触发生成。"""
+    moment = await asyncio.to_thread(store.get_moment, moment_id)
+    if not moment:
+        raise HTTPException(status_code=404, detail="动态不存在")
+    await asyncio.to_thread(store.set_moment_like, moment_id, "xiaoduo", body.liked)
+    return {"ok": True, "liked": body.liked}
+
+
+@app.post("/api/moments/{moment_id}/comments", dependencies=[Depends(require_auth)])
+async def moments_comment(moment_id: int, body: MomentCommentBody) -> dict:
+    """她在动态底下留言 → 排一个回复时间点。"""
+    moment = await asyncio.to_thread(store.get_moment, moment_id)
+    if not moment:
+        raise HTTPException(status_code=404, detail="动态不存在")
+    comment_id = await asyncio.to_thread(
+        store.create_moment_comment, moment_id, "xiaoduo", body.content
+    )
+    due = await asyncio.to_thread(moments.schedule_reply_for_comment, comment_id)
+    timing_logger.info("[朋友圈] 小朵评论了 id=%d，我 %s 回", comment_id, due)
+    return {"id": comment_id}
 
 
 @app.get("/api/keepalive/status")
