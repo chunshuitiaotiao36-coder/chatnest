@@ -200,7 +200,12 @@ async def outer_basic_auth(request: Request, call_next):
         "/static/css/typography-locked.css",
         "/static/design-system.css",
     )
-    if not OUTER_BASIC_AUTH_ENABLED or request.url.path in public_paths:
+    # 🔴 图标要免认证。iOS 抓 apple-touch-icon 的请求不保证带 cookie，
+    #    被 401 拦掉就拿不到图，主屏上又变回那个首字母方块。
+    #    图标不是敏感数据，放行整个前缀。
+    if (not OUTER_BASIC_AUTH_ENABLED
+            or request.url.path in public_paths
+            or request.url.path.startswith("/icons/")):
         return await call_next(request)
     token = request.cookies.get(OUTER_AUTH_COOKIE, "")
     if token and hmac.compare_digest(token, outer_auth_token()):
@@ -459,6 +464,34 @@ async def sw_js() -> FileResponse:
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon() -> Response:
     return Response(status_code=204)
+
+
+# 主屏图标。她自己画的，放在 static/icons/。
+# 🔴 白名单取文件名，不要把 name 直接拼进 Path——那是目录穿越。
+_ICON_FILES = frozenset({
+    "nepeta-180.png",   # iOS apple-touch-icon 的标准尺寸
+    "nepeta-192.png",   # Android / Chrome
+    "nepeta-512.png",   # 启动画面用的大图
+})
+
+
+@app.get("/icons/{name}", include_in_schema=False)
+async def app_icon(name: str) -> FileResponse:
+    """主屏图标。
+
+    文件还没放进来的时候返回 404，head 里那个 SVG 兜底，行为跟加这个路由
+    之前一样——不会因为半成品把图标搞坏。
+    """
+    if name not in _ICON_FILES:
+        raise HTTPException(status_code=404, detail="no such icon")
+    path = STATIC / "icons" / name
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="icon not uploaded yet")
+    return FileResponse(
+        path,
+        media_type="image/png",
+        headers={"Cache-Control": "public, max-age=604800"},
+    )
 
 
 @app.get("/static/manifest.webmanifest", include_in_schema=False)

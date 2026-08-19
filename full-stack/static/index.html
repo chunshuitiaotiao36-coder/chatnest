@@ -21,6 +21,22 @@
      main.py 有那个路由但 head 里没引，天然满足——别手贱加上。 -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!-- 主屏图标（小朵自己画的）。放在禁区外面，上面 6-23 行一个字节没动。
+
+     🔴 为什么不引 manifest：head 里只要出现 link rel=manifest，iOS 就退回
+     实心状态栏，black-translucent 当场作废——上面那段注释写的就是这件事。
+     图标**不需要** manifest：iOS 主屏图标只认 apple-touch-icon，
+     manifest 里的 icons 是给 Android / Chrome 看的。
+
+     🔴 为什么必须是 PNG：iOS 的 apple-touch-icon **不支持 SVG**。上面第 14 行
+     那个 SVG data URI 一直被静默忽略，于是 iOS 回落到「取站名首字母画个方块」
+     —— 主屏和推送上那个丑 N 就是这么来的，跟 manifest 毫无关系。
+
+     两行都指向同一个文件是双保险：iOS 在多个 apple-touch-icon 之间优先挑
+     sizes 匹配设备的，挑不到就用最后一个。两条路都落在 PNG 上。
+     PNG 还没上传时路由返回 404，自动退回第 14 行那个 SVG，行为不变。 -->
+<link rel="apple-touch-icon" sizes="180x180" href="/icons/nepeta-180.png">
+<link rel="apple-touch-icon" href="/icons/nepeta-180.png">
 <style></style>
 <style>
 :root{
