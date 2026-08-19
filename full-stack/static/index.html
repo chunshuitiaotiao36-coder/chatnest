@@ -2,7 +2,15 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover,interactive-widget=resizes-content">
+<!-- 🔴 interactive-widget 必须是 resizes-visual（这也是规范默认值），不能是
+     resizes-content。resizes-content 的意思是「键盘弹出时把**布局视口**压小」，
+     iOS Safari 现在认这个属性。布局视口一缩，100dvh、position:fixed;bottom:0、
+     连 body:before 那张背景图**全部**跟着缩——底部导航栏于是钉在半截屏幕的
+     「底部」，下面露出一条布局视口之外的画布底色。这就是「点一下往上窜一截」。
+     resizes-visual 下键盘只动可视视口，布局视口纹丝不动，导航栏没有任何理由移动。
+     聊天页输入框被键盘挡住的问题不靠这个属性解决——keepComposerVisible() 早就
+     用 visualViewport 手动把输入框抬起来了，那段逻辑本来就是照 resizes-visual 写的。 -->
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover,interactive-widget=resizes-visual">
 <!-- 🔴 不要再加回 theme-color。08-01 为了 PWA 沉浸式状态栏整套删掉了：
      只要页面上存在 theme-color，iOS 就会拿它去画一条**实心状态栏**，
      black-translucent 的透明效果当场作废。
@@ -3391,8 +3399,8 @@ function clearKeyboardTimers(){_keyboardTimers.forEach(clearTimeout);_keyboardTi
 function keyboardViewportBottom(){const vv=window.visualViewport;return vv?vv.offsetTop+vv.height:innerHeight}
 /* 键盘是不是真的起来了。不能只看聚焦——桌面端点输入框也聚焦，但没有键盘，
    照着收导航栏就是白收（newChat() 每次都会 input.focus()）。也不能只比
-   visualViewport：viewport meta 是 interactive-widget=resizes-content，
-   键盘会把布局视口和可视视口一起压小，vv.height 和 innerHeight 谁都不比谁小。
+   visualViewport 的绝对值：viewport meta 现在是 interactive-widget=resizes-visual，
+   键盘只压小可视视口、不动布局视口，所以 vv.height 会比 innerHeight 小一个键盘。
    所以留一个「没有键盘时」的高度基线来比。只涨不落，免得 blur 后键盘还在
    收的那几十毫秒里把基线记成压小后的值；转屏时才硬重置。 */
 let _vhBase=0;
@@ -3404,6 +3412,18 @@ function keyboardOpen(){
   const vv=window.visualViewport;
   // 120px：软键盘最矮也有 250px 上下，而 iOS 地址栏收起只有 50-60px，不会误判
   return _vhBase-Math.min(innerHeight,vv?vv.height:innerHeight)>120;
+}
+/* 🔴 离开聊天页之前必须**主动 blur**，光把 #chat 藏起来不算数。
+   iOS Safari 不会因为元素变成 visibility:hidden 就收走焦点——焦点还挂在那个
+   已经看不见的 <textarea> 上，系统就认为「还在打字」，于是键盘占掉的那截
+   视口高度不还回来：键盘不画了，视口却一直是被压小的尺寸。导航栏钉在
+   屏幕中间、下面一条白，就是这么来的。
+   Chromium 在元素隐藏时会自动 blur，所以这个 bug 在云端浏览器里**复现不出来**
+   ——2026-08-19 反复几轮都被这一点带偏了，别再拿那边的结论当准。 */
+function dismissKeyboard(){
+  const el=document.activeElement;
+  if(!el||el===document.body)return;
+  if(el.tagName==='TEXTAREA'||el.tagName==='INPUT'||el.isContentEditable)el.blur();
 }
 function keepComposerVisible(){const wrap=input.closest('.composer-wrap');if(!wrap)return;document.body.classList.toggle('keyboard-open',keyboardOpen());if(document.activeElement!==input){_noteVh();wrap.style.transform='';stream.style.paddingBottom='';return}wrap.style.transform='';const lift=Math.max(0,Math.ceil(wrap.getBoundingClientRect().bottom-keyboardViewportBottom()+8));wrap.style.transform=lift?`translateY(${-lift}px)`:'';stream.style.paddingBottom=lift?`calc(var(--space-6) + ${lift}px)`:'';scrollBottom()}
 function scheduleComposerVisible(){clearKeyboardTimers();[0,80,180,320,520,800].forEach(t=>_keyboardTimers.push(setTimeout(keepComposerVisible,t)));requestAnimationFrame(keepComposerVisible)}
@@ -3721,6 +3741,7 @@ function enterChat(){
 }
 /* 从聊天出来：回列表那一层 */
 function exitChat(){
+  dismissKeyboard();          /* 兜底：switchTab 万一早退，键盘也不能留着 */
   document.body.classList.remove('in-chat');
   switchTab('chats');
   syncTopbarBackIcon();
@@ -7561,7 +7582,7 @@ addEventListener('resize',syncTabbarHeight);addEventListener('orientationchange'
    让她的手机把数据直接摆出来。
    长按导航栏任意位置 1.2 秒弹出，点一下关掉，什么都不留。
    BUILD 那一行最要紧：一眼看出手机上跑的到底是不是最新那版，还是 PWA 缓存里的旧页面。 */
-const BUILD='2026-08-19 · tabbar-fix + tab-page-clickable';
+const BUILD='2026-08-19 · resizes-visual + blur-on-leave-chat';
 
 function _tbDiag(){
   const bar=$('tabBar'), out=[];
@@ -7582,6 +7603,14 @@ function _tbDiag(){
   out.push('visualViewport.h     '+(window.visualViewport?Math.round(window.visualViewport.height):'—'));
   out.push('screen.height        '+screen.height+'   dpr '+devicePixelRatio);
   out.push('safe-area  top/bot   '+Math.round(sat)+' / '+Math.round(sab));
+  /* 这两行是「导航栏往上窜」的判据：standalone 下布局视口本该等于整块屏幕。
+     少掉一大截 = 键盘把视口压小了还没还回来；焦点那行会指出是谁占着不放。 */
+  const _lost=Math.round(screen.height-document.documentElement.clientHeight);
+  out.push('屏幕高-布局视口高      '+_lost+'   ← 接近 0 才正常，几百 = 被键盘吃了');
+  const _ae=document.activeElement;
+  out.push('当前焦点             '+(_ae?(_ae.id||_ae.tagName):'(无)')+
+           (_ae&&_ae!==document.body?'   visibility='+getComputedStyle(_ae).visibility:'')+
+           '   ← 不在聊天里却是 input 就是它赖着');
   out.push('');
   if(!bar){ out.push('⚠ 页面里没有 #tabBar'); }
   else{
@@ -7662,6 +7691,11 @@ function switchTab(name){
   const pages=tabPages();
   if(name!=='chat'&&!pages[name])return;
   if(name===currentTab)return;
+  /* 🔴 顺序要紧：必须在 #chat 变成 visibility:hidden **之前**收键盘。
+     等藏完再 blur，iOS 那边焦点已经落在一个看不见的元素上，收不干净。
+     只在离开聊天时收——进聊天时不能收，chatsNewBtn 是先 newChat()
+     （里面 input.focus()）再 enterChat()，无脑 blur 会把新对话的键盘掐掉。 */
+  if(name!=='chat')dismissKeyboard();
   if(currentTab==='home'){closeHomeProfile()}   /* 日记已搬去书房，不再是 Home 的 overlay */
   if(currentTab==='reading')closeStarmap();
   Object.values(pages).forEach(p=>{if(p)p.hidden=true});
