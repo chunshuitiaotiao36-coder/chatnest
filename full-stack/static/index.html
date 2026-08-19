@@ -441,7 +441,7 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
 
     <section class="home-group">
       <div class="home-group-title">外观</div>
-      <button class="profile-nav-row" id="openAppearanceDetail"><span class="profile-nav-row-icon" data-profile-icon="appearance"></span><span class="profile-nav-row-title">主题与背景<span class="profile-nav-row-note">深浅色、背景图</span></span><span class="profile-nav-chevron">›</span></button>
+      <button class="profile-nav-row" id="openAppearanceDetail"><span class="profile-nav-row-icon" data-profile-icon="appearance"></span><span class="profile-nav-row-title">主题与背景<span class="profile-nav-row-note">深浅色、背景图、主屏图标</span></span><span class="profile-nav-chevron">›</span></button>
     </section>
   </div>
 
@@ -507,6 +507,25 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
         <div class="profile-help-text">只设一张也可以，另一套继续用默认渐变。遮罩越浓，文字越清楚，图越淡。</div>
       </div>
       <input type="file" id="bgFileInput" accept="image/*" hidden>
+
+      <div class="profile-section-title">主屏图标</div>
+      <div class="profile-card">
+        <div class="bg-slot-row">
+          <div class="bg-slot-info">
+            <div class="bg-slot-name">应用图标</div>
+            <div class="bg-slot-state" id="iconState">用默认的</div>
+          </div>
+          <div class="bg-slot-actions">
+            <button type="button" class="profile-mini-button" id="iconPick">选择图片</button>
+            <button type="button" class="profile-mini-button profile-danger hidden" id="iconClear">清除</button>
+          </div>
+        </div>
+        <div class="profile-help-text">
+          换完要重新「添加到主屏幕」才生效——iOS 把图标复制走了，之后不会自己更新。
+          图会被切成方的，圆角 iOS 自己加，不用自己画。
+        </div>
+      </div>
+      <input type="file" id="iconFileInput" accept="image/*" hidden>
     </section>
   </div>
 
@@ -1467,6 +1486,80 @@ async function clearBg(slot){
     bgState=await r.json();applyBg();toast('已恢复默认背景');
   }catch{toast('清除失败')}
 }
+
+/* ---- 主屏图标 ---------------------------------------------------------
+   她自己画的那张。存服务端的 /data/icons（持久卷），换起来不用碰仓库。
+
+   🔴 必须转成 PNG。iOS 的 apple-touch-icon 不支持 SVG，也不接受 JPEG 的
+   透明——而且背景图那套用的 toBlob('image/jpeg') 会把透明区压成黑色。
+   图标一律走 image/png。
+
+   🔴 不给图标加圆角。iOS 装到主屏时自己切一次，自带圆角会被切两遍，
+   边上留下一圈奇怪的白边。这里只做「裁成正方形 + 缩放」。 */
+const ICON_SIZES=[180,192,512];
+
+async function loadIconState(){
+  try{
+    const r=await api('/api/appicon'); if(!r.ok)return;
+    const s=await r.json();
+    $('iconState').textContent = s.set ? '已换成自己画的' : '用默认的';
+    $('iconClear').classList.toggle('hidden', !s.set);
+  }catch(e){}
+}
+
+/* 居中裁成正方形再缩到目标边长。她那张本来就是方的，这一步是给
+   随手拍的图兜底——不裁的话缩放会把图压扁。 */
+async function _iconBlob(bmp,size){
+  const side=Math.min(bmp.width,bmp.height);
+  const sx=Math.round((bmp.width-side)/2), sy=Math.round((bmp.height-side)/2);
+  const cvs=document.createElement('canvas');
+  cvs.width=size; cvs.height=size;
+  const ctx=cvs.getContext('2d');
+  /* 白底：iOS 上透明会变黑，这里先铺一层。她那张是实心背景，铺了也看不出来。 */
+  ctx.fillStyle='#FFFFFF'; ctx.fillRect(0,0,size,size);
+  ctx.drawImage(bmp,sx,sy,side,side,0,0,size,size);
+  return new Promise(ok=>cvs.toBlob(ok,'image/png'));
+}
+
+async function uploadIcon(file){
+  $('iconState').textContent='处理中…';
+  let bmp=null;
+  try{
+    bmp=await createImageBitmap(file);
+    let done=0;
+    for(const size of ICON_SIZES){
+      const blob=await _iconBlob(bmp,size);
+      if(!blob) continue;
+      const fd=new FormData();
+      fd.append('file',new File([blob],`nepeta-${size}.png`,{type:'image/png'}));
+      const r=await api('/api/appicon',{method:'POST',body:fd});
+      if(r.ok) done++;
+    }
+    if(!done) throw new Error('none uploaded');
+    await loadIconState();
+    toast('图标换好了，重新添加到主屏幕才看得到');
+  }catch(e){
+    await loadIconState();
+    toast(String(e.message)==='413'?'图太大了':'图标没换上');
+  }finally{
+    if(bmp) bmp.close();
+  }
+}
+
+$('iconPick').onclick=()=>$('iconFileInput').click();
+$('iconFileInput').onchange=e=>{
+  const f=e.target.files&&e.target.files[0];
+  e.target.value='';
+  if(f) uploadIcon(f);
+};
+$('iconClear').onclick=async()=>{
+  try{
+    const r=await api('/api/appicon',{method:'DELETE'});
+    if(!r.ok)throw 0;
+    await loadIconState();
+    toast('回到默认图标了');
+  }catch{toast('清除失败')}
+};
 
 let bgMaskTimer=null;
 function setBgMask(pct){
@@ -3126,7 +3219,7 @@ $('profileBackFromMemories').onclick=()=>showProfilePage('profileDetailPage');$(
 $('openProfileDetail').onclick=()=>showProfilePage('profileDetailPage');
 $('openRelayDetail').onclick=()=>showProfilePage('relayPage');
 $('openUsageDetail').onclick=()=>showProfilePage('usagePage');
-$('openAppearanceDetail').onclick=()=>showProfilePage('appearancePage');
+$('openAppearanceDetail').onclick=()=>{showProfilePage('appearancePage');loadIconState();};
 $('profileBackFromDetail').onclick=()=>showProfilePage('profileHome');
 $('profileBackFromRelay').onclick=()=>showProfilePage('profileHome');
 $('profileBackFromUsage').onclick=()=>showProfilePage('profileHome');

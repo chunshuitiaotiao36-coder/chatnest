@@ -28,7 +28,7 @@ from starlette.formparsers import MultiPartParser
 
 MultiPartParser.max_part_size = 60 * 1024 * 1024  # 与 uploads.py 的 MAX_FILE_BYTES 对齐
 
-from app import auth, backgrounds, keepalive, lorebook, moments, nightguard, peek, piano, piano_analysis, push, relays, starmap, store, telegram
+from app import appicon, auth, backgrounds, keepalive, lorebook, moments, nightguard, peek, piano, piano_analysis, push, relays, starmap, store, telegram
 from app.actor import ActorBusyError, _mem_kv
 from app.claude import (
     SessionResumeError,
@@ -466,32 +466,66 @@ async def favicon() -> Response:
     return Response(status_code=204)
 
 
-# 主屏图标。她自己画的，放在 static/icons/。
-# 🔴 白名单取文件名，不要把 name 直接拼进 Path——那是目录穿越。
-_ICON_FILES = frozenset({
-    "nepeta-180.png",   # iOS apple-touch-icon 的标准尺寸
-    "nepeta-192.png",   # Android / Chrome
-    "nepeta-512.png",   # 启动画面用的大图
-})
+# 主屏图标。她自己画的，存在 /data/icons（持久卷）。
+# 🔴 白名单取尺寸，不要把 name 直接拼进 Path——那是目录穿越。
+_ICON_NAMES = {f"nepeta-{s}.png": s for s in appicon.SIZES}
 
 
 @app.get("/icons/{name}", include_in_schema=False)
 async def app_icon(name: str) -> FileResponse:
     """主屏图标。
 
-    文件还没放进来的时候返回 404，head 里那个 SVG 兜底，行为跟加这个路由
-    之前一样——不会因为半成品把图标搞坏。
+    还没上传的时候返回 404，head 里那个 SVG 兜底，行为跟加这套东西之前
+    完全一样——不会因为半成品把图标搞坏。
+
+    🔴 这个路由在外层认证的白名单里（见 outer_basic_auth）。iOS 抓
+    apple-touch-icon 的请求不保证带 cookie，被 401 拦掉就又变回首字母方块。
     """
-    if name not in _ICON_FILES:
+    size = _ICON_NAMES.get(name)
+    if size is None:
         raise HTTPException(status_code=404, detail="no such icon")
-    path = STATIC / "icons" / name
-    if not path.is_file():
+    path = await asyncio.to_thread(appicon.file_path, size)
+    if path is None:
         raise HTTPException(status_code=404, detail="icon not uploaded yet")
     return FileResponse(
         path,
         media_type="image/png",
-        headers={"Cache-Control": "public, max-age=604800"},
+        # 图标换得不频繁，但换了要能刷掉。一天足够，iOS 装到主屏之后
+        # 那份是它自己的副本，本来也不会自动更新。
+        headers={"Cache-Control": "public, max-age=86400"},
     )
+
+
+@app.get("/api/appicon", dependencies=[Depends(require_auth)])
+async def appicon_state() -> dict:
+    return await asyncio.to_thread(appicon.get_state)
+
+
+@app.post("/api/appicon", dependencies=[Depends(require_auth)])
+async def appicon_upload(file: UploadFile = File(...)) -> dict:
+    """她在手机上传图标。前端已经切好尺寸并转成 PNG。
+
+    一次只收一张：前端按 appicon.SIZES 逐个传，失败一个不影响其他。
+    """
+    if file.content_type not in appicon.ALLOWED_TYPES:
+        raise HTTPException(status_code=415, detail="图标必须是 PNG")
+    try:
+        size = int(file.filename.rsplit("-", 1)[-1].split(".")[0])
+    except (AttributeError, ValueError):
+        raise HTTPException(status_code=400, detail="文件名要形如 nepeta-180.png")
+    if not appicon.valid_size(size):
+        raise HTTPException(status_code=400, detail=f"尺寸只接受 {appicon.SIZES}")
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="empty file")
+    if len(data) > appicon.MAX_BYTES:
+        raise HTTPException(status_code=413, detail="图太大了")
+    return await asyncio.to_thread(appicon.store, size, data)
+
+
+@app.delete("/api/appicon", dependencies=[Depends(require_auth)])
+async def appicon_clear() -> dict:
+    return await asyncio.to_thread(appicon.clear)
 
 
 @app.get("/static/manifest.webmanifest", include_in_schema=False)
