@@ -496,6 +496,28 @@ async def app_icon(name: str) -> FileResponse:
     )
 
 
+class SplitModeBody(BaseModel):
+    mode: str = Field(pattern="^(auto|off)$")
+
+
+@app.get("/api/chat/split-mode", dependencies=[Depends(require_auth)])
+async def split_mode_get() -> dict:
+    from app import claude
+    return {"mode": await asyncio.to_thread(claude.split_mode)}
+
+
+@app.put("/api/chat/split-mode", dependencies=[Depends(require_auth)])
+async def split_mode_put(body: SplitModeBody) -> dict:
+    """分条开关。
+
+    🔴 这个设置进的是系统前缀（见 build_system_prompt），改一次会作废一次
+    prompt cache。所以它该是个「设一次就不动」的开关，不要做成每轮可切的
+    快捷按钮——那样每条消息都要重付一次前缀钱。
+    """
+    await asyncio.to_thread(store.set_meta, "chat_split_mode", body.mode)
+    return {"mode": body.mode}
+
+
 @app.get("/api/appicon", dependencies=[Depends(require_auth)])
 async def appicon_state() -> dict:
     return await asyncio.to_thread(appicon.get_state)
@@ -638,6 +660,7 @@ async def chat(body: ChatBody) -> StreamingResponse:
         response_thinking = ""
         response_traces: list[dict] = []
         act_stripper = piano.ActStripper()      # 一轮一个，见 piano.py
+        split_stripper = piano.SplitStripper()  # 同上：<<SPLIT>> 分条
         try:
             await get_registry().assert_available()
             display_message = body.message.strip()
@@ -789,8 +812,30 @@ async def chat(body: ChatBody) -> StreamingResponse:
                     if not clean:
                         # 整块都被扣住了（标记正拆在几帧里），这一帧不发
                         continue
-                    chunk["text"] = clean
-                    response_text += clean
+
+                    # 分条：<<SPLIT>> 剥成「文本片段 + 该不该断」。
+                    # 🔴 顺序不能乱：一段文本发完才发它后面那个 split 帧，
+                    #    否则前端会把断点插错位置。所以这里逐段 yield，
+                    #    不走下面那个统一出口。
+                    segments = split_stripper.feed(clean)
+                    if not segments:
+                        continue
+                    emitted = False
+                    for seg_text, brk in segments:
+                        if seg_text:
+                            response_text += seg_text
+                            seg_data = json.dumps({"text": seg_text}, ensure_ascii=False)
+                            yield f"event: delta\ndata: {seg_data}\n\n"
+                            emitted = True
+                        if brk:
+                            # 落库也留着标记：重新加载历史时前端照它重新分条，
+                            # 而且下一轮模型看见自己上次分过，会保持这个习惯。
+                            response_text += piano._SPLIT_MARK
+                            yield "event: split\ndata: {}\n\n"
+                            emitted = True
+                    if emitted:
+                        continue
+                    continue
                 elif chunk["event"] == "thinking":
                     response_thinking += chunk.get("text", "")
                 elif chunk["event"] == "tool_use":
@@ -809,12 +854,23 @@ async def chat(body: ChatBody) -> StreamingResponse:
                         "is_error": chunk.get("is_error", False),
                     })
                 elif chunk["event"] == "done":
-                    # 扣在缓冲里的尾巴还回去，一个字都不能吞在这儿
+                    # 扣在缓冲里的尾巴还回去，一个字都不能吞在这儿。
+                    # 两个 stripper 都要 flush，顺序跟 delta 里一致：先 ACT 再分条。
                     tail = act_stripper.flush()
                     if tail:
-                        response_text += tail
-                        tail_data = json.dumps({"text": tail}, ensure_ascii=False)
-                        yield f"event: delta\ndata: {tail_data}\n\n"
+                        for seg_text, brk in split_stripper.feed(tail):
+                            if seg_text:
+                                response_text += seg_text
+                                seg_data = json.dumps({"text": seg_text}, ensure_ascii=False)
+                                yield f"event: delta\ndata: {seg_data}\n\n"
+                            if brk:
+                                response_text += piano._SPLIT_MARK
+                                yield "event: split\ndata: {}\n\n"
+                    split_tail = split_stripper.flush()
+                    if split_tail:
+                        response_text += split_tail
+                        st_data = json.dumps({"text": split_tail}, ensure_ascii=False)
+                        yield f"event: delta\ndata: {st_data}\n\n"
                     logger.info(
                         "claude_raw_response request_id=%s conv_id=%s raw=%r",
                         request_id,

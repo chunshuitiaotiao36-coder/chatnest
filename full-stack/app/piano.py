@@ -439,3 +439,69 @@ def _library_lines(np: dict[str, Any]) -> list[str]:
             out.append(f"{head}\n{body}")
 
     return out
+
+
+# ── 分条：<<SPLIT>> ──────────────────────────────────────────────────────
+#
+# 「一次发多条消息」的实现。她的原话：不要每次都 duang 一大坨。
+#
+# 为什么让模型自己插标记，而不是后端按段落自动切：
+#   该在哪儿断只有说话的人知道。一句调情说完停一下、等她反应，再补一句
+#   追击——那个停顿是内容的一部分。按 \n\n 机械切只会把一段完整的话
+#   拦腰截断，看着更假。
+#
+# 为什么复用这里的 ActStripper 模式：流式切标记有个必须处理的情况——
+# 标记可能正好被拆在两个 delta 之间（`<<SP` | `LIT>>`）。那段扣留逻辑
+# （_split_hold）已经在琴房那条线上跑了几个月，不重写一套。
+
+_SPLIT_MARK = "<<SPLIT>>"
+_SPLIT_MAX_HOLD = 64          # 标记本身很短，扣留上限给足就行
+
+
+class SplitStripper:
+    """一轮一个实例。喂 delta，吐 [(文本, 这段之后要不要断)]。
+
+    返回的是「片段列表」而不是「文本 + 标记数」：调用方要按顺序把文本发出去、
+    在该断的地方插一帧 split 事件，顺序不能乱。
+    """
+
+    def __init__(self) -> None:
+        self._buf = ""
+
+    def feed(self, text: str) -> list[tuple[str, bool]]:
+        self._buf += str(text or "")
+        out: list[tuple[str, bool]] = []
+
+        while True:
+            i = self._buf.find(_SPLIT_MARK)
+            if i < 0:
+                break
+            out.append((self._buf[:i], True))
+            self._buf = self._buf[i + len(_SPLIT_MARK):]
+
+        safe, self._buf = _split_hold_mark(self._buf, _SPLIT_MARK)
+        if len(self._buf) > _SPLIT_MAX_HOLD:
+            # 扣太多说明这不是标记的前缀，放出去别卡着
+            safe += self._buf
+            self._buf = ""
+        if safe:
+            out.append((safe, False))
+        return out
+
+    def flush(self) -> str:
+        """流结束，扣住的尾巴一个字都不许吞。"""
+        tail, self._buf = self._buf, ""
+        return tail
+
+
+def _split_hold_mark(buf: str, mark: str) -> tuple[str, str]:
+    """切成（可以放出去的, 要继续扣住的）。
+
+    跟 _split_hold 同一个道理，但标记没有闭合符，只需要处理
+    「尾巴是标记的前缀」这一种情况：`<`、`<<`、`<<S`… 都得扣住，
+    否则半个标记会漏到她眼前。
+    """
+    for n in range(len(mark) - 1, 0, -1):
+        if buf.endswith(mark[:n]):
+            return buf[:-n], buf[-n:]
+    return buf, ""

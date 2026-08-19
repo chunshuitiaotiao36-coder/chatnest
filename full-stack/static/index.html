@@ -143,7 +143,7 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}textar
 .msg-user .bubble>div:not(.message-attachments),.msg-claude .md,.msg-claude .md *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .msg-user.msg-pressing .bubble{opacity:.75;transition:opacity 120ms}.msg-claude.msg-pressing{opacity:.75;transition:opacity 120ms}
 #input,textarea,input{-webkit-user-select:text;user-select:text}
-.msg-claude .md{font-family:var(--font-sans);font-size:var(--text-read);word-break:break-word}
+.msg-claude .md{font-family:var(--font-sans);font-size:var(--text-read);word-break:break-word}.msg-claude .md.md-split{margin-top:1.05em}
 /* 空 md(submitted/thinking 阶段还没正文)整个不渲染 → cursor 也不出现 */
 .msg-claude .md:empty{display:none}
 /* cursor 只对【非空 md + streaming row】生效:isStreaming && content.length > 0 */
@@ -441,7 +441,7 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
 
     <section class="home-group">
       <div class="home-group-title">外观</div>
-      <button class="profile-nav-row" id="openAppearanceDetail"><span class="profile-nav-row-icon" data-profile-icon="appearance"></span><span class="profile-nav-row-title">主题与背景<span class="profile-nav-row-note">深浅色、背景图、主屏图标</span></span><span class="profile-nav-chevron">›</span></button>
+      <button class="profile-nav-row" id="openAppearanceDetail"><span class="profile-nav-row-icon" data-profile-icon="appearance"></span><span class="profile-nav-row-title">主题与背景<span class="profile-nav-row-note">深浅色、背景图、图标、分条说话</span></span><span class="profile-nav-chevron">›</span></button>
     </section>
   </div>
 
@@ -526,6 +526,20 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
         </div>
       </div>
       <input type="file" id="iconFileInput" accept="image/*" hidden>
+
+      <div class="profile-section-title">说话方式</div>
+      <div class="profile-card">
+        <div class="profile-card-top">
+          <div>
+            <div class="profile-section-title">分条说话</div>
+            <div class="profile-help-text">
+              让他把一次回复拆成几条发出来，像真的在打字。开着的时候他自己判断
+              该不该分——认真讲事情、或者你难过的时候，他会一口气说完。
+            </div>
+          </div>
+          <button class="profile-switch" id="splitModeSwitch" aria-label="分条说话"></button>
+        </div>
+      </div>
     </section>
   </div>
 
@@ -1561,6 +1575,34 @@ $('iconClear').onclick=async()=>{
   }catch{toast('清除失败')}
 };
 
+/* ---- 分条说话 ---------------------------------------------------------
+   🔴 这个开关进的是系统前缀（build_system_prompt），改一次作废一次
+   prompt cache。所以它放在设置页里、设一次就不动，不做成输入框旁边的
+   快捷按钮——那样每条消息都要重付一次前缀钱。 */
+let _splitMode='auto';
+async function loadSplitMode(){
+  try{
+    const r=await api('/api/chat/split-mode'); if(!r.ok)return;
+    _splitMode=(await r.json()).mode||'auto';
+    $('splitModeSwitch').classList.toggle('on',_splitMode==='auto');
+  }catch(e){}
+}
+$('splitModeSwitch').onclick=async()=>{
+  const next=_splitMode==='auto'?'off':'auto';
+  const el=$('splitModeSwitch');
+  el.classList.toggle('on',next==='auto');    /* 乐观更新，失败再回滚 */
+  try{
+    const r=await api('/api/chat/split-mode',{method:'PUT',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:next})});
+    if(!r.ok)throw 0;
+    _splitMode=next;
+    toast(next==='auto'?'他会自己判断要不要分条':'以后都一整条说完');
+  }catch{
+    el.classList.toggle('on',_splitMode==='auto');
+    toast('没改上');
+  }
+};
+
 let bgMaskTimer=null;
 function setBgMask(pct){
   bgState.mask=pct/100;
@@ -2378,7 +2420,26 @@ function _showSummary(phases){
 }
 function _buildToolRow(d){const row=document.createElement('div');row.className='tool-row';row.dataset.toolId=d.id||'';row.dataset.status='running';const summary=document.createElement('div');summary.className='tool-row-summary';const name=document.createElement('span');name.className='tool-row-name';name.textContent=d.name||'Tool';const inputPrev=document.createElement('span');inputPrev.className='tool-row-input';try{const s=typeof d.input==='string'?d.input:JSON.stringify(d.input||{});inputPrev.textContent=s.replace(/\s+/g,' ').slice(0,120)}catch(e){inputPrev.textContent=''}const status=document.createElement('span');status.className='tool-row-status';summary.append(name,inputPrev,status);const detail=document.createElement('div');detail.className='tool-row-detail hidden';const inT=document.createElement('div');inT.className='tool-row-section-title';inT.textContent='Input';const inB=document.createElement('pre');inB.className='tool-row-block';try{inB.textContent=typeof d.input==='string'?d.input:JSON.stringify(d.input,null,2)}catch(e){inB.textContent=String(d.input||'')}const outT=document.createElement('div');outT.className='tool-row-section-title';outT.textContent='Output';const outB=document.createElement('pre');outB.className='tool-row-block tool-row-output';outB.textContent='\u6b63\u5728\u6267\u884c\u2026';detail.append(inT,inB,outT,outB);summary.addEventListener('click',()=>detail.classList.toggle('hidden'));row.append(summary,detail);return row}
 function _sliceChars(text,start,end){return Array.from(String(text||'')).slice(start,end).join('')}
-function _appendMdSegment(row,text){if(!text)return null;const md=document.createElement('div');md.className='md';renderMessage(md,text);row.append(md);return md}
+/* 分条标记。后端在这儿断开（见 piano.SplitStripper），落库也留着，
+   所以历史渲染要照它重新拆。 */
+const SPLIT_MARK='<<SPLIT>>';
+function _appendMdSegment(row,text){
+  if(!text)return null;
+  /* 🔴 先按工具偏移切段（调用方做的），再在段内按标记分条——两层解耦。
+     反过来先拆标记的话，tool_use 的 text_offset 就对不上了：
+     那个偏移是按「含标记的原文」算的。 */
+  const parts=String(text).split(SPLIT_MARK);
+  let last=null;
+  parts.forEach((part,i)=>{
+    if(!part && parts.length>1) return;      /* 标记贴着标记，别塞空块 */
+    const md=document.createElement('div');
+    md.className=i>0?'md md-split':'md';
+    renderMessage(md,part);
+    row.append(md);
+    last=md;
+  });
+  return last;
+}
 function _toolSummaryButton(text,traceRow){const btn=document.createElement('button');btn.className='thinking-summary show';btn.innerHTML=thoughtSummaryHtml('');btn.querySelector('.thinking-summary-text').textContent=dedupeSummaryText(text);btn.onclick=()=>openTraceSheet(traceRow);return btn}
 function _groupToolTracesByTextOffset(toolTraces,text){
   const len=Array.from(String(text||'')).length;
@@ -2480,6 +2541,15 @@ function beginClaude(userText,userAttachments=[]){document.querySelector('.strea
     currentTraceRow.after(next);
     currentMd=next;segmentRaw='';currentTraceRow=null;
   }
+  /* 分条：当前这块定稿，另起一块。
+     跟 startTextAfterTrace 是同一个动作，只是触发原因不同——
+     那个是工具调用打断，这个是他自己想断。 */
+  function startNewSplitSegment(){
+    if(!segmentRaw.trim())return;   /* 还没写字就断，不给她一块空的 */
+    const next=document.createElement('div');next.className='md md-split';
+    currentMd.after(next);
+    currentMd=next;segmentRaw='';
+  }
   function discardCurrentTraceRow(){
     if(!currentTraceRow)return;
     const i=_traceRows.indexOf(currentTraceRow);
@@ -2526,6 +2596,12 @@ function beginClaude(userText,userAttachments=[]){document.querySelector('.strea
       const pendingSegment=(currentTraceRow&&segmentRaw.trim())?'':segmentRaw;
       startTextAfterTrace();
       raw+=t;segmentRaw=pendingSegment+(t||'');renderMessage(currentMd,segmentRaw);
+    },
+    split(){
+      /* 标记要进 raw：落库那份含标记，重新加载时前端照它重新分条。
+         raw 是编辑/复制取的那份，跟服务端保持一致。 */
+      raw+=SPLIT_MARK;
+      startNewSplitSegment();
     },
     traceSummary(text){
       let rows=_traceRows.filter(r=>r.dataset.afterVisibleText!=='1');
@@ -2697,7 +2773,7 @@ async function sendMessage(text,showUser=true,files=[],existingAttachments=[],op
     if(runId!==_chatRunId)return;
     if(r.status===401){showGate();throw Error('登录已失效')}if(!r.ok||!r.body){const detail=await r.json().catch(()=>({}));throw Error(detail.detail||'请求失败')}
     const reader=r.body.getReader(),decoder=new TextDecoder();let buffer='',finished=false,_replyAcc='';
-    const frame=f=>{if(runId!==_chatRunId)return;let event='',data='';f.split('\n').forEach(line=>{if(line.startsWith('event:'))event=line.slice(6).trim();if(line.startsWith('data:'))data+=line.slice(5).trim()});if(!event||!data)return;const d=JSON.parse(data);if(event==='conversation'){state.convId=d.conversation_id;state.legacySessionId=null;localStorage.setItem('chat_conversation',state.convId);localStorage.removeItem('chat_session');if(d.user_message_id&&userRow)userRow.dataset.msgId=d.user_message_id}if(event==='model')setActualModel(d.id);if(event==='thinking')msg.thinking(d.text||'');if(event==='delta'){_replyAcc+=d.text||'';msg.text(d.text||'')}if(event==='tool_use')msg.toolUse(d);if(event==='tool_result')msg.toolResult(d);if(event==='trace_summary')msg.traceSummary(d.text||'');if(event==='piano_act')pianoRunAct(d);if(event==='done'){state.convId=d.conversation_id||state.convId;localStorage.setItem('chat_conversation',state.convId);msg.finish();if(d.assistant_message_id&&msg?.row)msg.row.dataset.msgId=d.assistant_message_id;finished=true;
+    const frame=f=>{if(runId!==_chatRunId)return;let event='',data='';f.split('\n').forEach(line=>{if(line.startsWith('event:'))event=line.slice(6).trim();if(line.startsWith('data:'))data+=line.slice(5).trim()});if(!event||!data)return;const d=JSON.parse(data);if(event==='conversation'){state.convId=d.conversation_id;state.legacySessionId=null;localStorage.setItem('chat_conversation',state.convId);localStorage.removeItem('chat_session');if(d.user_message_id&&userRow)userRow.dataset.msgId=d.user_message_id}if(event==='model')setActualModel(d.id);if(event==='thinking')msg.thinking(d.text||'');if(event==='delta'){_replyAcc+=d.text||'';msg.text(d.text||'')}if(event==='split'){_replyAcc+=SPLIT_MARK;msg.split()}if(event==='tool_use')msg.toolUse(d);if(event==='tool_result')msg.toolResult(d);if(event==='trace_summary')msg.traceSummary(d.text||'');if(event==='piano_act')pianoRunAct(d);if(event==='done'){state.convId=d.conversation_id||state.convId;localStorage.setItem('chat_conversation',state.convId);msg.finish();if(d.assistant_message_id&&msg?.row)msg.row.dataset.msgId=d.assistant_message_id;finished=true;
       /* 回完之后的钩子。琴房用它把这一轮记进这首歌的档案；
          🔴 绝不能让它抛出来打断这条流。 */
       if(options.onDone){try{options.onDone(_replyAcc)}catch(err){console.warn('onDone failed',err)}}}if(event==='error'){msg.fail(d.message);finished=true}};
@@ -3219,7 +3295,7 @@ $('profileBackFromMemories').onclick=()=>showProfilePage('profileDetailPage');$(
 $('openProfileDetail').onclick=()=>showProfilePage('profileDetailPage');
 $('openRelayDetail').onclick=()=>showProfilePage('relayPage');
 $('openUsageDetail').onclick=()=>showProfilePage('usagePage');
-$('openAppearanceDetail').onclick=()=>{showProfilePage('appearancePage');loadIconState();};
+$('openAppearanceDetail').onclick=()=>{showProfilePage('appearancePage');loadIconState();loadSplitMode();};
 $('profileBackFromDetail').onclick=()=>showProfilePage('profileHome');
 $('profileBackFromRelay').onclick=()=>showProfilePage('profileHome');
 $('profileBackFromUsage').onclick=()=>showProfilePage('profileHome');

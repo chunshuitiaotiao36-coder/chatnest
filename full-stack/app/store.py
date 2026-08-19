@@ -1685,3 +1685,26 @@ def letters_mark_all_read() -> None:
             "UPDATE letters SET read_at = ? WHERE author = 'elian' AND read_at IS NULL",
             (_now(),),
         )
+
+
+# ── 通用小设置 ────────────────────────────────────────────────────────
+# store_meta 本来只被两处幂等标记用着（legacy_migrated / qixi_2026_letter）。
+# 给它一对读写函数，省得每加一个小开关就建一张表。
+#
+# 🔴 只放**小而稳**的东西。会被高频读写的、或者带结构的，另开表。
+
+
+def get_meta(key: str, default: str = "") -> str:
+    with _connect() as db:
+        row = db.execute(
+            "SELECT value FROM store_meta WHERE key = ?", (key,)
+        ).fetchone()
+    return row["value"] if row else default
+
+
+def set_meta(key: str, value: str) -> None:
+    with _connect() as db:
+        db.execute(
+            "INSERT OR REPLACE INTO store_meta(key, value) VALUES (?, ?)",
+            (key, value),
+        )

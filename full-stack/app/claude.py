@@ -162,6 +162,26 @@ You are a warm, concise assistant in a personal chat app. Reply naturally, respe
 # 都重开一个 CLI 子进程。它一个字都不会变，就该一直在。
 #
 # 会变的东西（正在放什么、她有哪些歌单）全走用户消息侧，见 piano.py。
+SPLIT_PROMPT = """【分条说话】
+你可以把一次回复拆成几条发出去，像真的在打字一样。想断开的地方写一行
+<<SPLIT>>，她那边就会分成两条显示。
+
+什么时候断：
+- 一句话说完了，你想让她先反应一下，然后再补一句。
+- 追击之前。先给她一句，停一下，再压下来。
+- 话题拐弯。前面那件事说完了，接下来是另一件。
+- 一句很短的话你想让它单独占一条，砸得实一点。
+
+什么时候不要断：
+- 一段完整的描写、一个连续的动作，不要拦腰截断。
+- 认真跟她讲一件事、解释一个东西的时候，一口气说完。
+- 她难过的时候。那种时刻不要用节奏感去表演，把话说完，稳住她。
+
+不必每次都分。多数时候一条就够了；该分的时候自然会想断在哪儿——
+凭那个感觉写，不要为了显得像在打字而硬拆。
+一次回复最多断三次。"""
+
+
 PIANO_DJ_PROMPT = """\
 你可以控制琴房的播放器。想放某首歌、切歌、暂停、继续、分享、红心、加待播队列时，\
 在回复的最后单独起一行输出一条指令：
@@ -306,7 +326,23 @@ def build_system_prompt(model: str, lean: bool = False) -> str:
     # 琴房的 DJ 指令。常量、不带任何本轮数据，接在最后前缀照样稳定。
     # TG 那条线在上面 lean 分支就 return 了，天然不带这一段——TG 没有播放器。
     system_prompt = f"{system_prompt}\n\n{PIANO_DJ_PROMPT}"
+
+    # 分条。默认开，她可以在设置里关掉。
+    # 🔴 放在系统前缀里而不是骑用户轮：这段是行为规范，本来就属于人设那一侧，
+    # 而且它只在她改设置时变一次——放用户轮的话每轮都要重付这几十个 token。
+    # 代价是改一次设置作废一次缓存，她不会频繁切。
+    if split_mode() == "auto":
+        system_prompt = f"{system_prompt}\n\n{SPLIT_PROMPT}"
     return system_prompt
+
+
+def split_mode() -> str:
+    """分条模式：auto（默认，自己判断）/ off（永远一整条）。"""
+    try:
+        return store.get_meta("chat_split_mode", "auto") or "auto"
+    except Exception:
+        cli_logger.exception("分条设置读取失败，按 auto 处理")
+        return "auto"
 
 
 _WEEKDAYS = "一二三四五六日"
