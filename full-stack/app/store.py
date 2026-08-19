@@ -462,13 +462,25 @@ def migrate_legacy_sessions() -> None:
 
 
 def conversation_list() -> list[dict[str, Any]]:
+    """侧栏 / 对话列表页共用。
+
+    preview 和 message_count 是给新的对话列表页加的（08-19）：她要的那个
+    形态每条要显示「标题 + 最后一句 + 日期 + 多少段」。
+    🔴 用相关子查询而不是在 Python 里逐个会话再查一次——她有几十段对话，
+    那样就是几十次往返。SQLite 走 messages_conv_id 索引，一次查完。
+    """
     with _connect() as db:
         rows = db.execute(
             """
-            SELECT conv_id, title, starred, created_at, updated_at,
-                   latest_session_id
-            FROM conversations
-            ORDER BY starred DESC, updated_at DESC
+            SELECT c.conv_id, c.title, c.starred, c.created_at, c.updated_at,
+                   c.latest_session_id,
+                   (SELECT COUNT(*) FROM messages m
+                     WHERE m.conv_id = c.conv_id) AS message_count,
+                   (SELECT m.text FROM messages m
+                     WHERE m.conv_id = c.conv_id AND m.text != ''
+                     ORDER BY m.id DESC LIMIT 1) AS preview
+            FROM conversations c
+            ORDER BY c.starred DESC, c.updated_at DESC
             """
         ).fetchall()
     def api_time(value: str) -> str | int:
@@ -484,6 +496,10 @@ def conversation_list() -> list[dict[str, Any]]:
             "last_modified": api_time(row["updated_at"]),
             "updated_at": api_time(row["updated_at"]),
             "latest_session_id": row["latest_session_id"],
+            "message_count": int(row["message_count"] or 0),
+            # 截到 140 字：列表最多显示两行，多传的是白流量。
+            # 换行压成空格，不然预览里会出现半截排版。
+            "preview": " ".join((row["preview"] or "").split())[:140],
         }
         for row in rows
     ]

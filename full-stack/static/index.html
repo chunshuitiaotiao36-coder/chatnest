@@ -143,7 +143,12 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}textar
 .msg-user .bubble>div:not(.message-attachments),.msg-claude .md,.msg-claude .md *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .msg-user.msg-pressing .bubble{opacity:.75;transition:opacity 120ms}.msg-claude.msg-pressing{opacity:.75;transition:opacity 120ms}
 #input,textarea,input{-webkit-user-select:text;user-select:text}
-.msg-claude .md{font-family:var(--font-sans);font-size:var(--text-read);word-break:break-word}.msg-claude .md.md-split{margin-top:1.05em}.avatar{flex:none;border-radius:var(--avatar-radius,26%);background-size:cover;background-position:center;display:grid;place-items:center;color:#fff;font-family:var(--font-serif,Georgia,serif);font-weight:400;letter-spacing:0;overflow:hidden;user-select:none}.avatar.has-img{color:transparent}.claude-face-row{display:flex;align-items:center;gap:9px;margin:0 0 9px}.claude-face-name{font:500 14px/1 var(--font-sans);color:var(--text-secondary)}.msg-user.has-face{align-items:flex-end;gap:9px}.msg-user.has-face .avatar{margin-bottom:2px}.msg-user.has-face .user-images{flex-basis:100%}body[data-avatar-shape="circle"]{--avatar-radius:50%}body[data-avatar-shape="rounded"]{--avatar-radius:26%}body[data-avatar-shape="squircle"]{--avatar-radius:34%}.seg{display:flex;gap:4px;padding:3px;border-radius:999px;background:var(--study-press,rgba(0,0,0,.05))}.seg-item{flex:1;padding:8px 6px;border:0;border-radius:999px;background:none;font:400 13px/1.2 var(--font-sans);color:var(--text-secondary);transition:background 140ms ease}.seg-item.on{background:var(--bg-primary);color:var(--text-primary);font-weight:500;box-shadow:0 1px 4px rgba(0,0,0,.08)}.moments-cover{position:relative;margin:-8px -14px 0;height:38vh;min-height:220px;background:linear-gradient(160deg,#E8DDD4,#D9C9BE);background-size:cover;background-position:center;overflow:hidden}.moments-cover:after{content:'';position:absolute;inset:0;background:linear-gradient(to bottom,transparent 40%,rgba(0,0,0,.42))}.moments-cover-edit{position:absolute;top:calc(env(safe-area-inset-top,50px) + 6px);right:14px;z-index:3;width:34px;height:34px;border-radius:50%;border:0;display:grid;place-items:center;background:rgba(0,0,0,.32);color:#fff;backdrop-filter:blur(8px)}.moments-cover-edit svg{width:17px;height:17px}.moments-identity{position:absolute;left:16px;right:16px;bottom:14px;z-index:2;display:flex;align-items:flex-end;gap:12px}.moments-identity-text{flex:1;min-width:0;padding-bottom:3px}.moments-identity-name{font:500 17px/1.25 var(--font-sans);color:#fff;text-shadow:0 1px 8px rgba(0,0,0,.45)}.moments-identity-sig.is-empty{opacity:.62;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px}.moments-sig-input{width:100%;padding:3px 7px;border:0;border-radius:7px;background:rgba(255,255,255,.92);color:#201f1d;font:400 12px/1.5 var(--font-sans);outline:0}.moments-identity-sig{margin-top:4px;font:400 12px/1.45 var(--font-sans);color:rgba(255,255,255,.82);text-shadow:0 1px 6px rgba(0,0,0,.4);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.moments-faces{flex:none;display:flex;align-items:center}.moments-faces .avatar{border:2.5px solid rgba(255,255,255,.92);box-shadow:0 3px 12px rgba(0,0,0,.28)}.moments-faces .avatar+.avatar{margin-left:-13px}.moment-card{display:flex;gap:11px}.moment-body{flex:1;min-width:0}
+.msg-claude .md{font-family:var(--font-sans);font-size:var(--text-read);word-break:break-word}.msg-claude .md.md-split{margin-top:1.05em}.avatar{flex:none;border-radius:var(--avatar-radius,26%);background-size:cover;background-position:center;display:grid;place-items:center;color:#fff;font-family:var(--font-serif,Georgia,serif);font-weight:400;letter-spacing:0;overflow:hidden;user-select:none}.avatar.has-img{color:transparent}.claude-face-row{display:flex;align-items:center;gap:9px;margin:0 0 9px}/* 🔴 定位保持跟书房 / 潮汐 / Home 那几页完全一致：不加 position、不碰 z-index。
+   08-19 我一度给它 fixed+z-21、又给 tabBar 抬到 z-22，结果导航栏跑到了屏幕
+   顶上——那两页在真机上本来是好的，说明遮盖关系另有机制在管，我按自己在
+   桌面浏览器里看到的现象去『修』，修坏的是原本没坏的东西。
+   这一页只需要一件它们不需要的事：头部不动、列表内部滚，所以只加 flex。 */
+#tabChats{display:flex;flex-direction:column;height:100dvh;overflow:hidden}#tabChats[hidden]{display:none}.chats-head{padding:calc(env(safe-area-inset-top,50px) + 10px) 20px 6px;flex:none}.chats-head-top{display:flex;align-items:center;min-height:38px}.chats-owner{flex:1;min-width:0;display:flex;align-items:center;gap:8px;font:500 13px/1 var(--font-sans);color:var(--text-secondary)}.chats-head-actions{flex:none;display:flex;gap:6px}.chats-head-btn{width:38px;height:38px;border:0;border-radius:50%;display:grid;place-items:center;background:var(--bg-surface,rgba(255,255,255,.7));color:var(--text-primary);box-shadow:0 1px 4px rgba(0,0,0,.06)}.chats-head-btn:active{background:var(--study-press)}.chats-head-btn svg{width:19px;height:19px}.chats-title-row{display:flex;align-items:baseline;gap:10px;margin-top:10px}.chats-title{flex:1;font:400 34px/1.1 var(--font-sans);letter-spacing:-.02em;color:var(--text-primary)}.chats-count{flex:none;font:400 13px/1 var(--font-sans);color:var(--text-faint);font-variant-numeric:tabular-nums}.chats-list{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:8px 20px calc(env(safe-area-inset-bottom,34px) + 96px)}.chat-row{display:flex;gap:12px;width:100%;padding:15px 0;border:0;background:none;text-align:left;position:relative;cursor:pointer}.chat-row:after{content:'';position:absolute;left:0;right:0;bottom:0;height:1px;background:var(--study-rule)}.chat-row:last-child:after{display:none}.chat-row:active{opacity:.6}.chat-row.is-current{padding-left:11px}.chat-row.is-current:before{content:'';position:absolute;left:0;top:16px;bottom:16px;width:2.5px;border-radius:2px;background:var(--study-accent)}.chat-row-main{flex:1;min-width:0}.chat-row-title{font:500 16px/1.35 var(--font-sans);color:var(--text-primary);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.chat-row-preview{margin-top:3px;font:400 13px/1.45 var(--font-sans);color:var(--text-faint);display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}.chat-row-meta{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:5px;padding-top:2px;font:400 12px/1 var(--font-sans);color:var(--text-faint);font-variant-numeric:tabular-nums}.chat-row-star{color:var(--study-accent);font-size:11px}.chats-empty{padding:56px 0;text-align:center;font:400 14px/1.7 var(--font-sans);color:var(--text-faint)}body.in-chat #tabBar{display:none}.claude-face-name{font:500 14px/1 var(--font-sans);color:var(--text-secondary)}.msg-user.has-face{align-items:flex-end;gap:9px}.msg-user.has-face .avatar{margin-bottom:2px}.msg-user.has-face .user-images{flex-basis:100%}body[data-avatar-shape="circle"]{--avatar-radius:50%}body[data-avatar-shape="rounded"]{--avatar-radius:26%}body[data-avatar-shape="squircle"]{--avatar-radius:34%}.seg{display:flex;gap:4px;padding:3px;border-radius:999px;background:var(--study-press,rgba(0,0,0,.05))}.seg-item{flex:1;padding:8px 6px;border:0;border-radius:999px;background:none;font:400 13px/1.2 var(--font-sans);color:var(--text-secondary);transition:background 140ms ease}.seg-item.on{background:var(--bg-primary);color:var(--text-primary);font-weight:500;box-shadow:0 1px 4px rgba(0,0,0,.08)}.moments-cover{position:relative;margin:-8px -14px 0;height:38vh;min-height:220px;background:linear-gradient(160deg,#E8DDD4,#D9C9BE);background-size:cover;background-position:center;overflow:hidden}.moments-cover:after{content:'';position:absolute;inset:0;background:linear-gradient(to bottom,transparent 40%,rgba(0,0,0,.42))}.moments-cover-edit{position:absolute;top:calc(env(safe-area-inset-top,50px) + 6px);right:14px;z-index:3;width:34px;height:34px;border-radius:50%;border:0;display:grid;place-items:center;background:rgba(0,0,0,.32);color:#fff;backdrop-filter:blur(8px)}.moments-cover-edit svg{width:17px;height:17px}.moments-identity{position:absolute;left:16px;right:16px;bottom:14px;z-index:2;display:flex;align-items:flex-end;gap:12px}.moments-identity-text{flex:1;min-width:0;padding-bottom:3px}.moments-identity-name{font:500 17px/1.25 var(--font-sans);color:#fff;text-shadow:0 1px 8px rgba(0,0,0,.45)}.moments-identity-sig.is-empty{opacity:.62;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px}.moments-sig-input{width:100%;padding:3px 7px;border:0;border-radius:7px;background:rgba(255,255,255,.92);color:#201f1d;font:400 12px/1.5 var(--font-sans);outline:0}.moments-identity-sig{margin-top:4px;font:400 12px/1.45 var(--font-sans);color:rgba(255,255,255,.82);text-shadow:0 1px 6px rgba(0,0,0,.4);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.moments-faces{flex:none;display:flex;align-items:center}.moments-faces .avatar{border:2.5px solid rgba(255,255,255,.92);box-shadow:0 3px 12px rgba(0,0,0,.28)}.moments-faces .avatar+.avatar{margin-left:-13px}.moment-card{display:flex;gap:11px}.moment-body{flex:1;min-width:0}
 /* 空 md(submitted/thinking 阶段还没正文)整个不渲染 → cursor 也不出现 */
 .msg-claude .md:empty{display:none}
 /* cursor 只对【非空 md + streaming row】生效:isStreaming && content.length > 0 */
@@ -1071,6 +1076,27 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
   </div>
   <audio id="pianoAudio" preload="none"></audio>
 </section>
+<section id="tabChats" class="tab-page" hidden>
+  <!-- 对话列表。08-19 从侧栏抽屉搬出来的：她说「其实不需要侧栏，
+       因为进入聊天界面后下面是没有导航栏的」。
+       现在是两级——这一层常驻底部导航，聊天是从这儿点进去的全屏层。 -->
+  <header class="chats-head">
+    <div class="chats-head-top">
+      <div class="chats-owner" id="chatsOwner"></div>
+      <div class="chats-head-actions">
+        <button class="chats-head-btn" id="chatsNewBtn" aria-label="新对话">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="chats-title-row">
+      <h1 class="chats-title">对话</h1>
+      <span class="chats-count" id="chatsCount"></span>
+    </div>
+  </header>
+  <div class="chats-list" id="chatsList"></div>
+</section>
+
 <section id="tabReading" class="tab-page" hidden>
   <!-- 书房 = 一块纪念日 + 四行入口。内容全在各自的全屏面板里。
        原来是手风琴：星图和日记直接摊在首页，越加越挤，而且两块都很高，
@@ -1298,9 +1324,9 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
     <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
     <span class="tab-label">琴房</span>
   </button>
-  <button class="tab-item active" type="button" data-tab="chat">
+  <button class="tab-item active" type="button" data-tab="chats">
     <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-    <span class="tab-label">Chat</span>
+    <span class="tab-label">对话</span>
   </button>
   <button class="tab-item" type="button" data-tab="reading">
     <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
@@ -3236,6 +3262,14 @@ async function newChat(){if(_editState.active)exitEditMode({restore:false});if(s
 $('newChat').onclick=newChat;$('drawerNewChat').onclick=newChat;
 let drawerProgress=0,drawerDrag=null;
 function drawerWidth(){return Math.min(innerWidth*.82,340)}
+/* 会话长按菜单要定位在「列表所在的那个容器」里。
+   🔴 别直接读 #drawer：列表现在有两个家——抽屉和全屏的对话列表页。
+   在全屏页上按抽屉宽度算，菜单会挤在左边一条里。 */
+function sessionListRect(){
+  const inDrawer=drawerProgress>.5;
+  if(inDrawer)return $('drawer').getBoundingClientRect();
+  return {left:0,right:innerWidth,width:innerWidth,top:0,bottom:innerHeight,height:innerHeight};
+}
 function applyDrawerProgress(progress,dragging=false){
   drawerProgress=Math.max(0,Math.min(1,progress));
   const width=drawerWidth(),x=width*drawerProgress,radius=32*drawerProgress,alpha=.14*drawerProgress;
@@ -3256,13 +3290,35 @@ function applyDrawerProgress(progress,dragging=false){
 function snapDrawer(open){if(open)loadSessions();requestAnimationFrame(()=>applyDrawerProgress(open?1:0,false))}
 function openDrawer(){snapDrawer(true)}
 function closeDrawer(){closeSessionContextMenu();snapDrawer(false)}
-$('openDrawer').onclick=openDrawer;
+/* 左上角那个键一键两用：
+   - 在聊天里（body.in-chat）→ 返回对话列表
+   - 其它情况 → 还是老的打开抽屉（抽屉没删，留着当备用入口）
+   图标也跟着换，见 syncTopbarBackIcon()。 */
+$('openDrawer').onclick=()=>{
+  if(document.body.classList.contains('in-chat')){exitChat();return}
+  openDrawer();
+};
+function syncTopbarBackIcon(){
+  const inChat=document.body.classList.contains('in-chat');
+  const btn=$('openDrawer');
+  if(!btn)return;
+  btn.setAttribute('aria-label',inChat?'返回对话列表':'打开历史');
+  btn.innerHTML=inChat
+    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><polyline points="15 18 9 12 15 6"/></svg>'
+    : icon('menu');
+}
 $('drawerOverlay').onclick=closeDrawer;
 let _textSelectionActive=false,_drawerDisabledUntil=0;
 document.addEventListener('selectionchange',()=>{_textSelectionActive=(window.getSelection?.()?.toString()?.length||0)>0});
 document.addEventListener('selectstart',e=>{if(e.target?.closest?.('.bubble,.md')){e.preventDefault();clearNativeSelection();_drawerDisabledUntil=performance.now()+1200}});
 function canStartDrawerGesture(target,x){
+  /* 🔴 08-19：会话列表搬到独立的一层了（#tabChats），抽屉不再是入口。
+     两个地方显示同一份列表是坏设计——她说「其实不需要侧栏」。
+     这里直接掐掉拖拽起手，抽屉那套 morph 动画的代码留着不删
+     （以后可能改成别的用途），但不再能被滑出来。
+     drawerProgress>.01 那条放在前面：万一它已经开着，还得让她能滑回去。 */
   if(drawerProgress>.01)return true;
+  return false;
   if(_textSelectionActive||performance.now()<_drawerDisabledUntil)return false;
   if(!target)return false;
   if(target.closest?.('.composer-wrap,.composer-box,input,textarea,[contenteditable]'))return false;
@@ -3363,7 +3419,7 @@ function openSessionContextMenu(session,button){
   if(sessionContext.source&&sessionContext.source!==button)closeSessionContextMenu();
   sessionContext.longPressed=true;
   window.getSelection?.()?.removeAllRanges?.();
-  const rect=button.getBoundingClientRect(),drawerRect=$('drawer').getBoundingClientRect(),margin=14,gap=16;
+  const rect=button.getBoundingClientRect(),drawerRect=sessionListRect(),margin=14,gap=16;
   if(rect.width===0&&rect.height===0)return;
   const highlight=$('sessionContextHighlight'),menu=$('sessionContextMenu'),backdrop=$('sessionContextBackdrop');
   const baseHeight=rect.height||50,height=44,top=clamp(rect.top+(baseHeight-height)/2,margin,innerHeight-height-margin);
@@ -3406,6 +3462,108 @@ function bindSessionMenu(button,session){
 }
 let _cachedSessions=null;
 function _renderSessions(sessions,list){list.innerHTML='';sessions.forEach(s=>{const b=document.createElement('button');b.className='session-item'+(s.conv_id===state.convId?' active is-active':'');b.dataset.convId=s.conv_id;b.innerHTML=`<div class="session-title-row">${s.starred?'<span class="session-star">★</span>':''}<span class="session-title"></span></div>`;b.querySelector('.session-title').textContent=s.title;bindSessionMenu(b,s);list.append(b)});if(!sessions.length)list.textContent='还没有历史对话。'}
+/* ── 对话列表页 ────────────────────────────────────────────────────────
+   从侧栏抽屉搬出来的一层。她的话：进聊天之后底部不该还占着一条导航栏，
+   所以现在是两级——列表这层常驻导航，聊天是点进去的全屏层。
+
+   数据跟侧栏共用 _cachedSessions 和 /api/sessions，不另开一套。 */
+function _chatDate(v){
+  try{
+    const d=new Date(typeof v==='number'?v*1000:v);
+    const pad=n=>String(n).padStart(2,'0');
+    return `${pad(d.getMonth()+1)}.${pad(d.getDate())}`;
+  }catch(e){return ''}
+}
+
+function _renderChatsList(sessions){
+  const list=$('chatsList');
+  list.innerHTML='';
+  if(!sessions.length){
+    list.innerHTML='<div class="chats-empty">还没有对话。<br>点右上角的 ＋ 开一段。</div>';
+    return;
+  }
+  sessions.forEach(s=>{
+    const row=document.createElement('button');
+    row.type='button';
+    row.className='chat-row'+(s.conv_id===state.convId?' is-current':'');
+    row.dataset.convId=s.conv_id;
+
+    const main=document.createElement('div');
+    main.className='chat-row-main';
+    const t=document.createElement('div');
+    t.className='chat-row-title';
+    t.textContent=s.title||'新对话';
+    main.append(t);
+    const pv=document.createElement('div');
+    pv.className='chat-row-preview';
+    /* 空会话给一句话，别留白——她截图里那个 app 也是这么处理的 */
+    pv.textContent=s.preview||(s.message_count?'':'还没有正文，点进去接着说。');
+    main.append(pv);
+
+    const meta=document.createElement('div');
+    meta.className='chat-row-meta';
+    const dt=document.createElement('span');
+    dt.textContent=_chatDate(s.last_modified||s.updated_at);
+    meta.append(dt);
+    const n=document.createElement('span');
+    n.textContent=s.message_count||0;
+    meta.append(n);
+    if(s.starred){const st=document.createElement('span');st.className='chat-row-star';st.textContent='★';meta.append(st)}
+
+    row.append(main,meta);
+    row.addEventListener('click',()=>{
+      if(sessionContext.longPressed){sessionContext.longPressed=false;return}
+      openChatFromList(s.conv_id);
+    });
+    bindSessionMenu(row,s);      /* 长按重命名/删除，跟侧栏共用同一套 */
+    list.append(row);
+  });
+}
+
+async function loadChatsPage(){
+  $('chatsOwner').innerHTML='';
+  $('chatsOwner').append(avatarEl('elian',22));
+  const nm=document.createElement('span');nm.textContent='Elian · 梁忱';
+  $('chatsOwner').append(nm);
+  if(_cachedSessions)_renderChatsList(_cachedSessions);
+  try{
+    const sessions=(await(await api('/api/sessions')).json()).sessions;
+    _cachedSessions=sessions;
+    _renderChatsList(sessions);
+    const total=sessions.reduce((a,s)=>a+(s.message_count||0),0);
+    $('chatsCount').textContent=total?`${total} 段`:'';
+  }catch(e){
+    if(!_cachedSessions)$('chatsList').innerHTML='<div class="chats-empty">读取失败。</div>';
+  }
+}
+
+/* 从列表进聊天：全屏，藏导航栏。
+   🔴 先切界面再拉内容，两个理由：
+   1. 点了立刻有反应，不用干等一次网络往返；
+   2. openSession 抛异常时她仍然进得去。反过来写的话（先 await 再
+      enterChat）会话读失败就直接卡在列表页，点了没反应——
+      08-19 测试里正是这个表现。 */
+async function openChatFromList(convId){
+  enterChat();
+  if(convId&&convId!==state.convId){
+    try{ await openSession(convId); }
+    catch(e){ toast('这段对话没读出来'); }
+  }
+}
+function enterChat(){
+  switchTab('chat');
+  document.body.classList.add('in-chat');
+  syncTopbarBackIcon();
+}
+/* 从聊天出来：回列表那一层 */
+function exitChat(){
+  document.body.classList.remove('in-chat');
+  switchTab('chats');
+  syncTopbarBackIcon();
+}
+
+$('chatsNewBtn').onclick=()=>{ $('newChat').click(); enterChat(); };
+
 async function loadSessions(){const list=$('sessionList');if(_cachedSessions){_renderSessions(_cachedSessions,list)}else{list.textContent='正在读取…'}try{const sessions=(await(await api('/api/sessions')).json()).sessions;_cachedSessions=sessions;_renderSessions(sessions,list)}catch{if(!_cachedSessions)list.textContent='历史对话读取失败。'}}
 // 历史会话分页:只拉最近 PAGE_SIZE 条,顶部按钮再按需加载更早消息
 const PAGE_SIZE=50;
@@ -3820,7 +3978,7 @@ $('gateForm').onsubmit=async e=>{e.preventDefault();$('gateBtn').disabled=true;$
 
 function clearNativeSelection(){try{window.getSelection?.()?.removeAllRanges?.()}catch(e){}}
 function closeActionMode(){clearNativeSelection();document.body.classList.remove('sidebar-action-open');const src=sessionContext.source;src?.classList.remove('action-target','context-source-hidden','is-pressing');sessionContext.source=null;sessionContext.session=null;state.menuSession=null;$('sessionActionBackdrop').classList.add('hidden');$('deleteConfirmPopover').classList.add('hidden');$('renameDialog').classList.add('hidden')}
-function openDeleteConfirm(target,sourceEl,sourceRect){clearNativeSelection();document.body.classList.add('sidebar-action-open');const popover=$('deleteConfirmPopover');popover.dataset.convId=target.conv_id;popover.dataset.isCurrent=target.conv_id===state.convId?'1':'';const textEl=popover.querySelector('.delete-confirm-text');textEl.textContent=`Are you sure you want to delete \u201C${target.title||'untitled'}\u201D?`;$('sessionActionBackdrop').classList.remove('hidden');popover.classList.remove('hidden');popover.setAttribute('aria-hidden','false');requestAnimationFrame(()=>{const drawerRect=$('drawer').getBoundingClientRect();const fresh=document.querySelector(`.session-item[data-conv-id="${target.conv_id}"]`);const itemEl=fresh||sourceEl||sessionContext.source;const r=itemEl?.getBoundingClientRect()||sourceRect;console.log('[del-pos]','title=',target.title?.slice(0,20),'srcType=',fresh?'fresh':sourceEl?'param':'ctx','rect.top=',r?.top,'rect.left=',r?.left,'drawer.left=',drawerRect.left);if(!r)return;const popW=popover.offsetWidth||240,popH=popover.offsetHeight||160,gap=12;const anchorCenter=r.left+r.width/2;const left=Math.max(drawerRect.left+28,Math.min(anchorCenter-popW/2,drawerRect.right-popW-28));const top=Math.max(96,Math.min(r.top-popH-gap,innerHeight-popH-24));popover.style.left=`${left}px`;popover.style.top=`${top}px`;void 0})}
+function openDeleteConfirm(target,sourceEl,sourceRect){clearNativeSelection();document.body.classList.add('sidebar-action-open');const popover=$('deleteConfirmPopover');popover.dataset.convId=target.conv_id;popover.dataset.isCurrent=target.conv_id===state.convId?'1':'';const textEl=popover.querySelector('.delete-confirm-text');textEl.textContent=`Are you sure you want to delete \u201C${target.title||'untitled'}\u201D?`;$('sessionActionBackdrop').classList.remove('hidden');popover.classList.remove('hidden');popover.setAttribute('aria-hidden','false');requestAnimationFrame(()=>{const drawerRect=sessionListRect();const fresh=document.querySelector(`.session-item[data-conv-id="${target.conv_id}"],.chat-row[data-conv-id="${target.conv_id}"]`);const itemEl=fresh||sourceEl||sessionContext.source;const r=itemEl?.getBoundingClientRect()||sourceRect;console.log('[del-pos]','title=',target.title?.slice(0,20),'srcType=',fresh?'fresh':sourceEl?'param':'ctx','rect.top=',r?.top,'rect.left=',r?.left,'drawer.left=',drawerRect.left);if(!r)return;const popW=popover.offsetWidth||240,popH=popover.offsetHeight||160,gap=12;const anchorCenter=r.left+r.width/2;const left=Math.max(drawerRect.left+28,Math.min(anchorCenter-popW/2,drawerRect.right-popW-28));const top=Math.max(96,Math.min(r.top-popH-gap,innerHeight-popH-24));popover.style.left=`${left}px`;popover.style.top=`${top}px`;void 0})}
 function openRenameDialog(target){clearNativeSelection();document.body.classList.add('sidebar-action-open');const input=$('renameInput');input.value=target.title||'';$('sessionActionBackdrop').classList.remove('hidden');const dialog=$('renameDialog');dialog.style.cssText='';dialog.classList.remove('hidden');dialog.setAttribute('aria-hidden','false');setTimeout(()=>{input.focus();const len=input.value.length;input.setSelectionRange(len,len)},50)}
 document.addEventListener('selectstart',e=>{const t=e.target;if(!t?.closest)return;if(t.closest('#renameInput'))return;if(t.closest('.delete-confirm-popover,.rename-dialog,.context-menu,.context-highlight,#drawer'))e.preventDefault()},{capture:true});
 document.addEventListener('contextmenu',e=>{const t=e.target;if(!t?.closest)return;if(t.closest('#renameInput'))return;if(t.closest('.delete-confirm-popover,.rename-dialog,.context-menu,.context-highlight,#drawer'))e.preventDefault()},{capture:true});
@@ -3860,6 +4018,16 @@ addEventListener('resize',closeSessionContextMenu);
 addEventListener('orientationchange',closeSessionContextMenu);
 addEventListener('pagehide',closeSessionContextMenu);
 if(state.token)showChat();resetEmpty();loadModels();updateSessionHeader();updateSendButton();
+/* 🔴 开屏落点：她的原话「每次长时间退出后打开 app 保证定位在上次聊天的窗口」。
+   有上次会话 → 直接进那段聊天（全屏、无导航栏）；
+   一次都没聊过 → 停在对话列表，不然开屏是一片空白。
+   放在这里而不是 showChat() 里：showChat 也被登录成功那条路调用，
+   两条路都该落到同一个地方。 */
+if(state.token){
+  if(state.convId){enterChat()}
+  else{switchTab('chats')}
+}
+syncTopbarBackIcon();
 
 /* .glass 跟手光效：pointermove 更新 --glass-x/--glass-y，径向高光跟随指针 */
 (function initGlassPointerGlow(){
@@ -7203,7 +7371,7 @@ function pianoUnmountStream(){
 }
 
 var currentTab='chat';
-function tabPages(){return{tidal:$('tabTidal'),music:$('tabMusic'),reading:$('tabReading'),home:$('tabHome')}}
+function tabPages(){return{chats:$('tabChats'),tidal:$('tabTidal'),music:$('tabMusic'),reading:$('tabReading'),home:$('tabHome')}}
 function switchTab(name){
   const pages=tabPages();
   if(name!=='chat'&&!pages[name])return;
@@ -7216,8 +7384,13 @@ function switchTab(name){
   /* 设了背景图后 .tab-page 会变透明，光靠盖住不够，#chat 的内容会透上来。
      用 visibility:hidden 而不是 display:none —— 后者会把 #stream 滚动位置清零。 */
   document.body.classList.toggle('tab-away',name!=='chat');
+  /* 🔴 in-chat 只在真的在聊天里时挂着，它管两件事：藏底部导航栏、
+     把顶栏左上角那个键从「打开历史」变成「返回列表」。
+     切到任何别的 tab 都要摘掉，否则导航栏消失她就出不来了。 */
+  if(name!=='chat')document.body.classList.remove('in-chat');
   currentTab=name;
   if(name!=='chat')closeDrawer();
+  if(name==='chats')loadChatsPage();
   if(name==='home')openHomeProfile().catch(()=>toast('Profile 加载失败'));
   /* 琴房：进来才拉歌单，别在开屏时白打一次。音频元素挂在 tab 里，
      切走时 tab 是 display:none——不影响 <audio> 继续放。
