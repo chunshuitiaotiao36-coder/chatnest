@@ -182,13 +182,21 @@ def _parse_response(text: str) -> tuple[str, str, str, str]:
 async def _wake(conv_id: str, push_ok: bool = True) -> None:
     logger.info("[唤醒] tick → 调 AI conv=%s push_ok=%s", conv_id, push_ok)
 
+    model = claude.background_model("KEEPALIVE_MODEL")
+    if not model:
+        logger.warning("[唤醒] 挑不到模型，这一轮跳过")
+        return
+    logger.info("[唤醒] model=%s", model)
+
     text = ""
     session_id = None
     async for chunk in claude.stream_chat(
         message=_build_wake_message(conv_id),
         conv_id=conv_id,
         session_id=None,
-        model=os.environ.get("KEEPALIVE_MODEL", "claude-sonnet-4-6"),
+        # 🔴 不要写死模型 ID：她线路上的 id 带渠道前缀，裸 id 查不到，
+        #    stream_chat 第一行就 raise 然后被吞掉（见 background_model）。
+        model=model,
         source="keepalive",
         lean=False,  # 🔴 绝对不许 lean=True
     ):

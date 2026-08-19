@@ -446,6 +446,62 @@ def _record_usage(
     })
 
 
+def background_model(env_key: str = "") -> str:
+    """后台三条线（寄相思回信 / 唤醒 / 凌晨守护）用的模型。
+
+    🔴 绝对不要硬编码模型 ID。这个坑在 _summary_model 和
+    telegram._pick_model 上各踩过一次、注释都还留在原地，但这三条后台线
+    漏掉了：它们写死 "claude-sonnet-4-6"，而她线路上的 id 全带渠道前缀
+    （`[k-特惠]claude-sonnet-4-6`）。裸 id 在 available_models() 里查不到，
+    stream_chat 第一行就 raise ValueError("unsupported model")，再被外面的
+    except Exception 吞掉——回信和主动消息一起哑掉，日志里一个字都没有。
+
+    跟 _summary_model 的挑法不一样：那个是给 20 字摘要挑最便宜的档，这三条
+    是**她要读的东西**（回信、半夜那句话），所以挑她聊天在用的那一档
+    （激活线路的第一个 primary）。
+
+    env_key 是逃生口：想给某条线单独指定模型就设环境变量，但仍然要在可用
+    列表里校验——设错了宁可回落到默认，也不要重新变成静默失败。
+    """
+    try:
+        models = relays.active_models_rich()
+    except Exception:
+        cli_logger.exception("后台模型：激活线路读取失败")
+        models = []
+    if not any(m.get("id") for m in models):
+        # 激活线路上没有模型（她可能正切到一条还没配模型的线路上去试），
+        # 回落订阅线路——那条永远是她的底仓。
+        try:
+            models = relays.subscription_models() or []
+        except Exception:
+            cli_logger.exception("后台模型：订阅线路回落失败")
+            models = []
+    ids = [m["id"] for m in models if m.get("id")]
+    if not ids:
+        cli_logger.warning("后台模型：一条线路上都挑不到模型，这一轮跳过")
+        return ""
+
+    want = (os.environ.get(env_key) or "").strip() if env_key else ""
+    if want:
+        if want in ids:
+            return want
+        # 允许只写裸 id：`claude-opus-4-6` 命中 `[k-特惠]claude-opus-4-6`。
+        # 换线路时前缀会变，让她不必跟着改环境变量。
+        for mid in ids:
+            if want.lower() in mid.lower():
+                cli_logger.info("后台模型：%s=%s 模糊命中 %s", env_key, want, mid)
+                return mid
+        cli_logger.warning(
+            "后台模型：%s=%s 不在当前线路的可用列表里（%s），回落到默认",
+            env_key, want, ", ".join(ids),
+        )
+
+    for m in models:
+        if m.get("primary") and m.get("id"):
+            return m["id"]
+    return ids[0]
+
+
 async def stream_chat(
     message: str,
     conv_id: str,

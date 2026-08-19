@@ -1152,7 +1152,11 @@ async def _letter_auto_reply(
             instruction,
         ] if part])
 
-        _log.info("[回信] prompt len=%d，调 stream_chat", len(prompt))
+        model = claude.background_model("LETTER_REPLY_MODEL")
+        if not model:
+            _log.error("[回信] 挑不到模型，放弃")
+            return
+        _log.info("[回信] prompt len=%d model=%s，调 stream_chat", len(prompt), model)
 
         text = ""
         chunk_count = 0
@@ -1160,7 +1164,7 @@ async def _letter_auto_reply(
             message=prompt,
             conv_id=conv_id,
             session_id=None,
-            model=os.environ.get("LETTER_REPLY_MODEL", "claude-sonnet-4-6"),
+            model=model,
             source="letter_reply",
             lean=False,
         ):

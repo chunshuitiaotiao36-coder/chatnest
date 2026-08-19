@@ -191,6 +191,11 @@ def _build_message(conv_id: str, shot: Path | None = None) -> str:
 
 async def _speak(conv_id: str, shot: Path | None = None) -> str:
     """走真的梁忱。返回累积的正文。"""
+    model = claude.background_model("NIGHT_GUARD_MODEL")
+    if not model:
+        night_logger.warning("[凌晨守护] 挑不到模型，这一次不开口")
+        return ""
+    night_logger.info("[凌晨守护] model=%s", model)
     text = ""
     session_id = None
     async for chunk in claude.stream_chat(
@@ -199,7 +204,8 @@ async def _speak(conv_id: str, shot: Path | None = None) -> str:
         # 🔴 不要 resume：resume 会把整个会话上下文重放一遍，一次几万 token；
         #    拼最近 10 条只要几千。一晚可能触发两三次，差价是她的额度。
         session_id=None,
-        model=os.environ.get("NIGHT_GUARD_MODEL", "claude-sonnet-4-6"),
+        # 🔴 不要写死模型 ID：见 claude.background_model 的注释。
+        model=model,
         # 🔴 用量账本要能单独看见主动开口花了多少钱。额度是她的痛点，
         #    混进「网页」里等于把这笔账藏起来。
         source="nightguard",
