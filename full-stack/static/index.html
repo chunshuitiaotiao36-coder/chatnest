@@ -162,7 +162,7 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}textar
    高度由基线撑出来，内容一变高度就跳。
    「点一下导航栏就往上窜一截」是这个塌陷布局加上它当时还是 static 一起造成的。
    现在把它当成一个真正的组件来写：五等分、固定高度、玻璃底、激活态。 */
-#tabBar{position:fixed;left:0;right:0;bottom:0;z-index:81;display:flex;align-items:stretch;background:var(--bg-primary);border-top:1px solid var(--border);padding-bottom:env(safe-area-inset-bottom,34px);transform:translateY(var(--tabbar-fix,0px))}
+#tabBar{position:fixed;left:0;right:0;bottom:0;z-index:81;display:flex;align-items:stretch;background:var(--bg-primary);border-top:1px solid var(--border);padding-bottom:env(safe-area-inset-bottom,34px)}
 body.has-bg-light #tabBar,body.has-bg-dark #tabBar{background:var(--glass-panel-strong);border-top-color:var(--glass-line)}
 /* flex:1 1 0 —— 宽度跟文字内容彻底脱钩，「潮汐」和「Home」占一样宽；
    height 写死，红点显不显示、字体加载没加载，都不会让整条栏变高。 */
@@ -3441,9 +3441,10 @@ function applyDrawerProgress(progress,dragging=false){
   chat.style.setProperty('--drawer-radius',`${radius}px`);
   chat.style.setProperty('--drawer-shadow',drawerProgress>0?`0 8px 40px rgba(0,0,0,${alpha})`:'none');
   chat.classList.toggle('drawer-dragging',dragging);
-  // 导航栏是 body 级 fixed 元素，不跟 #chat 一起 transform 就会压在侧栏上
-  const tabBarEl=$('tabBar');
-  if(tabBarEl){tabBarEl.style.setProperty('--drawer-x',`${x}px`);tabBarEl.classList.toggle('drawer-dragging',dragging)}
+  /* 🔴 不给 #tabBar 加 transform（包括 translateX）！
+     iOS Safari 对 fixed 元素加任何 transform 都会破坏 viewport 锚定。
+     侧栏打开时导航栏不跟着滑是可以接受的（它有 z-index:81 盖在上面），
+     但位置飘到屏幕中间是不能接受的。 */
   $('drawer').setAttribute('aria-hidden',String(drawerProgress<=.01));
   $('drawer').toggleAttribute('inert',drawerProgress<=.01);
   gesture.style.left=`${x}px`;
@@ -7537,22 +7538,15 @@ var currentTab='chat';
    那会儿量到 0，写进去列表页又会撑满、再次把它顶出屏幕。 */
 function syncTabbarHeight(){
   const bar=$('tabBar'); if(!bar)return;
-  const cs=getComputedStyle(bar);
-  if(cs.display==='none')return;
-  /* 先把上一次的修正归零，否则量到的是修正之后的位置，会一次次叠加 */
-  bar.style.setProperty('--tabbar-fix','0px');
+  if(getComputedStyle(bar).display==='none')return;
+  /* 量高度 → 写入 --tabbar-h → .tab-page 靠它留出底部空间。
+     🔴 不做任何 transform / 几何补偿。
+     iOS Safari 对 fixed 元素施加 transform 后会把它从视口坐标系踢出去，
+     变成相对于最近 compositing ancestor 定位——这是之前导航栏飘到
+     屏幕中间的直接原因。position:fixed + bottom:0 本身在 iOS PWA
+     里是可靠的，前提是不碰 transform。 */
   const h=bar.offsetHeight;
   if(h>0) document.documentElement.style.setProperty('--tabbar-h',h+'px');
-  /* 🔴 几何兜底。08-19 这一条改了三轮，每一轮在云端 Chromium 里都实测通过、
-     在她真机上都还是浮在半空。不再猜根因了：不管 position:fixed 为什么没把它
-     钉住（祖先 containing block / dvh 与视口不一致 / iOS 自己的实现），
-     这里直接量「它离屏幕底还差多少」，差多少补多少。
-     环境正常时 gap 恒为 0，这段等于没执行——它不改变任何已经正确的行为。
-     基准用 documentElement.clientHeight（layout viewport）而不是
-     visualViewport.height：后者在键盘弹起时会缩，会把导航栏拽到键盘上面去。 */
-  if(cs.position!=='fixed') bar.style.position='fixed';
-  const gap=Math.round(document.documentElement.clientHeight-bar.getBoundingClientRect().bottom);
-  if(Math.abs(gap)>1) bar.style.setProperty('--tabbar-fix',gap+'px');
 }
 addEventListener('resize',syncTabbarHeight);addEventListener('orientationchange',()=>setTimeout(syncTabbarHeight,300));addEventListener('pageshow',()=>setTimeout(syncTabbarHeight,0));if(window.visualViewport)window.visualViewport.addEventListener('resize',syncTabbarHeight);
 
@@ -7563,7 +7557,7 @@ addEventListener('resize',syncTabbarHeight);addEventListener('orientationchange'
    让她的手机把数据直接摆出来。
    长按导航栏任意位置 1.2 秒弹出，点一下关掉，什么都不留。
    BUILD 那一行最要紧：一眼看出手机上跑的到底是不是最新那版，还是 PWA 缓存里的旧页面。 */
-const BUILD='2026-08-19 · tabbar-pin-v2';
+const BUILD='2026-08-19 · tabbar-no-transform';
 
 function _tbDiag(){
   const bar=$('tabBar'), out=[];
