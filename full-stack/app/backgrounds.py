@@ -10,7 +10,9 @@ META_PATH = STORE_DIR / "meta.json"
 SLOTS = ("light", "dark")
 MAX_BYTES = 5 * 1024 * 1024          # 前端已压到几百 KB，这里只是兜底
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp"}
-DEFAULT_MASK = 0.5
+# 🔴 从 0.5 降到 0.18。原来那层灰正是她说的「上传了还是那个底色，很丑」——
+# 半透明白盖在她的图上，图就成了背景噪点。要看清字的时候她自己往上拉。
+DEFAULT_MASK = 0.18
 
 
 def _blank() -> dict:

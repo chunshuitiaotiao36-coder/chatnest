@@ -143,7 +143,7 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}textar
 .msg-user .bubble>div:not(.message-attachments),.msg-claude .md,.msg-claude .md *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .msg-user.msg-pressing .bubble{opacity:.75;transition:opacity 120ms}.msg-claude.msg-pressing{opacity:.75;transition:opacity 120ms}
 #input,textarea,input{-webkit-user-select:text;user-select:text}
-.msg-claude .md{font-family:var(--font-sans);font-size:var(--text-read);word-break:break-word}.msg-claude .md.md-split{margin-top:1.05em}.avatar{flex:none;border-radius:var(--avatar-radius,26%);background-size:cover;background-position:center;display:grid;place-items:center;color:#fff;font-family:var(--font-serif,Georgia,serif);font-weight:400;letter-spacing:0;overflow:hidden;user-select:none}.avatar.has-img{color:transparent}.claude-face-row{display:flex;align-items:center;gap:9px;margin:0 0 9px}/* 🔴 定位保持跟书房 / 潮汐 / Home 那几页完全一致：不加 position、不碰 z-index。
+.msg-claude .md{font-family:var(--font-sans);font-size:var(--text-read);word-break:break-word}.msg-claude .md.md-split{margin-top:1.05em}.avatar{flex:none;border-radius:var(--avatar-radius,26%);background-size:cover;background-position:center;display:grid;place-items:center;color:#fff;font-family:var(--font-serif,Georgia,serif);font-weight:400;letter-spacing:0;overflow:hidden;user-select:none}.avatar.has-img{color:transparent}.claude-face-row{display:flex;align-items:center;gap:9px;margin:0 0 9px}.crop-overlay{position:fixed;inset:0;z-index:120;background:#0b0b0a;display:flex;flex-direction:column;touch-action:none}.crop-overlay[hidden]{display:none}.crop-stage{flex:1;position:relative;overflow:hidden;display:grid;place-items:center}#cropImg{position:absolute;transform-origin:0 0;will-change:transform;max-width:none;max-height:none;user-select:none;-webkit-user-drag:none}.crop-frame{position:absolute;pointer-events:none;border:2px solid rgba(255,255,255,.92);box-shadow:0 0 0 9999px rgba(0,0,0,.62);border-radius:var(--avatar-radius,26%)}.crop-hint{flex:none;padding:14px 0 2px;text-align:center;font:400 12px/1 var(--font-sans);color:rgba(255,255,255,.5)}.crop-bar{flex:none;display:flex;gap:10px;padding:14px 18px calc(env(safe-area-inset-bottom,34px) + 16px)}.crop-btn{flex:1;height:46px;border:0;border-radius:23px;background:rgba(255,255,255,.14);color:#fff;font:400 15px/46px var(--font-sans)}.crop-btn.is-primary{background:#fff;color:#1a1a18;font-weight:500}body.has-bg-light:before,body.has-bg-dark:before{content:'';position:fixed;inset:0;z-index:-2;background-image:var(--bg-img-light);background-size:cover;background-position:center;background-repeat:no-repeat}@media(prefers-color-scheme:dark){body.has-bg-dark:before{background-image:var(--bg-img-dark)}}body.has-bg-light:after,body.has-bg-dark:after{content:'';position:fixed;inset:0;z-index:-1;background:var(--bg-primary);opacity:var(--bg-mask,.18);pointer-events:none}body.has-bg-light,body.has-bg-dark{--bg-primary:rgba(248,248,246,.34);--claude-main-surface:transparent;--bg-surface:rgba(255,255,255,.42);--bubble-user:rgba(255,255,255,.46);--bg-chip:rgba(255,255,255,.4);--bg-composer:rgba(255,255,255,.5);--glass:blur(22px) saturate(1.5)}@media(prefers-color-scheme:dark){body.has-bg-light,body.has-bg-dark{--bg-primary:rgba(31,31,29,.4);--bg-surface:rgba(42,42,40,.48);--bubble-user:rgba(60,60,58,.52);--bg-chip:rgba(52,52,50,.46);--bg-composer:rgba(42,42,40,.55)}}body.has-bg-light .msg-user .bubble,body.has-bg-dark .msg-user .bubble,body.has-bg-light .composer-box,body.has-bg-dark .composer-box,body.has-bg-light .fsheet-header,body.has-bg-dark .fsheet-header,body.has-bg-light .moment-thread,body.has-bg-dark .moment-thread,body.has-bg-light .profile-card,body.has-bg-dark .profile-card,body.has-bg-light .chats-head-btn,body.has-bg-dark .chats-head-btn,body.has-bg-light #tabBar,body.has-bg-dark #tabBar{backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass)}body.has-bg-light .fsheet,body.has-bg-dark .fsheet,body.has-bg-light #tabChats,body.has-bg-dark #tabChats{background:var(--bg-primary)}body.has-bg-light .md,body.has-bg-dark .md,body.has-bg-light .chat-row-title,body.has-bg-dark .chat-row-title{text-shadow:0 1px 2px rgba(0,0,0,.06)}/* 🔴 定位保持跟书房 / 潮汐 / Home 那几页完全一致：不加 position、不碰 z-index。
    08-19 我一度给它 fixed+z-21、又给 tabBar 抬到 z-22，结果导航栏跑到了屏幕
    顶上——那两页在真机上本来是好的，说明遮盖关系另有机制在管，我按自己在
    桌面浏览器里看到的现象去『修』，修坏的是原本没坏的东西。
@@ -1277,6 +1277,19 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
 </section>
 
 <!-- 朋友圈：独立全屏面板 -->
+<!-- 头像裁切。原来是「居中自动裁方」，她的图主体不在正中就被切歪了。 -->
+<div id="cropOverlay" class="crop-overlay" hidden>
+  <div class="crop-stage" id="cropStage">
+    <img id="cropImg" alt="">
+    <div class="crop-frame" id="cropFrame"></div>
+  </div>
+  <div class="crop-hint">拖动移动 · 双指缩放</div>
+  <div class="crop-bar">
+    <button type="button" class="crop-btn" id="cropCancel">取消</button>
+    <button type="button" class="crop-btn is-primary" id="cropConfirm">用这块</button>
+  </div>
+</div>
+
 <section id="momentsPanel" class="fsheet" aria-hidden="true">
   <header class="fsheet-header">
     <button class="fsheet-back" id="momentsPanelBack" aria-label="返回">
@@ -1749,6 +1762,120 @@ function avatarEl(who,size=36){
   return el;
 }
 
+/* ---- 头像裁切 ---------------------------------------------------------
+   原来是「居中自动裁方」，她的图主体不在正中就被切歪了，比例也不对。
+   现在给一个取景框，图能拖能捏，裁哪块她说了算。
+
+   实现上只用一个 transform（scale + translate）驱动预览，确定时按同一组
+   参数在 canvas 上还原——预览和结果用同一套数学，不会「所见非所得」。 */
+const _crop={img:null,scale:1,minScale:1,x:0,y:0,frame:0,fx:0,fy:0,resolve:null,
+             pointers:new Map(),pinchStart:null};
+
+function _cropLayout(){
+  const stage=$('cropStage'),img=$('cropImg'),frame=$('cropFrame');
+  const sw=stage.clientWidth,sh=stage.clientHeight;
+  const side=Math.min(sw-56,sh-56,340);
+  _crop.frame=side;
+  _crop.fx=(sw-side)/2;_crop.fy=(sh-side)/2;
+  frame.style.width=frame.style.height=side+'px';
+  frame.style.left=_crop.fx+'px';frame.style.top=_crop.fy+'px';
+  /* 起始缩放：让图刚好盖满取景框（cover），这样一打开就没有空白边 */
+  const nw=_crop.img.naturalWidth,nh=_crop.img.naturalHeight;
+  _crop.minScale=Math.max(side/nw,side/nh);
+  _crop.scale=_crop.minScale;
+  img.style.width=nw+'px';img.style.height=nh+'px';
+  /* 居中放：这只是起点，她可以拖走 */
+  _crop.x=_crop.fx+(side-nw*_crop.scale)/2;
+  _crop.y=_crop.fy+(side-nh*_crop.scale)/2;
+  _cropApply();
+}
+function _cropClamp(){
+  /* 不许把图拖出取景框——留白比裁歪更难看，而且导出时会是透明块 */
+  const s=_crop.scale,w=_crop.img.naturalWidth*s,h=_crop.img.naturalHeight*s;
+  _crop.x=Math.min(_crop.fx,Math.max(_crop.fx+_crop.frame-w,_crop.x));
+  _crop.y=Math.min(_crop.fy,Math.max(_crop.fy+_crop.frame-h,_crop.y));
+}
+function _cropApply(){
+  _cropClamp();
+  $('cropImg').style.transform=`translate(${_crop.x}px,${_crop.y}px) scale(${_crop.scale})`;
+}
+
+function openCropper(file){
+  return new Promise((resolve)=>{
+    _crop.resolve=resolve;
+    const url=URL.createObjectURL(file);
+    const img=$('cropImg');
+    img.onload=()=>{ _crop.img=img; $('cropOverlay').hidden=false;
+                     requestAnimationFrame(_cropLayout); };
+    img.src=url;
+    _crop._url=url;
+  });
+}
+function closeCropper(result){
+  $('cropOverlay').hidden=true;
+  if(_crop._url){URL.revokeObjectURL(_crop._url);_crop._url=null}
+  _crop.pointers.clear();_crop.pinchStart=null;
+  const r=_crop.resolve;_crop.resolve=null;
+  if(r)r(result);
+}
+
+/* 手势：单指拖，双指捏。用 pointer events 一套处理，
+   不分 touch/mouse——桌面上也能试。 */
+(()=>{
+  const stage=$('cropStage'); if(!stage)return;
+  stage.addEventListener('pointerdown',e=>{
+    stage.setPointerCapture?.(e.pointerId);
+    _crop.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(_crop.pointers.size===2){
+      const [a,b]=[..._crop.pointers.values()];
+      _crop.pinchStart={dist:Math.hypot(a.x-b.x,a.y-b.y),scale:_crop.scale,
+                        cx:(a.x+b.x)/2,cy:(a.y+b.y)/2,x:_crop.x,y:_crop.y};
+    }
+  });
+  stage.addEventListener('pointermove',e=>{
+    const prev=_crop.pointers.get(e.pointerId); if(!prev)return;
+    const cur={x:e.clientX,y:e.clientY};
+    if(_crop.pointers.size===1){
+      _crop.x+=cur.x-prev.x;_crop.y+=cur.y-prev.y;
+      _cropApply();
+    }else if(_crop.pointers.size===2&&_crop.pinchStart){
+      _crop.pointers.set(e.pointerId,cur);
+      const [a,b]=[..._crop.pointers.values()];
+      const dist=Math.hypot(a.x-b.x,a.y-b.y);
+      const ps=_crop.pinchStart;
+      const next=Math.max(_crop.minScale,Math.min(ps.scale*(dist/ps.dist),_crop.minScale*6));
+      /* 以两指中点为锚缩放，不然图会往角上飞 */
+      const k=next/ps.scale;
+      _crop.scale=next;
+      _crop.x=ps.cx-(ps.cx-ps.x)*k;
+      _crop.y=ps.cy-(ps.cy-ps.y)*k;
+      _cropApply();
+      return;
+    }
+    _crop.pointers.set(e.pointerId,cur);
+  });
+  const up=e=>{ _crop.pointers.delete(e.pointerId); if(_crop.pointers.size<2)_crop.pinchStart=null; };
+  stage.addEventListener('pointerup',up);
+  stage.addEventListener('pointercancel',up);
+  addEventListener('resize',()=>{ if(!$('cropOverlay').hidden&&_crop.img)_cropLayout() });
+})();
+
+$('cropCancel').onclick=()=>closeCropper(null);
+$('cropConfirm').onclick=()=>{
+  /* 预览用的是 CSS transform，导出用同一组参数在 canvas 上还原——
+     取景框左上角在图上的坐标 = (fx - x) / scale */
+  const size=512;
+  const sx=(_crop.fx-_crop.x)/_crop.scale;
+  const sy=(_crop.fy-_crop.y)/_crop.scale;
+  const sSide=_crop.frame/_crop.scale;
+  const cvs=document.createElement('canvas');
+  cvs.width=cvs.height=size;
+  const ctx=cvs.getContext('2d');
+  ctx.fillStyle='#FFFFFF';ctx.fillRect(0,0,size,size);   /* 透明在 iOS 上会变黑 */
+  ctx.drawImage(_crop.img,sx,sy,sSide,sSide,0,0,size,size);
+  cvs.toBlob(b=>closeCropper(b),'image/jpeg',0.9);
+};
+
 /* ---- 头像设置 ---------------------------------------------------------
    两个 slot 共用一套逻辑，别为「她的」和「他的」各写一份。 */
 const _AV_LABEL={xiaoduo:'Xiaoduo',elian:'Elian'};
@@ -1769,10 +1896,11 @@ async function loadAvatarSettings(){
 
 async function uploadAvatar(who,file){
   const L=_AV_LABEL[who];
+  /* 先让她自己裁。取消就什么都不做——不要「取消了还是传了自动裁的那版」 */
+  const blob=await openCropper(file);
+  if(!blob)return;
   $(`avatarState${L}`).textContent='处理中…';
   try{
-    /* 头像裁方 + 压到 512：显示最大也就 46px，再大是白传 */
-    const blob=await _shrinkToJpeg(file,512,0.88,true);
     const fd=new FormData();
     fd.append('file',new File([blob],`${who}.jpg`,{type:'image/jpeg'}));
     const r=await api(`/api/faces/${who}`,{method:'POST',body:fd});
