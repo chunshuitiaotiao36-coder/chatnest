@@ -514,11 +514,22 @@ body:not(.chat-ready) .tab-page {
 .composer-wrap {
   padding-bottom: calc(env(safe-area-inset-bottom, 34px) + var(--space-2) + var(--tabbar-h));
 }
-/* 导航栏收起来了，这份让位就是凭空多出来的一截，输入框会浮在键盘上方。
-   两种收起都算：打字时临时收（keyboard-open），和进了对话整段收（in-chat）。 */
-body.keyboard-open .composer-wrap,
-body.in-chat .composer-wrap {
+/* 导航栏收起来了，这份让位就是凭空多出来的一截，输入框会浮在键盘上方。 */
+body.keyboard-open .composer-wrap {
   padding-bottom: calc(env(safe-area-inset-bottom, 34px) + var(--space-2));
+}
+/* —— 进了对话，输入框要真正坐到屏幕底 ——
+   导航栏整个不存在了，那块地方本来就是留给输入框的。
+   但**不整份让出 safe-area-inset-bottom**：那 34px 是给 home indicator 的余量，
+   而 indicator 本身只是底部约 8px 高的一小条，整份让出来底下就空一大截。
+   实测（小朵 08-20 的截图，dpr 3）：整份让出时最底那颗发送钮距屏幕底 51.3px，
+   她给的参考 app 是 20.7px —— 差整整 30px，就是她说的「留白太大」。
+   算式：12(这里) + 8(.composer-box 的 padding) + 1(边框) ≈ 21px，对齐参考图。
+   max() 兜住没有 home indicator 的机型：那里 env() 是 0，取 --space-2 的 8px。
+   放在 keyboard-open 之后：两者特异性相同，打字时也用这份更紧的值
+   （键盘已经盖住底部，safe-area 那份余量在那种时候本来也是浪费）。 */
+body.in-chat .composer-wrap {
+  padding-bottom: max(var(--space-2), calc(env(safe-area-inset-bottom, 34px) - 22px));
 }
 .toast {
   bottom: calc(env(safe-area-inset-bottom, 34px) + 92px + var(--tabbar-h));
