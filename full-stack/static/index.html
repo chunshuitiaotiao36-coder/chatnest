@@ -1345,7 +1345,7 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
   </div>
   <!-- v4 这个小版本号是临时的：确认真机上跑的到底是不是最新那版。
        裁切确认好了就删掉。 -->
-    <div class="crop-hint">拖动移动 · 双指缩放<span style="opacity:.45"> · v4</span></div>
+    <div class="crop-hint">拖动移动 · 双指缩放<span style="opacity:.45"> · v5</span></div>
   <div class="crop-bar">
     <button type="button" class="crop-btn" id="cropCancel">取消</button>
     <button type="button" class="crop-btn is-primary" id="cropConfirm">用这块</button>
@@ -1979,8 +1979,22 @@ async function loadAvatarSettings(){
 
 async function uploadAvatar(who,file){
   const L=_AV_LABEL[who];
+  /* 🔴 先把原片缩到 1600 以内，再进裁剪框。
+     iOS Safari 对超大 JPEG 会降分辨率解码，而 canvas 的 drawImage 遇到超过阈值的图
+     会**无视目标矩形、按自然像素往左上角怼**——画布只有 512，于是导出的就是原图
+     左上角那 512 像素见方的一小块，看着像「往左上角放大了 N 倍」，
+     N 正好是 原图宽/512。2026-08-20 实测她的头像放大 6~25 倍，对应 3000~12000px 宽的图。
+     <img> 自己渲染没这个毛病（预览一直是对的），所以这个 bug 只在导出那一步现形，
+     几何怎么算都修不掉——我为此白改了三版（定位/EXIF/读渲染框）。
+     _shrinkToJpeg 走 createImageBitmap，是完整解码，不吃这一套；
+     它的注释本来就写着「封面和头像共用」，是加裁剪框那次把这步漏掉了。
+     1600 跟本文件 :1637 的 MAX_DIM 取同一个值：2.56MP 以内，稳在阈值下面；
+     输出只有 512，就算她捏到最大（minScale x6）也还有 267px 源像素，够用。
+     缩图失败就退回原片——总比不让她换头像强。 */
+  let _src=file;
+  try{ _src=await _shrinkToJpeg(file,1600,0.92) }catch(e){ console.warn('shrink',e) }
   /* 先让她自己裁。取消就什么都不做——不要「取消了还是传了自动裁的那版」 */
-  const blob=await openCropper(file);
+  const blob=await openCropper(_src);
   if(!blob)return;
   $(`avatarState${L}`).textContent='处理中…';
   try{
@@ -7654,7 +7668,7 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',syncAn
    让她的手机把数据直接摆出来。
    长按导航栏任意位置 1.2 秒弹出，点一下关掉，什么都不留。
    BUILD 那一行最要紧：一眼看出手机上跑的到底是不是最新那版，还是 PWA 缓存里的旧页面。 */
-const BUILD='2026-08-20 · 裁切读渲染框 v4';
+const BUILD='2026-08-20 · 裁切前先缩图 v5';
 
 function _tbDiag(){
   tbSnap('diag');   /* 补上最后一次点击沉淀之后的状态 */
