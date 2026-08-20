@@ -1343,7 +1343,9 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
     <img id="cropImg" alt="">
     <div class="crop-frame" id="cropFrame"></div>
   </div>
-  <div class="crop-hint">拖动移动 · 双指缩放</div>
+  <!-- v4 这个小版本号是临时的：确认真机上跑的到底是不是最新那版。
+       裁切确认好了就删掉。 -->
+    <div class="crop-hint">拖动移动 · 双指缩放<span style="opacity:.45"> · v4</span></div>
   <div class="crop-bar">
     <button type="button" class="crop-btn" id="cropCancel">取消</button>
     <button type="button" class="crop-btn is-primary" id="cropConfirm">用这块</button>
@@ -7652,7 +7654,7 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',syncAn
    让她的手机把数据直接摆出来。
    长按导航栏任意位置 1.2 秒弹出，点一下关掉，什么都不留。
    BUILD 那一行最要紧：一眼看出手机上跑的到底是不是最新那版，还是 PWA 缓存里的旧页面。 */
-const BUILD='2026-08-20 · 断开 --tabbar-h 正反馈 v3';
+const BUILD='2026-08-20 · 裁切读渲染框 v4';
 
 function _tbDiag(){
   tbSnap('diag');   /* 补上最后一次点击沉淀之后的状态 */
