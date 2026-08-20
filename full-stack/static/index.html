@@ -7609,9 +7609,10 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',syncAn
    让她的手机把数据直接摆出来。
    长按导航栏任意位置 1.2 秒弹出，点一下关掉，什么都不留。
    BUILD 那一行最要紧：一眼看出手机上跑的到底是不是最新那版，还是 PWA 缓存里的旧页面。 */
-const BUILD='2026-08-19 · 导航栏焊死 v2';
+const BUILD='2026-08-20 · 切 tab 探针 v1';
 
 function _tbDiag(){
+  tbSnap('diag');   /* 补上最后一次点击沉淀之后的状态 */
   const bar=$('tabBar'), out=[];
   /* env() 只能在 CSS 里求值，塞进一个离屏元素量它的高度是唯一拿到实测值的办法 */
   const probe=document.createElement('div');
@@ -7637,6 +7638,40 @@ function _tbDiag(){
   }
   out.push('BUILD   '+BUILD);
   out.push('standalone   '+(navigator.standalone===true||matchMedia('(display-mode:standalone)').matches));
+  out.push('');
+  /* ───────── 切 tab 探针表 ─────────
+     放在最上面：一张截图要装得下，这是这张表存在的全部意义。
+     字段与施工单 §3 一一对应，一条不少；但常量列（scr/pos）和全程相同的列
+     （ih/vv 等于 vh、两个 scrollTop 都是 0）抽到表头打一次，省出的横向宽度
+     让一条记录占一行不折行。这些列一旦真的变了就自动出现——那正是判据。 */
+  const _L=window._tbLog||[];
+  if(!_L.length){ out.push('切 tab 记录   (空 —— 还没切过 tab)'); }
+  else{
+    const shown=_L.slice(-24);
+    const uniq=k=>[...new Set(_L.map(x=>x[k]))];
+    const scrs=uniq('scr'), poss=uniq('pos');
+    const posVaries=poss.length>1||poss[0]!=='fixed';
+    const vhSame=_L.every(x=>x.ih===x.vh&&x.vv===x.vh);
+    const noScroll=_L.every(x=>x.bScr===0&&x.dScr===0);
+    /* 表头拆两行：合成一行是 70 个显示列，手机上一行只放得下约 50，会折。 */
+    const notes=['scr='+scrs.join('/')];
+    if(!posVaries) notes.push('pos=fixed');
+    if(vhSame)     notes.push('ih/vv=vh');
+    if(noScroll)   notes.push('scroll=0');
+    out.push('切 tab 记录（施工单 §3）');
+    out.push('常量: '+notes.join('  '));
+    if(posVaries)     out.push('⚠ pos 变过: '+poss.join('/')+'   ← 施工单 3.1 第二条');
+    if(scrs.length>1) out.push('⚠ screen.height 变过（转屏？）各行不能横向比');
+    const cols=[['vh',4,x=>x.vh]];
+    if(!vhSame){ cols.push(['ih',4,x=>x.ih],['vv',4,x=>x.vv]) }
+    cols.push(['bBot',5,x=>x.barBot],['gap',4,x=>x.gap]);
+    if(!noScroll){ cols.push(['bScr',5,x=>x.bScr],['dScr',5,x=>x.dScr]) }
+    if(posVaries){ cols.push(['pos',7,x=>x.pos]) }
+    const row=(t,f)=>String(t).padEnd(9)+cols.map(c=>String(f(c)).padStart(c[1])).join('')+'  ';
+    out.push(row('tab',c=>c[0])+'focus');
+    shown.forEach(x=>out.push(row(x.tag,c=>c[2](x))+x.focus));
+    if(_L.length>shown.length) out.push('(更早的 '+(_L.length-shown.length)+' 条已滚掉)');
+  }
   out.push('');
   out.push('innerHeight          '+innerHeight);
   out.push('docEl.clientHeight   '+document.documentElement.clientHeight);
@@ -7726,8 +7761,37 @@ function openTabbarDiag(){
 })();
 
 
+/* ───────── 切 tab 探针（施工单第 3 节）─────────
+   🔴 只记录，不改行为：只读 getBoundingClientRect / getComputedStyle，
+   不写样式、不改 class、不注册监听。修法要等真机把这张表拍出来再定。
+   八轮全栽在「跳过先测这一步」上，别再跳。
+   看表：长按底部导航栏 1.2 秒 → 面板最上面那张表。 */
+window._tbLog = window._tbLog || [];
+function tbSnap(tag){
+  const bar=document.getElementById('tabBar'); if(!bar)return;
+  const log=window._tbLog||(window._tbLog=[]);
+  const r=bar.getBoundingClientRect(), vv=window.visualViewport;
+  const vh=document.documentElement.clientHeight;
+  log.push({
+    tag, vh, ih:innerHeight,
+    vv: vv?Math.round(vv.height):-1,
+    scr: screen.height,
+    barBot: Math.round(r.bottom),
+    gap: Math.round(vh-r.bottom),
+    pos: getComputedStyle(bar).position,
+    focus: (document.activeElement&&(document.activeElement.id||document.activeElement.tagName))||'-',
+    bScr: Math.round(document.body.scrollTop),
+    dScr: Math.round(document.documentElement.scrollTop)
+  });
+  if(log.length>60) log.shift();
+}
 function tabPages(){return{chats:$('tabChats'),tidal:$('tabTidal'),music:$('tabMusic'),reading:$('tabReading'),home:$('tabHome')}}
 function switchTab(name){
+  /* 🔴 探针在两个 early-return **之前**。连点同一个 tab 时下面第二行会直接
+     return，只留下一条没有配对 '>' 的 '<' 行。要是导航栏在这种空操作上
+     照样往上窜，病灶就不在 switchTab() 里，而在 <button> 拿焦点那件事上
+     （施工单 4.3）。这个判据不花额外代价。 */
+  tbSnap(name+'<');
   const pages=tabPages();
   if(name!=='chat'&&!pages[name])return;
   if(name===currentTab)return;
@@ -7768,6 +7832,7 @@ function switchTab(name){
     /* 朋友圈红点：他发动态不推送，这个数字是她唯一的信号 */
     refreshBadges();
     loadStarmapCount();}
+  tbSnap(name+'>');   /* 探针：这一次切换落定之后 */
 }
 document.querySelectorAll('#tabBar .tab-item').forEach(t=>{t.addEventListener('click',()=>switchTab(t.dataset.tab))});
 </script>
