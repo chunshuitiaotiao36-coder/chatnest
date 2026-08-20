@@ -364,6 +364,20 @@ body.keyboard-open #tabBar {
   pointer-events: none;
 }
 
+/* —— 进了具体某段对话，把导航栏整个收走 ——
+   聊天是全屏阅读态，不该再占掉底部 90px。
+   body.in-chat 由 enterChat() 挂、exitChat() 摘；switchTab() 切去任何别的 tab
+   也会摘 —— 这条不能省，否则导航栏消失她就出不来了。
+   回列表的出口是顶栏左上角那个键：syncTopbarBackIcon()(index.html:3497) 把它
+   换成 ‹、aria-label 改成「返回对话列表」，点击走 exitChat()(index.html:3493)。
+   用 display:none 而不是 keyboard-open 那种 translate：那个是临时让位、要能滑回来，
+   这个是整段会话期间都不存在。
+   ⚠️ 配套：.composer-wrap 和 .toast 本来一直给导航栏预留 var(--tabbar-h)，
+   导航栏没了那份预留就是凭空多出来的一截，下面两处已经跟着摘掉。 */
+body.in-chat #tabBar {
+  display: none;
+}
+
 .tab-item {
   flex: 1;
   display: flex;
@@ -500,12 +514,18 @@ body:not(.chat-ready) .tab-page {
 .composer-wrap {
   padding-bottom: calc(env(safe-area-inset-bottom, 34px) + var(--space-2) + var(--tabbar-h));
 }
-/* 导航栏收起来了，这份让位就是凭空多出来的一截，输入框会浮在键盘上方。 */
-body.keyboard-open .composer-wrap {
+/* 导航栏收起来了，这份让位就是凭空多出来的一截，输入框会浮在键盘上方。
+   两种收起都算：打字时临时收（keyboard-open），和进了对话整段收（in-chat）。 */
+body.keyboard-open .composer-wrap,
+body.in-chat .composer-wrap {
   padding-bottom: calc(env(safe-area-inset-bottom, 34px) + var(--space-2));
 }
 .toast {
   bottom: calc(env(safe-area-inset-bottom, 34px) + 92px + var(--tabbar-h));
+}
+/* 同理：进了对话导航栏收走了，toast 不该再往上垫那一截 */
+body.in-chat .toast {
+  bottom: calc(env(safe-area-inset-bottom, 34px) + 92px);
 }
 
 /* —— 输入框字号 ——

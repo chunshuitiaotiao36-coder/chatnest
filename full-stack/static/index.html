@@ -325,14 +325,15 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
 <script src="/marked.min.js?v=2"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css">
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js"></script>
-<!-- 🔴 导航栏焊死块。独立成一个 <style>、放在 head 最后、全部 !important。
-     理由：主样式表里 #tabBar{position:fixed;bottom:0} 本身是对的（注释和括号都
-     配平、没有任何规则覆盖它、html/body 上也没有 transform 之类制造 containing
-     block 的属性），可它在真机上就是没生效。查不动了，那就不给任何东西掀翻它的
-     机会。这块只管「钉在哪」，长相仍然归上面的主样式表管。 -->
-<style>
-#tabBar{position:fixed!important;left:0!important;right:0!important;bottom:0!important;top:auto!important;transform:none!important;z-index:81!important}
-</style>
+<!-- 🔴 这里原来有一块「导航栏焊死」的 !important 样式（c625c26 加的），2026-08-20 删除。
+     它当年是为了修「导航栏往上窜」，而那个 bug 的真因是 --tabbar-h 正反馈把导航栏
+     **撑高**了（见 index.html 里 syncTabbarHeight() 上面那段），位置从来就没错过，
+     所以这块从头到尾没起过作用。留着反而有害：
+       transform:none!important → 掐掉 design-system.css:344 的 translateX(--drawer-x)，
+                                  导航栏不再跟着侧栏一起滑
+       z-index:81!important     → 压过 design-system.css 刻意设的 25，
+                                  让导航栏盖住本该盖住它的 #drawerOverlay(30)/.sheet(41)
+     别再加回来。位置不对时先量导航栏**自己的高度**，再怀疑定位。 -->
 </head>
 <body>
 <div id="bgLayer" aria-hidden="true"></div>
@@ -7856,6 +7857,8 @@ function switchTab(name){
      把顶栏左上角那个键从「打开历史」变成「返回列表」。
      切到任何别的 tab 都要摘掉，否则导航栏消失她就出不来了。 */
   if(name!=='chat')document.body.classList.remove('in-chat');
+  /* in-chat 摘掉了，左上角那个键得从 ‹ 变回 ☰，否则图标会停在返回态 */
+  try{ syncTopbarBackIcon() }catch(e){ console.warn('syncTopbarBackIcon',e) }
   currentTab=name;
   /* 页面已经换完了，下面全是「进新页」的副作用。同样一律吞掉：
      某个面板加载失败不该让导航栏从此失灵。 */
