@@ -1345,7 +1345,7 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
   </div>
   <!-- v4 这个小版本号是临时的：确认真机上跑的到底是不是最新那版。
        裁切确认好了就删掉。 -->
-    <div class="crop-hint">拖动移动 · 双指缩放<span style="opacity:.45"> · v7</span></div>
+    <div class="crop-hint">拖动移动 · 双指缩放<span style="opacity:.45"> · v8</span></div>
   <div class="crop-bar">
     <button type="button" class="crop-btn" id="cropCancel">取消</button>
     <button type="button" class="crop-btn is-primary" id="cropConfirm">用这块</button>
@@ -1816,7 +1816,14 @@ function avatarEl(who,size=36){
   el.className='avatar';
   el.style.width=el.style.height=`${size}px`;
   const fb=faceFallback(who);
-  el.style.background=fb.bg;
+  /* 🔴 必须用 backgroundColor，不能用 background 简写。
+     简写会把 background-size / background-position 一并重置成 auto / 0% 0%，
+     而且是**内联**的，直接压过样式表里 .avatar{background-size:cover;background-position:center}。
+     结果：512x512 的头像按原始尺寸、左上角对齐塞进 40x40 的框，
+     只露出裁剪结果左上角那 40 个像素 —— 看着就是「换的头像不是我裁的那块，
+     还往左上角放大了」。40/512 = 7.8%，和实测的有效区域完全吻合。
+     2026-08-20 为这个查了 7 版裁切代码，裁切从头到尾都是对的，错在这一行显示。 */
+  el.style.backgroundColor=fb.bg;
   el.style.color=fb.fg;
   el.textContent=fb.text;
   el.style.fontSize=`${Math.round(size*0.42)}px`;
@@ -1824,6 +1831,9 @@ function avatarEl(who,size=36){
     if(!url)return;
     el.textContent='';
     el.style.backgroundImage=`url('${url}')`;
+    /* 再显式写一遍，谁以后又手滑用了 background 简写也盖不掉 */
+    el.style.backgroundSize='cover';
+    el.style.backgroundPosition='center';
     el.classList.add('has-img');
   });
   return el;
@@ -2027,7 +2037,7 @@ async function uploadAvatar(who,file){
     facesState=await r.json();
     _faceBlob[who].v=-1;              /* 强制重取 */
     await loadAvatarSettings();
-    toast('换好了 · '+(window._cropDbg||'无数据'));
+    toast('头像换好了');
   }catch(e){
     await loadAvatarSettings();
     toast(String(e.message)==='413'?'图太大了':'头像没换上');
@@ -7690,7 +7700,7 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',syncAn
    让她的手机把数据直接摆出来。
    长按导航栏任意位置 1.2 秒弹出，点一下关掉，什么都不留。
    BUILD 那一行最要紧：一眼看出手机上跑的到底是不是最新那版，还是 PWA 缓存里的旧页面。 */
-const BUILD='2026-08-20 · 双路算 + 报数字 v7';
+const BUILD='2026-08-20 · 头像显示 background 简写 v8';
 
 function _tbDiag(){
   tbSnap('diag');   /* 补上最后一次点击沉淀之后的状态 */
