@@ -1345,7 +1345,7 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
   </div>
   <!-- v4 这个小版本号是临时的：确认真机上跑的到底是不是最新那版。
        裁切确认好了就删掉。 -->
-    <div class="crop-hint">拖动移动 · 双指缩放<span style="opacity:.45"> · v5</span></div>
+    <div class="crop-hint">拖动移动 · 双指缩放<span style="opacity:.45"> · v6</span></div>
   <div class="crop-bar">
     <button type="button" class="crop-btn" id="cropCancel">取消</button>
     <button type="button" class="crop-btn is-primary" id="cropConfirm">用这块</button>
@@ -1835,7 +1835,7 @@ function avatarEl(who,size=36){
 
    实现上只用一个 transform（scale + translate）驱动预览，确定时按同一组
    参数在 canvas 上还原——预览和结果用同一套数学，不会「所见非所得」。 */
-const _crop={img:null,scale:1,minScale:1,x:0,y:0,frame:0,fx:0,fy:0,resolve:null,
+const _crop={img:null,scale:1,minScale:1,x:0,y:0,frame:0,fx:0,fy:0,resolve:null,srcBlob:null,
              pointers:new Map(),pinchStart:null};
 
 function _cropLayout(){
@@ -1870,6 +1870,7 @@ function _cropApply(){
 function openCropper(file){
   return new Promise((resolve)=>{
     _crop.resolve=resolve;
+    _crop.srcBlob=file;          /* 导出要拿它做 ImageBitmap，见 cropConfirm */
     const url=URL.createObjectURL(file);
     const img=$('cropImg');
     img.onload=()=>{ _crop.img=img; $('cropOverlay').hidden=false;
@@ -1928,34 +1929,46 @@ function closeCropper(result){
 })();
 
 $('cropCancel').onclick=()=>closeCropper(null);
-$('cropConfirm').onclick=()=>{
-  /* 🔴 导出**只读屏幕上的真实几何**，一个 _crop.* 都不碰。
-     2026-08-20 实测（小朵的两张截图，dpr 3）：裁剪界面渲染得完全正确——
-     取景框 fx=28.0 边长 336.7，图渲染在 x=28.0 y=172.3、337x407 —— 跟模型对得上；
-     可导出来的头像做多尺度匹配后，是图上一块只有 13~60 CSSpx 的方块
-     （她框的是 336.7），放大了 6~25 倍，位置在照片左上角附近。
-     反推唯一自洽的解释：导出那一刻 _crop.scale 是 1（_crop 对象的初始值），
-     而渲染用的是正确的 scale —— 模型和渲染岔开了。
-     （所以上一版把 9 参数 drawImage 换成 5 参数毫无变化：两种写法读的是同一个跑偏的值。）
-     与其去追它为什么会岔开，不如让导出根本不依赖模型：
-     getBoundingClientRect() 返回的是**变换之后**的渲染框，
-     拿它算，「所见即所得」就是构造上成立的，跟 _crop 是否新鲜、
-     _cropLayout 有没有跑完、图有没有 EXIF 方向，全都无关。
+$('cropConfirm').onclick=async()=>{
+  /* 🔴 源必须是 ImageBitmap，不能是 <img> 元素。
 
-     推导：q = 512 / 取景框渲染宽（屏幕 px → 输出 px）；
-     图相对取景框左上角的偏移和尺寸，各乘 q 就是画布上的目标矩形。
-     仍用 5 参数 drawImage（只有目标矩形）：整图已应用 EXIF 方向后缩放进去，
-     不存在源坐标系歧义，画布自己把框外裁掉。 */
+     2026-08-20 的证据链（不是推断，是实测）：
+     - 她真机上 v5 的裁剪界面显示的是**缩好的图**，说明 _shrinkToJpeg 成功了；
+       而那个函数干的正是 createImageBitmap → canvas.drawImage(带源矩形) → toBlob。
+       ⇒ 这三样在她机器上都是好的。
+     - 可导出的头像量出来是平均 (251,241,246)、**标准差 1.0** 的纯色块，
+       即源区域只剩几个像素被放到 512 —— 等于 drawImage 完全没按目标矩形画。
+     ⇒ 唯一的差别就是源：导出这一步用的是 <img> 元素。
+     iOS Safari 对大图会降分辨率解码 <img>，drawImage 拿它当源时几何会整个失效
+     （表现为「往左上角放大 N 倍」）。ImageBitmap 是完整解码的位图，没这个问题。
+     我为此白改了四版几何（定位/EXIF/读渲染框/先缩图），几何从来就没错过。
+
+     几何仍然只读屏幕上的渲染框（0956a80 那版的思路，留着）：
+     k = bitmap 宽 / 图的渲染宽 —— 把屏幕 CSS px 换算成 bitmap 像素；
+     取景框相对图左上角的偏移和边长，乘 k 就是源矩形。 */
   const size=512;
   const ir=_crop.img.getBoundingClientRect();
   const fr=$('cropFrame').getBoundingClientRect();
   if(!fr.width||!ir.width){ toast('裁切没算出来'); return }
-  const q=size/fr.width;
   const cvs=document.createElement('canvas');
   cvs.width=cvs.height=size;
   const ctx=cvs.getContext('2d');
   ctx.fillStyle='#FFFFFF';ctx.fillRect(0,0,size,size);   /* 透明在 iOS 上会变黑 */
-  ctx.drawImage(_crop.img,(ir.left-fr.left)*q,(ir.top-fr.top)*q,ir.width*q,ir.height*q);
+  let bmp=null;
+  try{ bmp=await createImageBitmap(_crop.srcBlob) }catch(e){ console.warn('createImageBitmap',e) }
+  if(bmp){
+    const k=bmp.width/ir.width;
+    const ss=fr.width*k;
+    /* 夹到位图范围内：源矩形越界时浏览器会按比例缩目标矩形，画出来就偏了 */
+    const sx=Math.max(0,Math.min(bmp.width -ss,(fr.left-ir.left)*k));
+    const sy=Math.max(0,Math.min(bmp.height-ss,(fr.top -ir.top )*k));
+    ctx.drawImage(bmp,sx,sy,ss,ss,0,0,size,size);
+    bmp.close();
+  }else{
+    /* createImageBitmap 不可用时的退路：老办法，至少不是白图 */
+    const q=size/fr.width;
+    ctx.drawImage(_crop.img,(ir.left-fr.left)*q,(ir.top-fr.top)*q,ir.width*q,ir.height*q);
+  }
   cvs.toBlob(b=>closeCropper(b),'image/jpeg',0.9);
 };
 
@@ -7668,7 +7681,7 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',syncAn
    让她的手机把数据直接摆出来。
    长按导航栏任意位置 1.2 秒弹出，点一下关掉，什么都不留。
    BUILD 那一行最要紧：一眼看出手机上跑的到底是不是最新那版，还是 PWA 缓存里的旧页面。 */
-const BUILD='2026-08-20 · 裁切前先缩图 v5';
+const BUILD='2026-08-20 · 导出改用 ImageBitmap v6';
 
 function _tbDiag(){
   tbSnap('diag');   /* 补上最后一次点击沉淀之后的状态 */
