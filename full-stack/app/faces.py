@@ -30,6 +30,11 @@ MAX_BYTES = 5 * 1024 * 1024        # 前端已经压过，这里只兜底
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp"}
 SIGNATURE_MAX = 120
 
+# 备注：她给两个人各起的称呼。她的原话是「Elian·梁忱 太官方了」。
+# 跟形状/签名一样存 meta 而不是 localStorage——换个设备打开该是同一个称呼。
+# 留空 = 用前端的默认名，所以这里不设默认值，空字符串就是"没设"。
+ALIAS_MAX = 24
+
 # 头像形状。她说圆的有点丑，要能自己切。
 # 存在 meta 里而不是 localStorage：换个设备打开该是同一个样子。
 SHAPES = ("circle", "rounded", "squircle")
@@ -70,6 +75,8 @@ def get_state() -> dict:
         for slot in SLOTS
     }
     out["signature"] = str(meta.get("signature") or "")
+    alias = meta.get("alias") or {}
+    out["alias"] = {k: str(alias.get(k) or "") for k in AVATAR_SLOTS}
     shape = str(meta.get("shape") or DEFAULT_SHAPE)
     out["shape"] = shape if shape in SHAPES else DEFAULT_SHAPE
     return out
@@ -109,6 +116,18 @@ def set_shape(shape: str) -> dict:
         raise ValueError("unknown shape")
     meta = _load_meta()
     meta["shape"] = shape
+    _save_meta(meta)
+    return get_state()
+
+
+def set_alias(slot: str, text: str) -> dict:
+    """给某个人设备注。空字符串 = 清掉，回到默认名。"""
+    if slot not in AVATAR_SLOTS:
+        raise ValueError("unknown slot")
+    meta = _load_meta()
+    alias = dict(meta.get("alias") or {})
+    alias[slot] = str(text or "").strip()[:ALIAS_MAX]
+    meta["alias"] = alias
     _save_meta(meta)
     return get_state()
 

@@ -537,6 +537,17 @@ async def faces_shape(body: FaceShapeBody) -> dict:
     return await asyncio.to_thread(faces.set_shape, body.shape)
 
 
+class FaceAliasBody(BaseModel):
+    slot: str = Field(pattern="^(xiaoduo|elian)$")
+    text: str = Field(default="", max_length=faces.ALIAS_MAX)
+
+
+@app.put("/api/faces/alias", dependencies=[Depends(require_auth)])
+async def faces_alias(body: FaceAliasBody) -> dict:
+    """备注。跟 shape/signature 一样存服务端：换个设备打开该是同一个称呼。"""
+    return await asyncio.to_thread(faces.set_alias, body.slot, body.text)
+
+
 @app.put("/api/faces/signature", dependencies=[Depends(require_auth)])
 async def faces_signature(body: SignatureBody) -> dict:
     return await asyncio.to_thread(faces.set_signature, body.text)

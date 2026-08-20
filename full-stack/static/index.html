@@ -633,6 +633,13 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
           聊天、朋友圈、以后的日记和琴房都用这一份。没设的时候显示名字里那个字。
         </div>
         <div class="profile-divider"></div>
+        <div class="bg-slot-name" style="margin-bottom:9px">备注</div>
+        <input class="profile-name-input" id="aliasInputXiaoduo" maxlength="24"
+        placeholder="你的备注（默认「小朵」）">
+        <input class="profile-name-input" id="aliasInputElian" maxlength="24" style="margin-top:9px"
+        placeholder="他的备注（默认「Elian · 梁忱」）">
+        <div class="profile-help-text">改的是聊天里头像旁边那行、和朋友圈评论里的名字。留空就用默认的。</div>
+        <div class="profile-divider"></div>
         <div class="bg-slot-name" style="margin-bottom:9px">个性签名</div>
         <input class="profile-name-input" id="signatureInput" maxlength="120"
                placeholder="写一句挂在朋友圈封面上的话">
@@ -1343,9 +1350,7 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
     <img id="cropImg" alt="">
     <div class="crop-frame" id="cropFrame"></div>
   </div>
-  <!-- v4 这个小版本号是临时的：确认真机上跑的到底是不是最新那版。
-       裁切确认好了就删掉。 -->
-    <div class="crop-hint">拖动移动 · 双指缩放<span style="opacity:.45"> · v8</span></div>
+  <div class="crop-hint">拖动移动 · 双指缩放</div>
   <div class="crop-bar">
     <button type="button" class="crop-btn" id="cropCancel">取消</button>
     <button type="button" class="crop-btn is-primary" id="cropConfirm">用这块</button>
@@ -1745,7 +1750,7 @@ $('iconClear').onclick=async()=>{
 
    🔴 图走 blob: 不走 CSS url() 直连。文件接口挂着 require_auth，
    CSS 发的请求带不上 Bearer——跟背景图那套同一个道理（见 applyBgSlot）。 */
-let facesState={xiaoduo:{set:false,v:0},elian:{set:false,v:0},cover:{set:false,v:0},signature:''};
+let facesState={xiaoduo:{set:false,v:0},elian:{set:false,v:0},cover:{set:false,v:0},signature:'',alias:{xiaoduo:'',elian:''}};
 const _faceBlob={xiaoduo:{url:'',v:-1},elian:{url:'',v:-1},cover:{url:'',v:-1}};
 
 async function loadFaces(){
@@ -1793,7 +1798,7 @@ function claudeFaceRow(){
   wrap.append(avatarEl('elian',32));
   const name=document.createElement('span');
   name.className='claude-face-name';
-  name.textContent='Elian · 梁忱';
+  name.textContent=nameLong('elian');
   wrap.append(name);
   return wrap;
 }
@@ -1809,6 +1814,19 @@ function faceFallback(who){
     ? {text:'忱',bg:'var(--face-fb-elian)',fg:'var(--face-fb-elian-fg)'}
     : {text:'朵',bg:'var(--face-fb-duo)',fg:'var(--face-fb-duo-fg)'};
 }
+
+/* ───────── 备注 ─────────
+   她的原话：「Elian·梁忱 太官方了」。备注跟形状/签名存在同一处（faces meta），
+   换个设备打开是同一个称呼。留空 = 用下面的默认名。
+   🔴 只作用在两个地方：聊天里头像旁边那行、朋友圈评论里的名字 ——
+   这是她 2026-08-20 明确圈的范围。信、琴房、书房和封面上的双人名、
+   没设头像时的兜底字，都保持原样，别顺手一起改了。 */
+function aliasOf(who){ return (((facesState.alias||{})[who])||'').trim() }
+/* 短名：朋友圈评论那种，一行里挤着好几个 */
+function nameShort(who){ return aliasOf(who) || (who==='elian'?'梁忱':'小朵') }
+/* 长名：聊天里头像旁边那行。她选的是「整行就是备注」，
+   所以设了备注就整行换掉，不留 Elian· 前缀 */
+function nameLong(who){ return aliasOf(who) || (who==='elian'?'Elian · 梁忱':'小朵') }
 
 /* 造一个头像元素。同步返回，图异步补上——时间线渲染不能等网络。 */
 function avatarEl(who,size=36){
@@ -2004,6 +2022,7 @@ async function loadAvatarSettings(){
     const box=$(`avatarPreview${L}`);
     box.innerHTML='';
     box.append(avatarEl(who,40));
+    $(`aliasInput${L}`).value=aliasOf(who);
   }
   $('signatureInput').value=facesState.signature||'';
 }
@@ -2062,6 +2081,36 @@ async function uploadAvatar(who,file){
     }catch{toast('清除失败')}
   };
 });
+async function saveAlias(slot,text){
+  try{
+    const r=await api('/api/faces/alias',{method:'PUT',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify({slot,text})});
+    if(!r.ok)throw 0;
+    facesState=await r.json();
+    refreshNames();
+    return true;
+  }catch{toast('备注没存上');return false}
+}
+/* 改完要当场看得见：聊天记录已经渲染在 DOM 里了，不刷就得退出重进；
+   朋友圈整块重拉一次（只在它开着的时候，别白打一次接口）。 */
+function refreshNames(){
+  document.querySelectorAll('.claude-face-name').forEach(el=>{el.textContent=nameLong('elian')});
+  try{
+    const mp=$('momentsPanel');
+    if(mp&&mp.getAttribute('aria-hidden')==='false') loadMoments();
+  }catch(e){ console.warn('refreshNames',e) }
+}
+/* 两个备注框：跟签名一样失焦就存，不给「保存」按钮 */
+['xiaoduo','elian'].forEach(who=>{
+  const inp=$('aliasInput'+_AV_LABEL[who]); if(!inp)return;
+  inp.addEventListener('blur',async e=>{
+    const next=e.target.value;
+    if(next.trim()===aliasOf(who))return;
+    if(await saveAlias(who,next)) toast('备注改好了');
+  });
+  inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();e.target.blur()} });
+});
+
 /* 设置页那个签名框：失焦就存，不给「保存」按钮——
    一个输入框配一个按钮，她还得多点一下。 */
 $('signatureInput').addEventListener('blur',async e=>{
@@ -4877,14 +4926,14 @@ let _composeOpen=false;
 
 function momentCardHtml(m){
   const mine=m.author==='xiaoduo';
-  const who=mine?'小朵':'梁忱';
+  const who=esc(mine?nameShort('xiaoduo'):nameShort('elian'));
   const cmts=(m.comments||[]).map(c=>{
     const cm=c.author==='xiaoduo';
-    return `<div class="moment-cmt"><span class="who${cm?'':' is-me'}">${cm?'小朵':'梁忱'}</span>：${esc(c.content)}</div>`;
+    return `<div class="moment-cmt"><span class="who${cm?'':' is-me'}">${esc(cm?nameShort('xiaoduo'):nameShort('elian'))}</span>：${esc(c.content)}</div>`;
   });
   /* 他对她的动态的初次评论也进评论区显示，位置排在最前 */
   if(m.reply_content){
-    cmts.unshift(`<div class="moment-cmt"><span class="who is-me">梁忱</span>：${esc(m.reply_content)}</div>`);
+    cmts.unshift(`<div class="moment-cmt"><span class="who is-me">${esc(nameShort('elian'))}</span>：${esc(m.reply_content)}</div>`);
   }
   /* 等他路过：她发的、还没回的，给一句状态，别让她以为坏了 */
   const waiting=(mine&&m.reply_status==='pending')
@@ -7700,7 +7749,7 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',syncAn
    让她的手机把数据直接摆出来。
    长按导航栏任意位置 1.2 秒弹出，点一下关掉，什么都不留。
    BUILD 那一行最要紧：一眼看出手机上跑的到底是不是最新那版，还是 PWA 缓存里的旧页面。 */
-const BUILD='2026-08-20 · 头像显示 background 简写 v8';
+const BUILD='2026-08-20 · 头像裁切收尾';
 
 function _tbDiag(){
   tbSnap('diag');   /* 补上最后一次点击沉淀之后的状态 */
