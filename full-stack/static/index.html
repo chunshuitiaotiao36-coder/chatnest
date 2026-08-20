@@ -1927,29 +1927,33 @@ function closeCropper(result){
 
 $('cropCancel').onclick=()=>closeCropper(null);
 $('cropConfirm').onclick=()=>{
-  /* 预览用的是 CSS transform，导出在 canvas 上还原**同一个**变换。
+  /* 🔴 导出**只读屏幕上的真实几何**，一个 _crop.* 都不碰。
+     2026-08-20 实测（小朵的两张截图，dpr 3）：裁剪界面渲染得完全正确——
+     取景框 fx=28.0 边长 336.7，图渲染在 x=28.0 y=172.3、337x407 —— 跟模型对得上；
+     可导出来的头像做多尺度匹配后，是图上一块只有 13~60 CSSpx 的方块
+     （她框的是 336.7），放大了 6~25 倍，位置在照片左上角附近。
+     反推唯一自洽的解释：导出那一刻 _crop.scale 是 1（_crop 对象的初始值），
+     而渲染用的是正确的 scale —— 模型和渲染岔开了。
+     （所以上一版把 9 参数 drawImage 换成 5 参数毫无变化：两种写法读的是同一个跑偏的值。）
+     与其去追它为什么会岔开，不如让导出根本不依赖模型：
+     getBoundingClientRect() 返回的是**变换之后**的渲染框，
+     拿它算，「所见即所得」就是构造上成立的，跟 _crop 是否新鲜、
+     _cropLayout 有没有跑完、图有没有 EXIF 方向，全都无关。
 
-     🔴 不要用 drawImage 的 9 参数（源矩形）形式。
-     iPhone 竖拍的照片带 EXIF Orientation=6：传感器数据是横的，靠标记转 90°。
-     <img> 渲染会应用这个旋转，naturalWidth/Height 报的也是旋转后的尺寸，
-     但 Safari 在带源矩形绘制时会按**未旋转的原始像素空间**去取那块，
-     于是预览是对的、裁出来的是另一个部位（小朵 08-20 反馈的就是这个）。
-     5 参数形式画的是「整张图（已应用方向）缩放进目标矩形」，
-     不存在源坐标系歧义；画布本身把框外的部分裁掉。
-
-     推导：舞台坐标 → 输出坐标的比例 q = size / frame。
-     图在舞台上占 [x, y, nw*scale, nh*scale]，取景框左上角是 (fx, fy)，
-     所以图在输出画布上就是 [(x-fx)*q, (y-fy)*q, nw*scale*q, nh*scale*q]。
-     跟旧写法在无 EXIF 时数值完全等价（-sx*k === (x-fx)*q），只是不再碰源矩形。 */
+     推导：q = 512 / 取景框渲染宽（屏幕 px → 输出 px）；
+     图相对取景框左上角的偏移和尺寸，各乘 q 就是画布上的目标矩形。
+     仍用 5 参数 drawImage（只有目标矩形）：整图已应用 EXIF 方向后缩放进去，
+     不存在源坐标系歧义，画布自己把框外裁掉。 */
   const size=512;
-  const q=size/_crop.frame;
-  const dx=(_crop.x-_crop.fx)*q, dy=(_crop.y-_crop.fy)*q;
-  const dw=_crop.img.naturalWidth*_crop.scale*q, dh=_crop.img.naturalHeight*_crop.scale*q;
+  const ir=_crop.img.getBoundingClientRect();
+  const fr=$('cropFrame').getBoundingClientRect();
+  if(!fr.width||!ir.width){ toast('裁切没算出来'); return }
+  const q=size/fr.width;
   const cvs=document.createElement('canvas');
   cvs.width=cvs.height=size;
   const ctx=cvs.getContext('2d');
   ctx.fillStyle='#FFFFFF';ctx.fillRect(0,0,size,size);   /* 透明在 iOS 上会变黑 */
-  ctx.drawImage(_crop.img,dx,dy,dw,dh);
+  ctx.drawImage(_crop.img,(ir.left-fr.left)*q,(ir.top-fr.top)*q,ir.width*q,ir.height*q);
   cvs.toBlob(b=>closeCropper(b),'image/jpeg',0.9);
 };
 
