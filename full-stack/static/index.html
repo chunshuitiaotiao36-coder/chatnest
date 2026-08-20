@@ -1927,17 +1927,29 @@ function closeCropper(result){
 
 $('cropCancel').onclick=()=>closeCropper(null);
 $('cropConfirm').onclick=()=>{
-  /* 预览用的是 CSS transform，导出用同一组参数在 canvas 上还原——
-     取景框左上角在图上的坐标 = (fx - x) / scale */
+  /* 预览用的是 CSS transform，导出在 canvas 上还原**同一个**变换。
+
+     🔴 不要用 drawImage 的 9 参数（源矩形）形式。
+     iPhone 竖拍的照片带 EXIF Orientation=6：传感器数据是横的，靠标记转 90°。
+     <img> 渲染会应用这个旋转，naturalWidth/Height 报的也是旋转后的尺寸，
+     但 Safari 在带源矩形绘制时会按**未旋转的原始像素空间**去取那块，
+     于是预览是对的、裁出来的是另一个部位（小朵 08-20 反馈的就是这个）。
+     5 参数形式画的是「整张图（已应用方向）缩放进目标矩形」，
+     不存在源坐标系歧义；画布本身把框外的部分裁掉。
+
+     推导：舞台坐标 → 输出坐标的比例 q = size / frame。
+     图在舞台上占 [x, y, nw*scale, nh*scale]，取景框左上角是 (fx, fy)，
+     所以图在输出画布上就是 [(x-fx)*q, (y-fy)*q, nw*scale*q, nh*scale*q]。
+     跟旧写法在无 EXIF 时数值完全等价（-sx*k === (x-fx)*q），只是不再碰源矩形。 */
   const size=512;
-  const sx=(_crop.fx-_crop.x)/_crop.scale;
-  const sy=(_crop.fy-_crop.y)/_crop.scale;
-  const sSide=_crop.frame/_crop.scale;
+  const q=size/_crop.frame;
+  const dx=(_crop.x-_crop.fx)*q, dy=(_crop.y-_crop.fy)*q;
+  const dw=_crop.img.naturalWidth*_crop.scale*q, dh=_crop.img.naturalHeight*_crop.scale*q;
   const cvs=document.createElement('canvas');
   cvs.width=cvs.height=size;
   const ctx=cvs.getContext('2d');
   ctx.fillStyle='#FFFFFF';ctx.fillRect(0,0,size,size);   /* 透明在 iOS 上会变黑 */
-  ctx.drawImage(_crop.img,sx,sy,sSide,sSide,0,0,size,size);
+  ctx.drawImage(_crop.img,dx,dy,dw,dh);
   cvs.toBlob(b=>closeCropper(b),'image/jpeg',0.9);
 };
 
