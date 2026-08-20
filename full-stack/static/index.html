@@ -1345,7 +1345,7 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
   </div>
   <!-- v4 这个小版本号是临时的：确认真机上跑的到底是不是最新那版。
        裁切确认好了就删掉。 -->
-    <div class="crop-hint">拖动移动 · 双指缩放<span style="opacity:.45"> · v6</span></div>
+    <div class="crop-hint">拖动移动 · 双指缩放<span style="opacity:.45"> · v7</span></div>
   <div class="crop-bar">
     <button type="button" class="crop-btn" id="cropCancel">取消</button>
     <button type="button" class="crop-btn is-primary" id="cropConfirm">用这块</button>
@@ -1930,45 +1930,53 @@ function closeCropper(result){
 
 $('cropCancel').onclick=()=>closeCropper(null);
 $('cropConfirm').onclick=async()=>{
-  /* 🔴 源必须是 ImageBitmap，不能是 <img> 元素。
-
-     2026-08-20 的证据链（不是推断，是实测）：
-     - 她真机上 v5 的裁剪界面显示的是**缩好的图**，说明 _shrinkToJpeg 成功了；
-       而那个函数干的正是 createImageBitmap → canvas.drawImage(带源矩形) → toBlob。
-       ⇒ 这三样在她机器上都是好的。
-     - 可导出的头像量出来是平均 (251,241,246)、**标准差 1.0** 的纯色块，
-       即源区域只剩几个像素被放到 512 —— 等于 drawImage 完全没按目标矩形画。
-     ⇒ 唯一的差别就是源：导出这一步用的是 <img> 元素。
-     iOS Safari 对大图会降分辨率解码 <img>，drawImage 拿它当源时几何会整个失效
-     （表现为「往左上角放大 N 倍」）。ImageBitmap 是完整解码的位图，没这个问题。
-     我为此白改了四版几何（定位/EXIF/读渲染框/先缩图），几何从来就没错过。
-
-     几何仍然只读屏幕上的渲染框（0956a80 那版的思路，留着）：
-     k = bitmap 宽 / 图的渲染宽 —— 把屏幕 CSS px 换算成 bitmap 像素；
-     取景框相对图左上角的偏移和边长，乘 k 就是源矩形。 */
-  const size=512;
+  /* 🔴 两套算法各算一遍，取「算得出合理结果」的那个，并把数字报进 toast。
+     改到第 6 版还是错，而错法要求源方块只剩十来个像素、我算出来是 994 ——
+     差 100 倍，靠读代码猜不出来了。与其再赌一版，不如让它自己说。
+       A 路：按屏幕上的渲染框换算（getBoundingClientRect）
+       B 路：按 _crop 模型换算（fx/fy/frame/x/y/scale，自然像素）
+     两条路本该给出同一个源矩形；哪条不合理，toast 里一眼看得出。
+     ⚠️ 之前判断「缩图成功证明 createImageBitmap 可用」是错的：
+     _shrinkToJpeg 失败会静默退回原图，裁剪界面看起来一模一样。
+     所以这里明确记 bmpX / 缩图失败，不再靠推。 */
+  const size=512, dbg=[];
   const ir=_crop.img.getBoundingClientRect();
   const fr=$('cropFrame').getBoundingClientRect();
-  if(!fr.width||!ir.width){ toast('裁切没算出来'); return }
+  dbg.push(window._cropShrink||'?','ir'+Math.round(ir.width)+'x'+Math.round(ir.height),'fr'+Math.round(fr.width));
+  dbg.push('sc'+(_crop.scale||0).toFixed(3),'nw'+(_crop.img.naturalWidth||0));
   const cvs=document.createElement('canvas');
   cvs.width=cvs.height=size;
   const ctx=cvs.getContext('2d');
   ctx.fillStyle='#FFFFFF';ctx.fillRect(0,0,size,size);   /* 透明在 iOS 上会变黑 */
   let bmp=null;
-  try{ bmp=await createImageBitmap(_crop.srcBlob) }catch(e){ console.warn('createImageBitmap',e) }
+  try{ bmp=await createImageBitmap(_crop.srcBlob) }catch(e){ dbg.push('bmpX'); console.warn('createImageBitmap',e) }
   if(bmp){
-    const k=bmp.width/ir.width;
-    const ss=fr.width*k;
-    /* 夹到位图范围内：源矩形越界时浏览器会按比例缩目标矩形，画出来就偏了 */
-    const sx=Math.max(0,Math.min(bmp.width -ss,(fr.left-ir.left)*k));
-    const sy=Math.max(0,Math.min(bmp.height-ss,(fr.top -ir.top )*k));
-    ctx.drawImage(bmp,sx,sy,ss,ss,0,0,size,size);
+    dbg.push('bmp'+bmp.width+'x'+bmp.height);
+    const kA=bmp.width/(ir.width||1);
+    const A={ss:fr.width*kA, sx:(fr.left-ir.left)*kA, sy:(fr.top-ir.top)*kA};
+    const sc=_crop.scale||1;
+    const B={ss:_crop.frame/sc, sx:(_crop.fx-_crop.x)/sc, sy:(_crop.fy-_crop.y)/sc};
+    dbg.push('A'+Math.round(A.ss),'B'+Math.round(B.ss));
+    const ok=r=>isFinite(r.ss)&&isFinite(r.sx)&&isFinite(r.sy)&&r.ss>bmp.width*0.05&&r.ss<=bmp.width*1.5;
+    let r=null,tag='';
+    if(ok(A)){r=A;tag='用A'} else if(ok(B)){r=B;tag='用B'} else {tag='都不合理'}
+    dbg.push(tag);
+    if(r){
+      const ss=Math.min(r.ss,bmp.width,bmp.height);
+      const sx=Math.max(0,Math.min(bmp.width -ss,r.sx));
+      const sy=Math.max(0,Math.min(bmp.height-ss,r.sy));
+      ctx.drawImage(bmp,sx,sy,ss,ss,0,0,size,size);
+    }else{
+      /* 两条路都算不出合理值：退到居中裁方，至少不是一块纯色 */
+      const ss=Math.min(bmp.width,bmp.height);
+      ctx.drawImage(bmp,(bmp.width-ss)/2,(bmp.height-ss)/2,ss,ss,0,0,size,size);
+    }
     bmp.close();
   }else{
-    /* createImageBitmap 不可用时的退路：老办法，至少不是白图 */
-    const q=size/fr.width;
+    const q=size/(fr.width||1);
     ctx.drawImage(_crop.img,(ir.left-fr.left)*q,(ir.top-fr.top)*q,ir.width*q,ir.height*q);
   }
+  window._cropDbg=dbg.join(' ');
   cvs.toBlob(b=>closeCropper(b),'image/jpeg',0.9);
 };
 
@@ -2005,7 +2013,8 @@ async function uploadAvatar(who,file){
      输出只有 512，就算她捏到最大（minScale x6）也还有 267px 源像素，够用。
      缩图失败就退回原片——总比不让她换头像强。 */
   let _src=file;
-  try{ _src=await _shrinkToJpeg(file,1600,0.92) }catch(e){ console.warn('shrink',e) }
+  window._cropShrink='缩图ok';
+  try{ _src=await _shrinkToJpeg(file,1600,0.92) }catch(e){ window._cropShrink='缩图失败'; console.warn('shrink',e) }
   /* 先让她自己裁。取消就什么都不做——不要「取消了还是传了自动裁的那版」 */
   const blob=await openCropper(_src);
   if(!blob)return;
@@ -2018,7 +2027,7 @@ async function uploadAvatar(who,file){
     facesState=await r.json();
     _faceBlob[who].v=-1;              /* 强制重取 */
     await loadAvatarSettings();
-    toast('头像换好了');
+    toast('换好了 · '+(window._cropDbg||'无数据'));
   }catch(e){
     await loadAvatarSettings();
     toast(String(e.message)==='413'?'图太大了':'头像没换上');
@@ -7681,7 +7690,7 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',syncAn
    让她的手机把数据直接摆出来。
    长按导航栏任意位置 1.2 秒弹出，点一下关掉，什么都不留。
    BUILD 那一行最要紧：一眼看出手机上跑的到底是不是最新那版，还是 PWA 缓存里的旧页面。 */
-const BUILD='2026-08-20 · 导出改用 ImageBitmap v6';
+const BUILD='2026-08-20 · 双路算 + 报数字 v7';
 
 function _tbDiag(){
   tbSnap('diag');   /* 补上最后一次点击沉淀之后的状态 */
