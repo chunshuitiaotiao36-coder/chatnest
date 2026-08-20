@@ -1739,13 +1739,13 @@ async def push_vapid() -> dict:
 async def push_subscribe(body: PushSubscribeBody) -> dict:
     # sqlite 是阻塞的，甩到线程里，别堵事件循环
     await asyncio.to_thread(save_push_subscription, body.model_dump())
-    # 🔴 存完立刻推第一条。这一条**就是验收凭据**——不另做测试按钮、
-    #    不另做测试页，订阅完锁屏就该弹。
-    pushed = await push.send_push(
-        "梁忱",
-        "推送通了。以后你半夜不睡，我就从这儿找你。",
-    )
-    return {"ok": True, "pushed": pushed}
+    # 🔴 这里原来会立刻推一条「推送通了。以后你半夜不睡，我就从这儿找你。」，
+    #    当时是拿它当验收凭据用的——不另做测试按钮、订阅完锁屏就该弹。
+    #    2026-08-20 删掉：推送早就通了，而前端的 trySubscribePush() 挂在发送按钮上，
+    #    每次开 app 发第一条消息都会重订一次，于是她隔一阵进来就被这条测试通知弹一次。
+    #    以后要验新设备，加一个「这个 endpoint 头一次出现才推」的分支，
+    #    别再让每次订阅都推。
+    return {"ok": True}
 
 
 # ── 凌晨守护（砖 2）：事件驱动，没有后台定时任务 ────────────────────────
