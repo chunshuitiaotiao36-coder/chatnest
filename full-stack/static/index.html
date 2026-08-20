@@ -7586,9 +7586,53 @@ function syncTabbarHeight(){
    inline style 压过任何样式表规则，这是最后一道。
    🔴 用 bottom/top，不用 transform——iOS Safari 对 fixed 元素加 transform 会把它
    踢出视口坐标系，e2b2ccc 那次的 --tabbar-fix 就是这么飘到屏幕中间的。 */
+/* ───────── 布局视口塌了就捞回来 ─────────
+   🔴 这是第 9 轮才想明白的那件事，写清楚免得第 10 轮又走回去：
+   #tabBar 是 <body> 直接子元素，祖先链上没有任何 transform/filter/backdrop-filter/
+   contain（design-system.css 里也没有它的规则，查过了），所以
+   position:fixed;bottom:0 **一定**钉在布局视口底边——这一点从头到尾就没坏过。
+   坏的是那块板子本身：布局视口比屏幕矮了一大截。
+   导航栏下面那片死区是页面**根本画不到**的区域，
+   所以「把导航栏焊死在屏幕底部」这个方向本身不可能成立，
+   加多少 !important、量多少次 gap 都一样——前八轮全栽在这。
+   能做的只有两件：别让视口塌（见 switchTab 开头收焦点），塌了逼 iOS 重新量。 */
+/* 🔴 挂在 window 上、不用 let：switchTab('chats') 在 :4221 是**顶层执行**的，
+   比这里早得多。写 let 会在开屏时撞 TDZ（ReferenceError），整个脚本当场死掉。 */
+window._tbVhMax=window._tbVhMax||0; window._tbTries=0;
+function _tbNoteVh(){const h=document.documentElement.clientHeight;if(h>window._tbVhMax)window._tbVhMax=h}
+addEventListener('orientationchange',()=>{window._tbVhMax=0;setTimeout(_tbNoteVh,400)});
+/* 基准视口高：取「本次见过的最大值」和「整块屏幕」里的大者。
+   🔴 只认 _tbVhMax 是不够的——app 可能**带着已经缩水的视口冷启动**，
+   那样基准会被记成缩水值，看门狗永远不出手。standalone PWA + viewport-fit=cover
+   下布局视口本该等于整块屏幕，所以拿 screen.height 兜底。
+   Safari 标签页里有地址栏、本来就矮一截，不能这么假设，所以只在 standalone 下用。 */
+function _tbFullVh(){
+  const sa=navigator.standalone===true||matchMedia('(display-mode:standalone)').matches;
+  return Math.max(window._tbVhMax, sa?screen.height:0);
+}
+function restoreViewport(){
+  if(_tbFullVh()-document.documentElement.clientHeight<=60){_tbNoteVh();return false}
+  /* 只收「焦点赖在一个看不见的元素上」这一种——那正是视口不还原的成因。
+     绝不去动一个她正在用的、看得见的输入框。 */
+  const ae=document.activeElement;
+  if(ae&&ae!==document.body&&typeof ae.blur==='function'){
+    const cs=getComputedStyle(ae);
+    if(ae.hidden||cs.visibility==='hidden'||cs.display==='none'||!ae.getClientRects().length)ae.blur();
+  }
+  window.scrollTo(0,0);
+  if(document.body.scrollTop)document.body.scrollTop=0;
+  if(document.documentElement.scrollTop)document.documentElement.scrollTop=0;
+  return true;
+}
 function weldTabbar(){
   const bar=$('tabBar'); if(!bar)return;
   if(getComputedStyle(bar).display==='none')return;
+  /* 🔴 顺序要紧：先救视口。老版本直接拿 documentElement.clientHeight 当基准量 gap，
+     而那个值本身就是缩水的，量出来永远是 0、判定「正常」、什么都没做——
+     这就是「焊死在一块已经缩水的板子上」，也是她问「你到底焊哪了」的答案。 */
+  if(restoreViewport()){
+    if(window._tbTries<3){window._tbTries++;requestAnimationFrame(()=>{syncTabbarHeight();weldTabbar()})}
+  } else window._tbTries=0;
   const gap=document.documentElement.clientHeight-bar.getBoundingClientRect().bottom;
   if(Math.abs(gap)<=1)return;                  /* 已经贴底就不碰 */
   [['position','fixed'],['left','0'],['right','0'],['bottom','0'],
@@ -7596,6 +7640,8 @@ function weldTabbar(){
 }
 function syncAndWeld(){syncTabbarHeight();weldTabbar()}
 addEventListener('resize',syncAndWeld);
+/* 焦点离开之后 iOS 收键盘 / 还视口是异步的，隔几帧再看几眼 */
+addEventListener('focusout',()=>{window._tbTries=0;[0,120,400].forEach(t=>setTimeout(syncAndWeld,t))},true);
 addEventListener('orientationchange',()=>setTimeout(syncAndWeld,300));
 addEventListener('pageshow',()=>setTimeout(syncAndWeld,0));
 addEventListener('load',()=>[0,120,400,1000].forEach(t=>setTimeout(syncAndWeld,t)));
@@ -7609,7 +7655,7 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',syncAn
    让她的手机把数据直接摆出来。
    长按导航栏任意位置 1.2 秒弹出，点一下关掉，什么都不留。
    BUILD 那一行最要紧：一眼看出手机上跑的到底是不是最新那版，还是 PWA 缓存里的旧页面。 */
-const BUILD='2026-08-20 · 切 tab 探针 v1';
+const BUILD='2026-08-20 · 收焦点+救视口+防卡死 v2';
 
 function _tbDiag(){
   tbSnap('diag');   /* 补上最后一次点击沉淀之后的状态 */
@@ -7794,14 +7840,36 @@ function switchTab(name){
   tbSnap(name+'<');
   const pages=tabPages();
   if(name!=='chat'&&!pages[name])return;
-  if(name===currentTab)return;
-  /* 🔴 顺序要紧：必须在 #chat 变成 visibility:hidden **之前**收键盘。
-     等藏完再 blur，iOS 那边焦点已经落在一个看不见的元素上，收不干净。
-     只在离开聊天时收——进聊天时不能收，chatsNewBtn 是先 newChat()
-     （里面 input.focus()）再 enterChat()，无脑 blur 会把新对话的键盘掐掉。 */
-  if(name!=='chat')dismissKeyboard();
-  if(currentTab==='home'){closeHomeProfile()}   /* 日记已搬去书房，不再是 Home 的 overlay */
-  if(currentTab==='reading')closeStarmap();
+  /* 🔴 早退必须跟 DOM 核对过再退。currentTab 一旦跟实际显示的页面对不上
+     （某次 switchTab 中途抛异常就会这样），无条件 return 会让这个 tab
+     **永远点不动**——「导航栏在原位但潮汐/琴房/书房都点不进去」就是这个。 */
+  if(name===currentTab){
+    const _h=(name==='chat')?$('chat'):pages[name];
+    const _shown=(name==='chat')?!document.body.classList.contains('tab-away'):!!(_h&&!_h.hidden);
+    if(_shown)return;
+  }
+  /* 🔴 顺序要紧：必须在页面被藏起来**之前**收焦点。
+     等藏完再 blur，iOS 那边焦点已经落在一个看不见的元素上，收不干净——
+     键盘收了、布局视口却不还原，剩下的死区就是导航栏「往上窜」的真身。
+     🔴 判据是「这个焦点会不会跟着这次切换被藏起来」，**不是方向**。
+     老版本写 if(name!=='chat')，漏掉了「进琴房自动聚焦 → 点对话」这条路：
+     pianoSetQuote()(:6409) 和 pianoSongAsk(:7487) 都会 focus #pianoSay，
+     切回聊天时它带着焦点被 #tabMusic 的 hidden 藏掉，一次窜一截、不回弹。
+     换成按目标页判断之后，chatsNewBtn 那条 newChat()（内含 input.focus()）
+     → enterChat() → switchTab('chat') 不会被误伤：#input 在 #chat 里，
+     切去 chat 它不会被藏，所以不收。 */
+  try{
+    const _ae=document.activeElement;
+    if(_ae&&_ae!==document.body&&typeof _ae.blur==='function'){
+      const _host=(name==='chat')?$('chat'):pages[name];
+      if(!(_host&&_host.contains(_ae)))_ae.blur();
+    }
+  }catch(e){ console.warn('blur',e) }
+  /* 🔴 这两个在 currentTab=name **之前**，一旦抛异常，页面没换、currentTab 没动，
+     之后每次点都在同一处再抛一遍 —— 导航就永久卡死了。
+     收拾旧页失败不该连累「切过去」这件事，所以一律吞掉。 */
+  try{ if(currentTab==='home')closeHomeProfile(); }catch(e){ console.warn('closeHomeProfile',e) }
+  try{ if(currentTab==='reading')closeStarmap(); }catch(e){ console.warn('closeStarmap',e) }
   Object.values(pages).forEach(p=>{if(p)p.hidden=true});
   if(name!=='chat')pages[name].hidden=false;
   document.querySelectorAll('#tabBar .tab-item').forEach(t=>t.classList.toggle('active',t.dataset.tab===name));
@@ -7813,28 +7881,34 @@ function switchTab(name){
      切到任何别的 tab 都要摘掉，否则导航栏消失她就出不来了。 */
   if(name!=='chat')document.body.classList.remove('in-chat');
   currentTab=name;
-  if(name!=='chat')closeDrawer();
-  if(name==='chats')loadChatsPage();
-  syncAndWeld();
-  if(name==='home')openHomeProfile().catch(()=>toast('Profile 加载失败'));
+  /* 页面已经换完了，下面全是「进新页」的副作用。同样一律吞掉：
+     某个面板加载失败不该让导航栏从此失灵。 */
+  try{ if(name!=='chat')closeDrawer() }catch(e){ console.warn('closeDrawer',e) }
+  try{ if(name==='chats')loadChatsPage() }catch(e){ console.warn('loadChatsPage',e) }
+  try{ syncAndWeld() }catch(e){ console.warn('syncAndWeld',e) }
+  try{ if(name==='home')openHomeProfile().catch(()=>toast('Profile 加载失败')) }catch(e){ console.warn('openHomeProfile',e) }
   /* 琴房：进来才拉歌单，别在开屏时白打一次。音频元素挂在 tab 里，
      切走时 tab 是 display:none——不影响 <audio> 继续放。
      #stream 跟着 tab 走：进琴房搬进来，离开搬回 #chat。 */
-  if(name==='music'){pianoInit();pianoMountStream();pianoSetAnimating(true);pianoCheckLogin();pianoSyncConnect()}
-  /* 走的时候必须停轮询，否则她切去别的 tab，二维码还在后台每 2 秒打一次 */
-  else{pianoUnmountStream();pianoQrStop();pianoSyncClose();
-       if(pianoAudio){pianoDrawer(false);pianoSetAnimating(false)}}
-  if(name==='reading'){
+  try{
+    if(name==='music'){pianoInit();pianoMountStream();pianoSetAnimating(true);pianoCheckLogin();pianoSyncConnect()}
+    /* 走的时候必须停轮询，否则她切去别的 tab，二维码还在后台每 2 秒打一次 */
+    else{pianoUnmountStream();pianoQrStop();pianoSyncClose();
+         if(pianoAudio){pianoDrawer(false);pianoSetAnimating(false)}}
+  }catch(e){ console.warn('piano',e) }
+  try{ if(name==='reading'){
     /* 书房首页只有纪念日和四行入口，内容都在各自面板里——
        进来时把四行上的副标题和角标刷一遍就够了，不拉正文。 */
     renderReadingCounter();
     _lettersLoaded=false;loadLettersCount();
     /* 朋友圈红点：他发动态不推送，这个数字是她唯一的信号 */
     refreshBadges();
-    loadStarmapCount();}
+    loadStarmapCount();} }catch(e){ console.warn('reading',e) }
   tbSnap(name+'>');   /* 探针：这一次切换落定之后 */
 }
-document.querySelectorAll('#tabBar .tab-item').forEach(t=>{t.addEventListener('click',()=>switchTab(t.dataset.tab))});
+/* 点完把焦点从 <button> 上摘掉：iOS 上点击会给 button 焦点，
+   留着它既可能触发 scrollIntoView（施工单 4.3），也让下一次判断变脏。 */
+document.querySelectorAll('#tabBar .tab-item').forEach(t=>{t.addEventListener('click',()=>{switchTab(t.dataset.tab);t.blur()})});
 </script>
 </body>
 </html>
