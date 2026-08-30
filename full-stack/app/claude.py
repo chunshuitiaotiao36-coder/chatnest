@@ -64,6 +64,13 @@ cli_logger = logging.getLogger("uvicorn.error")
 OMBRE_MCP_URL = os.environ.get("OMBRE_MCP_URL", "")
 OMBRE_MCP_TOKEN = os.environ.get("OMBRE_MCP_TOKEN", "")
 
+# 一起看书（书房第五栏）。anno 的 Node 服务只 listen 在 127.0.0.1，
+# 所以这儿直接连本机，不经过 /marginalia 那层代理——那层是给浏览器用的。
+# 🔴 空字符串 = 不挂。跟 Ombre 一个规矩：可选依赖绝不许拖垮主流程，
+#    anno 没起来的时候聊天必须照常能用。
+ANNO_MCP_URL = os.environ.get("ANNO_MCP_URL", "")
+ANNO_MCP_TOKEN = os.environ.get("ANNO_MCP_TOKEN", "")
+
 # agent 循环的往返上限。**往返次数是直接乘在账上的**——每次往返都把整个前缀
 # 重发一遍。08-11 实测：一条「问记忆」的消息跑了 7 次往返，同一份 2 万前缀发了
 # 7 遍，热缓存 ¥0.99、冷缓存 ¥10.02（139,038 ≈ 7 × 19,862）。
@@ -93,6 +100,26 @@ def _read_tg_max_turns() -> int:
 
 
 TG_MAX_TURNS = _read_tg_max_turns()
+
+
+def anno_mcp_servers() -> dict:
+    """一起看书。给梁忱开六件事：list_books / read_pages / read_annotations
+    / write_comment / highlight_text / get_progress。
+
+    她划的线和他划的线在 anno 里是分开存、分开上色的——这六个工具就是他
+    那支笔。不挂的话「一起看书」就只剩她一个人看。
+    """
+    if not ANNO_MCP_URL:
+        return {}
+    return {
+        "anno": {
+            "type": "http",
+            "url": ANNO_MCP_URL,
+            # anno 的 /mcp 认 Bearer <MCP_AUTH_TOKEN>（server.mjs:647）。
+            # 那边没设 MCP_AUTH_TOKEN 就是敞开的，这儿也就不用带。
+            "headers": {"Authorization": f"Bearer {ANNO_MCP_TOKEN}"} if ANNO_MCP_TOKEN else {},
+        }
+    }
 
 
 def ombre_mcp_servers() -> dict:
@@ -590,14 +617,17 @@ async def stream_chat(
     # system_prompt 前缀**，她刚建好的那份缓存一点不受影响；往 prompt 里塞
     # 则是每轮都要付那些 token。
     mcp_servers = ombre_mcp_servers()
+    mcp_servers.update(anno_mcp_servers())
     if lean:
         # TG 是聊天，不是干活的地方。Read 必须留着——识图全靠它去读存下来的
         # 图片文件。Bash / Write / Edit / WebSearch 那些在 TG 上都不需要。
         allowed_tools = ["Read"]
     else:
         allowed_tools = ["Read", "Grep", "Glob", "Write", "Edit", "Bash", "WebSearch", "WebFetch", "TodoWrite"]
-    if mcp_servers:
+    if "ombre" in mcp_servers:
         allowed_tools.append("mcp__ombre")
+    if "anno" in mcp_servers:
+        allowed_tools.append("mcp__anno")
     option_values = dict(
         model=model,
         system_prompt=system_prompt,

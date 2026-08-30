@@ -21,14 +21,14 @@ from fastapi import (
     Depends, FastAPI, File, Form, Header, HTTPException, Query, Request,
     UploadFile, WebSocket, WebSocketDisconnect,
 )
-from fastapi.responses import FileResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 from typing import Any
 from starlette.formparsers import MultiPartParser
 
 MultiPartParser.max_part_size = 60 * 1024 * 1024  # 与 uploads.py 的 MAX_FILE_BYTES 对齐
 
-from app import appicon, auth, backgrounds, faces, keepalive, lorebook, moments, nightguard, peek, piano, piano_analysis, push, relays, starmap, store, telegram
+from app import anno, appicon, auth, backgrounds, faces, keepalive, lorebook, moments, nightguard, peek, piano, piano_analysis, push, relays, starmap, store, telegram
 from app.actor import ActorBusyError, _mem_kv
 from app.claude import (
     SessionResumeError,
@@ -442,6 +442,11 @@ def render_context_prompt(messages: list[dict[str, Any]]) -> str:
     return prompt
 
 
+# 一起看书（书房第五栏）。anno 的阅读器前端 + 转发到它 Node 服务的 /api。
+# 前缀必须是 /marginalia：anno 前端里写死的，见 app/anno.py 开头。
+app.include_router(anno.router)
+
+
 @app.get("/")
 async def index() -> FileResponse:
     return FileResponse(
@@ -667,11 +672,25 @@ async def static_font(name: str) -> FileResponse:
 
 
 @app.post("/api/auth")
-async def login(body: AuthBody) -> dict:
+async def login(body: AuthBody, request: Request) -> Response:
     token = auth.issue_token(body.password)
     if token is None:
         raise HTTPException(status_code=401, detail="unauthorized")
-    return {"token": token}
+    # 🔴 除了照旧把 token 发回去，再种一个 cookie。
+    #    书房「一起看书」是嵌进来的 anno 阅读器（iframe），iframe 里发出的
+    #    请求带不了 Authorization 头，只能靠 cookie 认。见 app/anno.py。
+    #    HttpOnly：JS 读不到，少一条被 XSS 顺走的路；前端本来也不需要读它。
+    resp = JSONResponse({"token": token})
+    resp.set_cookie(
+        anno.COOKIE_NAME,
+        token,
+        max_age=400 * 24 * 3600,
+        httponly=True,
+        samesite="lax",
+        secure=request_is_https(request),
+        path="/",
+    )
+    return resp
 
 
 @app.post("/api/chat", dependencies=[Depends(require_auth)])

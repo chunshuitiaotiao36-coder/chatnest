@@ -6,3 +6,6 @@ venv/
 *.db
 *.db-journal
 .DS_Store
+
+# anno（一起看书）的 Node 依赖，跟别的依赖一样不进仓库
+full-stack/anno/server/node_modules/

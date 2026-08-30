@@ -27,3 +27,8 @@ matplotlib
 # 它拖着 requests + cryptography，顶部 import 会把常驻内存永久抬高，
 # 跟 librosa/matplotlib 一个待遇（队列 38 在查 189MiB 那件事）。
 pywebpush
+
+# 一起看书（书房第五栏）：app/anno.py 把 /marginalia/api 流式转发给 anno 的
+# Node 服务。httpx 本来就随 anthropic 进来了，但那是**传递依赖**——
+# 我们自己 import 的东西要自己写在这儿，跟上面 websockets 一个道理。
+httpx
