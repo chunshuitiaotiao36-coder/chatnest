@@ -1414,13 +1414,13 @@ async def _letter_auto_reply(
 
         text = ""
         chunk_count = 0
-        async for chunk in claude.stream_chat(
+        # 🔴 双线：见 claude.background_stream。她收不到回信那一个多星期就是
+        #    因为这儿只有一条线。
+        async for chunk in claude.background_stream(
             message=prompt,
             conv_id=conv_id,
-            session_id=None,
             model=model,
             source="letter_reply",
-            lean=False,
         ):
             event = chunk.get("event")
             if event == "delta":

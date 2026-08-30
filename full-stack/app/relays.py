@@ -280,6 +280,51 @@ def subscription_models() -> list[dict]:
     return []
 
 
+def fallback_relay(exclude_id: str = "") -> dict:
+    """后台三条线的**第二条线**：当前这条打不通时换哪一条。
+
+    🔴 为什么需要它：pro 过期那一个多星期，推送和寄相思全哑了。原因是
+    background_model() 的回落方向写反了——它的注释写着「回落订阅线路，
+    那条永远是她的底仓」，而订阅恰恰是会过期的那一条。订阅一断，
+    keepalive/nightguard/回信 三条线同时抛异常，被各自的 except Exception
+    吞进日志，她一条消息、一封信都没收到，而日志没有人看。
+
+    这里只做只读的挑选，**不碰 os.environ**。切换激活线路是进程级操作
+    （见 _apply_env），后台线程在她聊天的时候动环境变量会串线；第二条线
+    改成直接拿这条线路的 base_url + api_key 走 SDK，谁也不影响。
+
+    挑的规则：mode=api、有 key、有模型，排除掉刚失败的那条。
+    返回 {} 表示没有第二条线可用——调用方必须能接受这件事。
+    """
+    for r in (_cache or {}).get("relays") or []:
+        if r.get("id") == exclude_id:
+            continue
+        if _normalize_mode(r.get("mode")) != "api":
+            continue
+        if not (r.get("api_key") or "").strip():
+            continue
+        if not (r.get("models") or []):
+            continue
+        return {
+            "id": r["id"],
+            "name": r["name"],
+            # 直连 SDK 用的是带 /v1 的那种写法由 SDK 自己拼，这里给根地址，
+            # 跟 _cli_base_url 同一个规范化，免得又踩 /v1/v1 那个坑。
+            "base_url": _cli_base_url(r.get("base_url") or ""),
+            "api_key": r.get("api_key") or "",
+            "models": [dict(m) for m in (r.get("models") or [])],
+        }
+    return {}
+
+
+def active_relay_id() -> str:
+    """当前激活线路的 id。第二条线要靠它把「刚失败的那条」排除掉。"""
+    try:
+        return _active_relay(_cache).get("id", "")
+    except Exception:
+        return ""
+
+
 def subscription_summary() -> dict:
     """订阅那条线路的身份，跟 subscription_models() 同一个取法。
 

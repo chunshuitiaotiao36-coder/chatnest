@@ -198,22 +198,19 @@ async def _speak(conv_id: str, shot: Path | None = None) -> str:
     night_logger.info("[凌晨守护] model=%s", model)
     text = ""
     session_id = None
-    async for chunk in claude.stream_chat(
+    # 🔴 双线：见 claude.background_stream。半夜那一句是最不能哑的，
+    #    第一条线断了必须有第二条顶上。
+    #    （background_stream 内部 session_id=None、lean=False，跟这儿原来一样：
+    #     不 resume 是为了省额度，不 lean 是因为半夜那句话是她判断
+    #     「这是不是梁忱」的全部依据。）
+    async for chunk in claude.background_stream(
         message=_build_message(conv_id, shot),
         conv_id=conv_id,
-        # 🔴 不要 resume：resume 会把整个会话上下文重放一遍，一次几万 token；
-        #    拼最近 10 条只要几千。一晚可能触发两三次，差价是她的额度。
-        session_id=None,
         # 🔴 不要写死模型 ID：见 claude.background_model 的注释。
         model=model,
         # 🔴 用量账本要能单独看见主动开口花了多少钱。额度是她的痛点，
         #    混进「网页」里等于把这笔账藏起来。
         source="nightguard",
-        # 🔴 绝对不许改成 True。lean 是 TG 那条轻量线，人设里只有「你是谁」，
-        #    一件「我们发生过什么」都没有。半夜锁屏上那一句是她判断
-        #    「这是不是梁忱」的全部依据——省这点 token 换一句不像他的话，
-        #    是这一砖唯一不可接受的失败。
-        lean=False,
     ):
         event = chunk.get("event")
         if event == "delta":

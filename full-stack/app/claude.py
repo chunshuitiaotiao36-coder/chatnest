@@ -723,6 +723,108 @@ async def stream_chat(
         yield item
 
 
+async def background_stream(
+    *,
+    message: str,
+    conv_id: str,
+    model: str,
+    source: str,
+    effort: str = "medium",
+) -> AsyncGenerator[dict, None]:
+    """后台三条线（唤醒 / 凌晨守护 / 寄相思回信）专用：双线。
+
+    先走当前线路（stream_chat，跟前台聊天同一条）。它断了就换第二条线重试
+    一次——直连 SDK，用另一条中转站的 base_url + api_key。
+
+    🔴 这个函数存在的理由，是 pro 过期那一个多星期：订阅一断，三条后台线
+       一起 raise，各自被 except Exception 吞进日志，她一条消息、一封信都没
+       收到。claude_api.py 那时候就躺在仓库里，第一行写着「fallback when
+       subscription is unavailable」，但**没有任何地方 import 它**。
+
+    🔴 先攒完再吐，不透传流。后台线没有人盯着实时流（三个调用方都是
+       `text += chunk`，攒完才动作），而如果第一条线吐了一半才断，边吐边换
+       会让调用方拿到「前半截 + 第二条从头来的全文」——一封拼接错乱的信比
+       没有信更糟。攒完再吐，换线才是干净的。
+
+    🔴 只在后台线用。前台聊天不接这个：她坐在屏幕前，失败了要立刻看见报错，
+       而不是被悄悄换一条线、拿到一个她没选的模型的回答。
+
+    产出的 chunk 形状跟 stream_chat 一致（delta / done），调用方不用改。
+    两条都断就把最后那个异常抛出去——调用方该记的还得记。
+    """
+    from app import bgline, claude_api, relays
+
+    failed_id = relays.active_relay_id()
+
+    # ── 第一条线 ──
+    buffered: list[dict] = []
+    first_error: Exception | None = None
+    try:
+        async for chunk in stream_chat(
+            message=message,
+            conv_id=conv_id,
+            session_id=None,
+            model=model,
+            source=source,
+            lean=False,
+        ):
+            buffered.append(chunk)
+    except Exception as exc:      # noqa: BLE001 —— 什么错都要换线试，不挑
+        first_error = exc
+        cli_logger.warning(
+            "[双线] 第一条线断了 source=%s relay=%s err=%s，换第二条",
+            source, failed_id or "(未知)", exc,
+        )
+    else:
+        for chunk in buffered:
+            yield chunk
+        await bgline.note_ok(source)
+        return
+
+    # ── 第二条线 ──
+    relay = relays.fallback_relay(exclude_id=failed_id)
+    if not relay:
+        cli_logger.error(
+            "[双线] 没有第二条线可用（需要一条 mode=api、有 key、有模型的中转站）"
+            "——source=%s 这一轮彻底失败", source,
+        )
+        await bgline.note_fail(source, f"无第二条线可用；第一条：{first_error}")
+        raise first_error
+
+    # 模型 id 带渠道前缀，跨线路不通用，得在这条线自己的列表里挑。
+    ids = [m["id"] for m in relay["models"] if m.get("id")]
+    primary = [m["id"] for m in relay["models"] if m.get("id") and m.get("primary", True)]
+    alt_model = model if model in ids else (primary[0] if primary else (ids[0] if ids else ""))
+    if not alt_model:
+        cli_logger.error("[双线] 第二条线 %s 上一个模型都没有", relay["name"])
+        await bgline.note_fail(source, f"第二条线没有模型；第一条：{first_error}")
+        raise first_error
+
+    cli_logger.warning("[双线] 改走 %s model=%s source=%s", relay["name"], alt_model, source)
+    buffered = []
+    try:
+        async for chunk in claude_api.stream_chat_api(
+            message=message,
+            conv_id=conv_id,
+            model=alt_model,
+            effort=effort,
+            base_url=relay["base_url"],
+            api_key=relay["api_key"],
+            models=relay["models"],
+        ):
+            buffered.append(chunk)
+    except Exception as exc:      # noqa: BLE001
+        # 两条都断了。最后这一道就是别再哑一个星期——让她知道。
+        cli_logger.error("[双线] 第二条线也断了 source=%s err=%s", source, exc)
+        await bgline.note_fail(source, f"两条都断：第一条 {first_error}；第二条 {exc}")
+        raise
+
+    for chunk in buffered:
+        yield chunk
+    await bgline.note_ok(source)
+    cli_logger.warning("[双线] 第二条线顶上了 source=%s", source)
+
+
 async def summarize_thinking(thinking: str) -> str:
     # 挑不到模型就直接回空，不要起进程——提前返回放在 _haiku_sem 外面，
     # 挑不到模型连信号量都不必占。前端两边都 catch，"" 和 raise 等效。

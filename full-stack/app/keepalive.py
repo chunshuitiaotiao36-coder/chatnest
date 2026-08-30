@@ -200,15 +200,16 @@ async def _wake(conv_id: str, push_ok: bool = True) -> None:
 
     text = ""
     session_id = None
-    async for chunk in claude.stream_chat(
+    # 🔴 走 background_stream 而不是 stream_chat：这条线断了要能换第二条。
+    #    pro 过期那一个多星期就是栽在这儿——订阅一断，这里直接 raise，
+    #    被最外层 except Exception 吞进日志，她一条消息都没收到。
+    async for chunk in claude.background_stream(
         message=_build_wake_message(conv_id),
         conv_id=conv_id,
-        session_id=None,
         # 🔴 不要写死模型 ID：她线路上的 id 带渠道前缀，裸 id 查不到，
         #    stream_chat 第一行就 raise 然后被吞掉（见 background_model）。
         model=model,
         source="keepalive",
-        lean=False,  # 🔴 绝对不许 lean=True
     ):
         event = chunk.get("event")
         if event == "delta":
