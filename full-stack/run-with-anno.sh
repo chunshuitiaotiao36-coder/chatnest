@@ -21,6 +21,13 @@ export ANNO_ORIGIN="${ANNO_ORIGIN:-http://127.0.0.1:3300}"
 #    只是梁忱静默地一件工具都拿不到。
 export ANNO_MCP_URL="${ANNO_MCP_URL:-http://127.0.0.1:3300/mcp/sse}"
 
+# 🔴 一个变量管两头：小窝这边用 ANNO_MCP_TOKEN 去连，anno 那边认的环境变量
+#    叫 MCP_AUTH_TOKEN，这儿把它传下去，省得两边配错还不报错。
+#    留空 = anno 的 mcpAuthorized() 直接放行（server.mjs:648）。只听本机时
+#    这是安全的；一旦开 ANNO_PUBLIC_MCP 挂到公网，app/anno.py 会拒绝在空令牌
+#    的情况下挂载那组路由。
+export MCP_AUTH_TOKEN="${ANNO_MCP_TOKEN:-}"
+
 ( cd anno/server && exec node server.mjs ) &
 ANNO_PID=$!
 trap 'kill "$ANNO_PID" 2>/dev/null || true' EXIT
