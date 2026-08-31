@@ -1,28 +1,39 @@
 FROM python:3.12-slim
 
-# ── 系统依赖：Node + ffmpeg，一层装完 ────────────────────────────────
-# Node：claude-agent-sdk 要它跑捆绑的 CLI。
-# 🔴 ffmpeg 是 hervoice 的硬依赖：把手机录的 webm 转成 16k 单声道 wav。
-#    librosa/numpy 小窝本来就有（琴房频谱在用）。
-#
-# 🔴 这一层必须待在 `COPY . .` **前面**。08-31 之前 ffmpeg 那句写在 COPY
-#    后面，后果是**每推一次代码就重装一次 ffmpeg**（好几百 MB 的下载 +
-#    一百多个包）。她第一次部署跑了一个小时还失败了。
-#    规矩：跟代码无关的东西，一律排在 COPY 之前，让 Docker 的层缓存接住。
+# 🔴 下面到 `pip install -r requirements.txt` 为止的四条指令**一个字都不要改**。
+#    Docker 的层缓存是按「指令原文 + 上游层」算的，改动其中任何一条，
+#    后面**全部**层作废——包括那条几十分钟的 pip（chromadb 拖着 onnxruntime、
+#    librosa 拖着 numba/llvmlite、还有 matplotlib）。
+#    08-31 我为了合并 ffmpeg 动了第一条 apt，等于把她服务器上那份已经建好的
+#    pip 缓存扔了。她当时正卡在 Coolify 一小时的部署超时上，那一下会让情况更糟。
+#    要加新东西，往下面加新层，别动上面这四条。
+
+# claude-agent-sdk 需要 Node 运行时来执行捆绑的 CLI
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
  && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
- && apt-get install -y --no-install-recommends nodejs ffmpeg \
+ && apt-get install -y --no-install-recommends nodejs \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# ── Python 依赖 ──────────────────────────────────────────────────────
+# ── 下面几层都是新加的，但**必须待在 `COPY . .` 前面** ────────────────
+# 🔴 08-31 之前 ffmpeg 和 anno 的 npm 写在 `COPY . .` 后面，后果不是
+#    「第一次装得久」，是**每推一次代码这两样都从头重装一遍**：
+#    ffmpeg 一个人要拉一百多个包、好几百 MB，层缓存一次都没接住过。
+#    规矩：跟代码无关的东西一律排在 COPY 之前。
+
+# 🔴 ffmpeg 是 hervoice 的硬依赖：把手机录的 webm 转成 16k 单声道 wav。
+#    librosa/numpy 小窝本来就有（琴房频谱在用）。
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
+ && rm -rf /var/lib/apt/lists/*
+
 # 🔴 pymupdf / ebooklib 是「一起看书」要的：anno 的 PDF/EPUB 提取是
 #    execFileSync('python3', ...) 起子进程跑的，所以必须在镜像里，
-#    不能等运行时装。跟主依赖同一层，同样在 COPY 之前。
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt \
- && pip install --no-cache-dir pymupdf ebooklib
+#    不能等运行时装。单独一层，不要并进上面那条 requirements——
+#    并进去就把那层的缓存打掉了。
+RUN pip install --no-cache-dir pymupdf ebooklib
 
 # ── anno 的 Node 依赖 ────────────────────────────────────────────────
 # 🔴 只 COPY 两个 package 文件再 npm install：这样只有依赖真的变了才重装。
