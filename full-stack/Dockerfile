@@ -45,7 +45,8 @@ ENV AGENT_APP_ROOT=/data \
     ANNO_MCP_URL=http://127.0.0.1:3300/mcp/sse \
     VOICE_CACHE_DIR=/data/voice \
     HERVOICE_ORIGIN=http://127.0.0.1:8010 \
-    HERVOICE_DATA=/data/hervoice
+    HERVOICE_DATA=/data/hervoice \
+    TELEMOOD_STATE_DIR=/data/telemood
 
 RUN mkdir -p /data
 

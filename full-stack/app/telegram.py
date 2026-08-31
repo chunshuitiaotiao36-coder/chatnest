@@ -23,6 +23,7 @@ from pathlib import Path
 import httpx
 
 from app import relays
+from app import telemood_bridge
 from app.claude import TELEGRAM_PROMPT_FILE, SessionResumeError, stream_chat
 
 
@@ -53,6 +54,12 @@ UPLOAD_DIR = Path(os.environ.get("AGENT_APP_ROOT", "/data")) / "uploads" / "tele
 TG_FILE_LIMIT = 20 * 1024 * 1024
 TOO_BIG_TEXT = "这张太大了，发小一点的"
 PHOTO_PLACEHOLDER = "[图片]"
+# 贴纸没有 caption，跟纯图片一个道理要给个占位，否则 `if not text` 会把
+# 整条贴纸消息丢掉——那正是接 telemood 之前的行为。
+STICKER_PLACEHOLDER = "[贴纸]"
+# 她点的表情最多攒这么多条带给下一轮。攒太多会变成一段跟当下无关的噪音，
+# 而且每一条都是要付 token 的。
+NOTES_MAX = 3
 # /data 是持久卷，聊天记录也在上面。盘满了写不进去，聊天记录一起遭殃，
 # 所以图片必须有上限。启动时清 7 天前的，够用，不做 LRU。
 UPLOAD_TTL_DAYS = 7
@@ -71,7 +78,6 @@ CARRY_ROUNDS = 2
 CARRY_PIECE_LIMIT = 800
 CARRY_HEADER = "[我们刚才聊到这儿]"
 
-_state: dict = {"offset": 0, "session_id": None, "turns": 0, "carry": "", "recent": []}
 _client: httpx.AsyncClient | None = None
 
 
@@ -79,7 +85,16 @@ _client: httpx.AsyncClient | None = None
 
 
 def _blank_state() -> dict:
-    return {"offset": 0, "session_id": None, "turns": 0, "carry": "", "recent": []}
+    return {
+        "offset": 0, "session_id": None, "turns": 0, "carry": "",
+        "recent": [], "notes": [],
+    }
+
+
+# 🔴 必须写在 _blank_state 后面：以前这儿是一份手抄的字面量，跟函数里那份
+#    两处各写一遍，加一个键就得记得改两处。改成调函数就没这个坑了，代价是
+#    它得排在定义之后。
+_state: dict = _blank_state()
 
 
 def _load_state() -> None:
@@ -104,6 +119,11 @@ def _load_state() -> None:
                     {"user": str(item.get("user") or ""), "reply": str(item.get("reply") or "")}
                     for item in raw["recent"][-CARRY_ROUNDS:]
                     if isinstance(item, dict)
+                ]
+            # 攒着还没带给他的表情。跟 turns/carry 一个待遇：缺这个键也要读得起来。
+            if isinstance(raw.get("notes"), list):
+                state["notes"] = [
+                    str(item) for item in raw["notes"][-NOTES_MAX:] if isinstance(item, str)
                 ]
             _state = state
             return
@@ -229,11 +249,20 @@ async def _get_updates(offset: int, timeout: int) -> list | None:
     正常的空轮询意味着长轮询挂满了 timeout 秒，而失败是立刻返回的。
     混为一谈的话，token 失效那种一直失败的情况会变成零延迟热循环，
     一边烧 CPU 一边刷日志。"""
+    # allowed_updates 以前写死 ["message"]：编辑过的消息、频道消息、回调按钮
+    # 一律不处理，让服务端就别发过来。
+    #
+    # 🔴 那条写死是 telemood 那一单的第一块拦路石：message_reaction 和
+    #    callback_query **服务端根本不会推送**，于是按钮发得出去、点了没反应
+    #    ——一个看起来能用、其实是死的功能。所以现在按 telemood 当前开着哪几期
+    #    来订阅：全关的时候这里返回的就是 ["message"]，跟改动前一模一样。
     result = await _api(
         "getUpdates",
-        # allowed_updates 只要 message：编辑过的消息、频道消息、回调按钮
-        # 第一批一律不处理，让服务端就别发过来
-        {"offset": offset, "timeout": timeout, "allowed_updates": ["message"]},
+        {
+            "offset": offset,
+            "timeout": timeout,
+            "allowed_updates": telemood_bridge.allowed_updates(),
+        },
         timeout=timeout + 15,
     )
     return result if isinstance(result, list) else None
@@ -347,10 +376,36 @@ def _cleanup_uploads() -> None:
 # ---------- 白名单 ----------------------------------------------------------
 
 
+# 四种 update 各自把 chat_id 藏在哪儿。
+# 🔴 callback_query 和 message_reaction **顶层没有 message 字段**
+#    （callback 的消息在 callback_query.message 里），所以老写法
+#    `upd["message"]["chat"]["id"]` 对它们一律取不到 → 直接丢掉。
+#    修法只能是**按类型分别取**，绝不许用 `return True` 去「修」它：
+#    那个 bot 的名字陌生人能搜到，白名单是她唯一的门。取不到就丢。
+_CHAT_ID_PATHS = (
+    ("message", ("chat", "id")),
+    ("callback_query", ("message", "chat", "id")),
+    ("message_reaction", ("chat", "id")),
+    ("message_reaction_count", ("chat", "id")),
+)
+
+
+def _update_chat_id(upd: dict) -> str:
+    """取不到返回空串——空串永远不等于 ALLOWED_CHAT_ID，天然 fail closed。"""
+    for key, path in _CHAT_ID_PATHS:
+        node = upd.get(key)
+        if not isinstance(node, dict):
+            continue
+        for step in path:
+            node = node.get(step) if isinstance(node, dict) else None
+        if node is not None and not isinstance(node, (dict, list)):
+            return str(node)
+    return ""
+
+
 def _allowed(upd: dict) -> bool:
     """bot 名字能被陌生人搜到，没有白名单就等于把我放在公开场合。"""
-    msg = upd.get("message") or {}
-    chat_id = str((msg.get("chat") or {}).get("id", ""))
+    chat_id = _update_chat_id(upd)
     return bool(chat_id) and chat_id == ALLOWED_CHAT_ID
 
 
@@ -630,11 +685,75 @@ async def _run_turn(text: str, carry: str = "") -> tuple[str, str | None, int]:
 
 
 async def _handle_update(upd: dict) -> None:
+    """路由。白名单在最前面一次挡掉，然后四种 update 各走各的。
+
+    🔴 老版本这里直接 `upd["message"]`，所以除了普通消息以外的 update 到这儿
+       全是空 dict、然后被 `if not text: return` 静默吞掉。现在分类型走，
+       但**没订阅的类型服务端根本不会发过来**（见 _get_updates），所以
+       telemood 全关的时候真正会走到的还是只有 message 这一条。
+    """
     if not _allowed(upd):
         # 静默忽略：连「你不能用」都不回，不给探测者任何反馈。
         # debug 级别，被扫到时不刷屏。
         cli_logger.debug("telegram: 忽略非白名单 chat_id=***")
         return
+    if "callback_query" in upd:
+        await _handle_callback(upd)
+        return
+    if "message_reaction" in upd or "message_reaction_count" in upd:
+        _handle_reaction(upd)
+        return
+    if "message" in upd:
+        await _handle_message(upd)
+
+
+def _target_of(msg: dict, sender: dict | None) -> dict:
+    """这一轮的可信上下文。**模型一个字都碰不到这里面的东西**——
+    chat / user / thread / message id 一律由宿主绑定，它只能给一个计划 JSON。"""
+    thread = msg.get("message_thread_id")
+    sender = sender or {}
+    return {
+        "chat_id": ALLOWED_CHAT_ID,
+        "message_id": str(msg.get("message_id")) if msg.get("message_id") else None,
+        "user_id": str(sender.get("id")) if sender.get("id") else None,
+        "thread_id": str(thread) if thread else None,
+    }
+
+
+def _handle_reaction(upd: dict) -> None:
+    """她给某条消息点了表情。记下来，**不为这一下单独跑一次模型**。
+
+    理由写在 telemood_bridge.note_reaction 上面：TG 这条线是按成本卡死的，
+    点一个表情烧一次往返说不过去。下一轮她说话时一起带过去，他会像本来就
+    看见了那样提一句——不是静默吞掉（AGENTS.md 第 3 条）。"""
+    note = telemood_bridge.note_reaction(upd)
+    if not note:
+        return
+    notes = _state.get("notes")
+    if not isinstance(notes, list):
+        notes = []
+    notes.append(note)
+    _state["notes"] = notes[-NOTES_MAX:]
+    _save_state()
+    cli_logger.info("telegram: 记下一条 reaction，下一轮带过去")
+
+
+async def _handle_callback(upd: dict) -> None:
+    """她点了一个按钮。
+
+    consume_callback 里做了一次性、过期、绑定 user/chat/thread 的校验，
+    不算数的时候它自己会给她一句提示，然后返回空串。"""
+    text = await telemood_bridge.consume_callback(upd)
+    if not text:
+        return
+    query = upd.get("callback_query") or {}
+    msg = query.get("message") or {}
+    await _reply_to(
+        text, text, _target_of(msg, query.get("from")), upd.get("update_id", 0)
+    )
+
+
+async def _handle_message(upd: dict) -> None:
     msg = upd.get("message") or {}
     # caption 就是这一轮的用户消息（图片带的那句话）
     text = (msg.get("text") or msg.get("caption") or "").strip()
@@ -643,14 +762,107 @@ async def _handle_update(upd: dict) -> None:
         # 纯图片没 caption 时必须给个占位，不然下面那个 if not text 会把
         # 整条图片消息直接丢掉——这是最容易踩的一脚。
         text = PHOTO_PLACEHOLDER
+    # 🔴 第二期没开就维持原样：贴纸继续走下面那条 `if not text: return`
+    #    被丢掉。开关关着却改了行为，她会莫名其妙为一张贴纸多付一次模型调用。
+    sticker = msg.get("sticker") if telemood_bridge.accepts_stickers() else None
+    sticker = sticker if isinstance(sticker, dict) else None
+    if sticker and not text:
+        text = STICKER_PLACEHOLDER
     if not text:
-        # 语音、贴纸、非图片文件这一批都不处理
+        # 语音、非图片文件这一批仍然不处理。
+        # 🔴 贴纸以前也一起在这条里被静默丢掉——而「用户自制贴纸闭环」的
+        #    第一步正是收下这张贴纸存进 catalog。上面那两行就是它的起点。
         return
 
     # 这一句要在**加图片路径之前**留一份：进 carry 的必须是她说的原话，
     # 带上 /data/uploads/... 那段的话，换会话之后那个路径没有任何意义。
     user_text = text
+    target = _target_of(msg, msg.get("from"))
+
+    if media or sticker:
+        # 下载要等几秒，先手动戳一下「正在输入…」。_keep_typing 那个循环要到
+        # _reply_to 里才起得来，这儿只补一发，Telegram 的 typing 大约管 5 秒。
+        await _api(
+            "sendChatAction",
+            {"chat_id": ALLOWED_CHAT_ID, "action": "typing"},
+            timeout=10,
+        )
+
+    if media:
+        try:
+            saved = await _download_media(media, upd.get("update_id", 0))
+        except _FileTooBig as exc:
+            cli_logger.info("telegram: 图片超限（%s）", _mask(exc))
+            await _send_message(ALLOWED_CHAT_ID, TOO_BIG_TEXT)
+            return
+        except Exception as exc:
+            # httpx 的异常字符串里带完整下载 URL，必须过 _mask
+            cli_logger.warning("telegram: 图片下载失败: %s", _mask(exc))
+            await _send_message(ALLOWED_CHAT_ID, FALLBACK_TEXT)
+            return
+        # 照抄网页端 main.py 的格式，一个字都不改——格式一致，
+        # 模型的行为才一致。CLI 会自己用 Read 工具去读这个路径。
+        text += (
+            "\n\n[用户上传了以下文件，请使用 Read 工具查看：\n"
+            f"{saved}\n]"
+        )
+
+    if sticker:
+        note = await _ingest_sticker(upd, sticker)
+        if note:
+            text = note if text == STICKER_PLACEHOLDER else f"{note}\n\n{text}"
+
+    await _reply_to(text, user_text, target, upd.get("update_id", 0))
+
+
+async def _ingest_sticker(upd: dict, sticker: dict) -> str:
+    """收下这张贴纸，返回给模型看的那段说明。收不下就返回空串。
+
+    静态贴纸（.webp）**下载到本地**，把逻辑路径当 media_ref 交给 telemood——
+    他于是能用 Read 工具真的看见那张图，跟她发普通图片走同一条路。
+    动图（.tgs）和视频贴纸（.webm）读不了，就什么都不给：上游的 model view
+    会自己写上「image content not attached」，他知道自己只看到了 metadata，
+    比给他一个打不开的路径诚实。"""
+    if not telemood_bridge.accepts_stickers():
+        return ""
+    media_ref = None
+    if not (sticker.get("is_animated") or sticker.get("is_video")):
+        try:
+            media_ref = str(
+                await _download_media(
+                    {
+                        "file_id": sticker.get("file_id"),
+                        "mime": "image/webp",
+                        "size": sticker.get("file_size") or 0,
+                    },
+                    upd.get("update_id", 0),
+                )
+            )
+        except _FileTooBig as exc:
+            cli_logger.info("telegram: 贴纸太大没存（%s）", _mask(exc))
+        except Exception as exc:
+            # 存不下不是致命的：catalog 照收，他只是看不见这张图。
+            cli_logger.warning("telegram: 贴纸下载失败: %s", _mask(exc))
+    try:
+        return await telemood_bridge.ingest_sticker(upd, media_ref=media_ref)
+    except Exception:
+        cli_logger.exception("telegram: 贴纸入库炸了（不影响这一轮回复）")
+        return ""
+
+
+async def _reply_to(text: str, user_text: str, target: dict, update_id: int) -> None:
+    """跑一轮并把结果发出去。消息、贴纸、按钮点击三条入口共用这一段。"""
     started = time.monotonic()
+
+    # 她点过的表情攒在这儿，这一轮一起带过去，带成功就清掉。
+    notes = [n for n in (_state.get("notes") or []) if isinstance(n, str) and n]
+    if notes:
+        text = "\n".join(notes) + "\n\n" + text
+
+    # 贴纸目录挂在**用户侧**：它会变，进稳定前缀会把前缀缓存打散。
+    sticker_ctx = telemood_bridge.sticker_context()
+    if sticker_ctx:
+        text = f"{text}\n\n{sticker_ctx}"
 
     typing = asyncio.create_task(_keep_typing(ALLOWED_CHAT_ID))
     # create_task 只是排期。锁空闲时 Lock.acquire() 不会让出控制权，不给一个
@@ -658,24 +870,6 @@ async def _handle_update(upd: dict) -> None:
     await asyncio.sleep(0)
     reply, new_session, ombre_calls = "", None, 0
     try:
-        if media:
-            try:
-                saved = await _download_media(media, upd.get("update_id", 0))
-            except _FileTooBig as exc:
-                cli_logger.info("telegram: 图片超限（%s）", _mask(exc))
-                await _send_message(ALLOWED_CHAT_ID, TOO_BIG_TEXT)
-                return
-            except Exception as exc:
-                # httpx 的异常字符串里带完整下载 URL，必须过 _mask
-                cli_logger.warning("telegram: 图片下载失败: %s", _mask(exc))
-                await _send_message(ALLOWED_CHAT_ID, FALLBACK_TEXT)
-                return
-            # 照抄网页端 main.py 的格式，一个字都不改——格式一致，
-            # 模型的行为才一致。CLI 会自己用 Read 工具去读这个路径。
-            text += (
-                "\n\n[用户上传了以下文件，请使用 Read 工具查看：\n"
-                f"{saved}\n]"
-            )
         # 不抄 main.py sse() 里的 locked() fail-fast：那是给正看着屏幕的人的。
         # 她在 TG 上发完就放下手机了，排队等几秒毫无感觉。同一把锁，两种表现。
         from app.main import chat_lock  # 局部 import：main 在启动时 import 我们
@@ -720,25 +914,27 @@ async def _handle_update(upd: dict) -> None:
         # 是同一种体验，所以异常和空回复走同一条路。
         #
         # 这一轮不计数、carry 也不清：她什么都没听到，窗口不该因此少一格，
-        # 而那段开场白得留到下一条消息再带一次。
+        # 而那段开场白得留到下一条消息再带一次。表情那几条同理，留着。
         _save_state()
         cli_logger.warning("telegram: 空回复，发兜底文案")
         await _send_message(ALLOWED_CHAT_ID, FALLBACK_TEXT)
         return
 
     # 拿到非空回复，carry 的使命就结束了——它已经在这条新会话的历史里。
+    # 表情那几条也算带到了。
     _state["carry"] = ""
+    if notes:
+        _state["notes"] = []
     _record_turn(user_text, reply)
     _save_state()
 
-    for chunk in _split_for_tg(reply):
-        await _send_message(ALLOWED_CHAT_ID, chunk)
+    chunks = await _deliver(reply, target, update_id)
 
     # 端到端耗时（含 Telegram 发送那几个来回）。逐次模型调用的细账在
     # _stream_reply 里的 tg_metrics，那一行才是拿来对用量表的。
     cli_logger.info(
         "telegram: turn_sent total_ms=%d chunks=%d",
-        int((time.monotonic() - started) * 1000), len(_split_for_tg(reply)),
+        int((time.monotonic() - started) * 1000), chunks,
     )
 
     # 换窗口放在**回复发出去之后**：她发一句话，等的是回复，不是等我做家务。
@@ -747,6 +943,29 @@ async def _handle_update(upd: dict) -> None:
         _roll_window_if_full()
     except Exception:
         cli_logger.exception("telegram: 换窗口失败（回复已发出，不影响这一轮）")
+
+
+async def _deliver(reply: str, target: dict, update_id: int) -> int:
+    """把这一轮的回复发出去，返回发了几条（只用来打日志）。
+
+    🔴 telemood 走通了就**不再过 _split_for_tg**：绑定阶段已经按
+       「段落、句子、空白、硬切」展开过长 bubble 了，两套分段叠加会切得很碎
+       （施工单 4.1）。_split_for_tg 留给下面的回退路径，别删。
+
+    🔴 回退是硬要求，不是可选项：模型没按计划格式输出、或者计划一条都没发
+       出去时，她**必须照样收到消息**。deliver() 在「解析成功但一条都没发
+       出去」时会把 bubble 正文交回来——回退发的是那段正文，不是一坨 JSON。
+    """
+    outcome = await telemood_bridge.deliver(reply, update_id=update_id, **target)
+    if outcome.handled:
+        return 1
+    body = outcome.fallback_text if outcome.fallback_text is not None else reply
+    if not body.strip():
+        body = FALLBACK_TEXT
+    chunks = _split_for_tg(body)
+    for chunk in chunks:
+        await _send_message(ALLOWED_CHAT_ID, chunk)
+    return len(chunks)
 
 
 # ---------- 主循环 ----------------------------------------------------------
@@ -771,6 +990,18 @@ async def _poll_forever() -> None:
     fresh = not STATE_PATH.exists()
     _load_state()
     _cleanup_uploads()
+    # telemood 在这儿装配：要 event loop（它全是 async），也要 _client 已经建好
+    # （getMe 走的就是下面这个 _api）。
+    # 🔴 注入的是 `_api` 这一个 callable，**不是 token**——telemood 那一侧
+    #    从头到尾不知道 token 长什么样，也不新建第二个 client / update loop。
+    #    它自己会吞掉所有异常：接不上就是 TG 回复走原来的分段路径，绝不能
+    #    因为接不上把这条线搞哑。
+    try:
+        await telemood_bridge.start(_api)
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        cli_logger.exception("telegram: telemood 启动失败，回复走原来的分段路径")
     cli_logger.info(
         "telegram: 已启动，offset=%s session=%s turns=%s/%s carry=%d 字符",
         _state["offset"], bool(_state["session_id"]),
@@ -856,6 +1087,10 @@ def start() -> asyncio.Task | None:
 
 
 async def stop(task: asyncio.Task | None) -> None:
+    try:
+        await telemood_bridge.stop()
+    except Exception:
+        cli_logger.exception("telegram: telemood 关停时出错")
     if task is None:
         return
     task.cancel()

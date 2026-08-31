@@ -345,7 +345,18 @@ def build_system_prompt(model: str, lean: bool = False) -> str:
                 "telegram prompt 读不到（%s: %s），回落到完整版人设", TELEGRAM_PROMPT_FILE, exc
             )
         if lean_body:
-            return f"{model_line}\n\n{lean_body}"
+            prefix = f"{model_line}\n\n{lean_body}"
+            # telemood 的计划格式说明。跟 PIANO_DJ_PROMPT / SPLIT_PROMPT 一个
+            # 待遇：进**稳定前缀**，不骑用户轮——放用户侧每轮都要重付一遍，
+            # 而 TG 这条线是刻意省钱的（TG_MAX_TURNS 上面那段账）。
+            #
+            # 🔴 没开 telemood 时 prompt_block() 返回空串，一个 token 都不多花。
+            #    绝不能无条件拼上去：教了他计划格式却没人解析，她会当场收到
+            #    一坨 JSON。它也**按开着的能力拼**，只教当期真能用的动作——
+            #    教了不能用的，他就会输出一个执行不了的 action。
+            from app import telemood_bridge  # 局部导入，跟 lorebook 一个道理
+            block = telemood_bridge.prompt_block()
+            return f"{prefix}\n\n{block}" if block else prefix
         # 读不到就落到下面的默认路径（完整版）
 
     profile_context = build_profile_context().strip()
