@@ -1,0 +1,23 @@
+# 🔴 构建上下文越小，每次部署越快，也越不容易把不该进镜像的东西带进去。
+#    尤其 node_modules：它在镜像里是 npm install 装出来的那一份，
+#    从上下文里再盖一遍既慢又可能把架构不符的二进制带进去。
+anno/server/node_modules/
+**/node_modules/
+
+# 数据：绝不进镜像
+*.db
+*.db-journal
+hervoice/data/
+memory/
+
+# Python 缓存
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 版本控制和杂物
+.git/
+.gitignore
+.DS_Store
