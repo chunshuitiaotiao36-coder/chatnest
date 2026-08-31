@@ -2621,3 +2621,184 @@ body.tab-away #chat {
   --ls-meta:       var(--font-sans);
   --ls-cn:         var(--font-sans);
 }
+
+/* ============================================================
+   Nepeta 外观层（08-31）
+   起因：她说「超级无敌简约风」，想好看一点，给了一份网页参考手册。
+   手册自己的第一条原则就是：**每屏只设一个视觉主角，复杂效果叠加常常
+   不是高级，而是吵**。所以这一层只做两件事——**字**和**纸**。
+   没有粒子、没有发光边框、没有 3D 卡片、没有全屏动效。
+
+   为什么写在 design-system.css 的最后，而不是 index.html 里：
+   1. 本文件是「唯一视觉真理来源」（见文件头），字体和材质本来就该在这儿；
+   2. 它在 index.html 的内联 <style> **之后**加载，同特异度下这一层稳赢，
+      不会出现「我写了但被上面某条盖掉」的哑火；
+   3. AGENTS.md 第 6 条：index.html 是所有 agent 都要改的那个文件。
+      外观改在这边，黑框框做 telemood 时就不会跟我撞车。
+   ============================================================ */
+
+/* —— 字：界面标题用楷体 ——————————————————————————————
+
+   🔴 这不是 --font-brand。--font-brand 指向 static/fonts/lxgw-*.woff2，
+      那两份是**只有 1714 个汉字**的子集（本文件第 7 行原话「仅装饰性文字用」），
+      只够写开屏语那两行。拿它写界面标题会掉字：「与世书像力务友声头思星朋
+      相站置起身转」这些全都不在里面——也就是说「记忆星图」「朋友圈」
+      「寄相思」「一起看书」「中转站」「调性与世界书」「身份」「服务」「能力」
+      几乎每一条都会在词中间掉回苹方。08-30 排信正文时踩的也是这个坑。
+
+   🔴 所以 NepetaUI 是从**完整**的霞鹜文楷（24MB）重新子集出来的，
+      字符表 = tools/subset-ui-font.py 里 LABELS 列的那些字串，15KB。
+      **界面上加了新的中文标题、又想用楷体 → 把那句话加进 LABELS 重跑脚本。**
+      不重跑就会掉字，而且是静默的。脚本会检查覆盖率，缺一个字就报错退出。 */
+@font-face {
+  font-family: 'NepetaUI';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('/static/fonts/nepeta-ui.woff2') format('woff2');
+}
+
+:root {
+  /* 标题字。回落链最后仍是苹方——万一漏了字，是掉字重，不是掉整行。 */
+  --font-display: 'NepetaUI', 'LXGW WenKai', ui-serif, Georgia, 'PingFang SC', serif;
+
+  /* —— 纸：小窝的材质 ——
+     寄相思那次定下来的语言（「玻璃桌面上放着一张纸」），这里推到全站。
+     卡片比页面底色**亮**一点点 + 一根发丝边 + 一层很浅的影，
+     不靠加深灰底来做区分——灰底是 08 月之前那版的做法，堆在一起像一排药片。 */
+  --card-paper:  #FDFCFA;
+  --card-edge:   rgba(31, 30, 29, .065);
+  --card-shadow: 0 1px 2px rgba(31, 30, 29, .035), 0 5px 16px rgba(31, 30, 29, .045);
+  --card-radius: 18px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --card-paper:  #262523;
+    --card-edge:   rgba(255, 255, 255, .065);
+    --card-shadow: 0 1px 2px rgba(0, 0, 0, .35), 0 5px 16px rgba(0, 0, 0, .28);
+  }
+}
+
+/* 楷体只落在这四处，而且**每一处的文字都是写死在 HTML 里的**。
+   动态文字（她写的信标题、对话标题、批注……）一律不许用，字库覆盖不了。 */
+.study-nav-label,
+.study-hero-names-cn,
+.profile-nav-row-title,
+.home-group-title {
+  font-family: var(--font-display);
+  /* 楷体没有 500 字重，写 500 会被合成假粗，糊成一团。统一 400。 */
+  font-weight: 400;
+}
+.study-nav-label      { letter-spacing: .04em; }
+.study-hero-names-cn  { letter-spacing: .12em; }
+/* 说明文字是嵌在 .profile-nav-row-title 里面的一个 span，
+   会继承上面那条。它是次要信息，拉回苹方。 */
+.profile-nav-row-note { font-family: var(--font-sans); }
+
+/* 分组标题：手册里 "CATEGORY 01" 上面那根短横的语言，换成中文的说法。
+   🔴 字号不动。本文件 1355 行写着「这一片不许再出现写死的 font-size」，
+      分组标题就该是最小的一档，不该抢视线——加的是气质，不是体积。 */
+.home-group-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 4px;
+  letter-spacing: .1em;
+}
+.home-group-title::before {
+  content: "";
+  flex: none;
+  width: 14px;
+  height: 1.5px;
+  border-radius: 1px;
+  background: var(--accent);
+  opacity: .5;
+}
+
+/* —— 纸：Home 的四行 ——
+   原来是 #f2f0ed 的灰胶囊，四个挨在一起像四颗药片。换成纸片。 */
+.profile-nav-row {
+  border-radius: var(--card-radius);
+  background: var(--card-paper);
+  border: 1px solid var(--card-edge);
+  box-shadow: var(--card-shadow);
+  transition: transform 140ms ease, box-shadow 140ms ease;
+}
+.profile-nav-row:active {
+  transform: scale(.988);
+  box-shadow: 0 1px 2px rgba(31, 30, 29, .05);
+}
+
+/* —— 纸：书房的五栏 ——
+   原来是「一条分隔线 + 一行字」的系统设置表。上面那个 95 days 的 hero
+   做得挺好，往下一掉就成了 iOS 设置页，两块不像一个东西。
+   改成卡片之后，hero 那张纸和下面五张纸是同一种材质。 */
+.study-nav {
+  padding: 10px 16px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.study-nav-row {
+  padding: 16px 16px;
+  border-radius: var(--card-radius);
+  background: var(--card-paper);
+  border: 1px solid var(--card-edge);
+  box-shadow: var(--card-shadow);
+  transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+/* 卡片之间靠间隙分开，分隔线是上一版的东西，留着就是两套语言打架 */
+.study-nav-row::after { display: none; }
+.study-nav-row:active {
+  transform: scale(.988);
+  box-shadow: 0 1px 2px rgba(31, 30, 29, .05);
+}
+
+/* —— 有背景图的时候 ——
+   🔴 她是设了背景图的（她那句「半透明了就看不清字」就是从背景图来的）。
+      所以上面那套纸在她那儿其实**看不见**——has-bg-* 那些规则特异度更高，
+      会把 background 抢回去。这一段就是为她那台手机写的：同样是卡片，
+      材质换成玻璃。少了这段，她部署完只会看见字变了、别的没变。
+   透明底 + 一根玻璃丝边，影子去掉——玻璃上压重影会显脏。 */
+body.has-bg-light .study-nav-row,
+body.has-bg-dark  .study-nav-row {
+  background: var(--glass-panel);
+  border: 1px solid var(--glass-line);
+  box-shadow: none;
+}
+body.has-bg-light .profile-nav-row,
+body.has-bg-dark  .profile-nav-row {
+  box-shadow: none;
+}
+/* 但 Home 例外，还是纸。
+   🔴 依据就在本文件 594 行那条已有的决定：「#tabHome 排除在外：Home 是设置页，
+      实心底才读得清」——设了背景图，Home 这一页的底也仍然是实心渐变。
+      底是实的，上面却铺 42% 的玻璃卡，就成了「实底上贴一层雾」：
+      既没有玻璃该有的通透，又比纸脏。所以把那条已有的判断延伸到卡片上。 */
+body.has-bg-light #tabHome .profile-nav-row,
+body.has-bg-dark  #tabHome .profile-nav-row {
+  background: var(--card-paper);
+  border-color: var(--card-edge);
+  box-shadow: var(--card-shadow);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* —— 唯一的动效 ——
+   书房那页 hero 之后是五张卡，进页面时依次浮起来一点点。
+   手册原则：一次只保留一个主视觉机制。这就是那一个，10px、380ms，
+   到此为止。系统开了「减弱动态效果」就整个不播。 */
+@media (prefers-reduced-motion: no-preference) {
+  .study-nav-row {
+    animation: nepetaRise 380ms cubic-bezier(.22, .61, .36, 1) both;
+  }
+  .study-nav-row:nth-child(1) { animation-delay:  20ms; }
+  .study-nav-row:nth-child(2) { animation-delay:  70ms; }
+  .study-nav-row:nth-child(3) { animation-delay: 120ms; }
+  .study-nav-row:nth-child(4) { animation-delay: 170ms; }
+  .study-nav-row:nth-child(5) { animation-delay: 220ms; }
+}
+@keyframes nepetaRise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}

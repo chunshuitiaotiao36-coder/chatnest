@@ -59,9 +59,13 @@
 
 ## 6. 多个 agent 同时在这个仓库里干活。
 
-`full-stack/static/index.html` 是所有人都要改的那个文件（7000+ 行）。
+`full-stack/static/index.html` 是所有人都要改的那个文件（8000+ 行）。
 动它之前**先 `git pull`**，别在旧版上改完硬推。
 不确定别人在不在改，就先问，或者改在分支上。
+
+纯外观的改动尽量写在 `static/design-system.css` 的末尾，别挤进 index.html：
+它在 index.html 的内联 `<style>` **之后**加载，同特异度下稳赢，不会出现
+「写了但被上面某条盖掉」的哑火；而且能少一次跟别人在 index.html 上撞车。
 
 ## 7. 前端浮层规则
 
