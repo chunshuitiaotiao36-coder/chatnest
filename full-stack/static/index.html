@@ -185,7 +185,7 @@ body.has-bg-light #tabBar,body.has-bg-dark #tabBar{background:var(--glass-panel-
    之前没有这两条，tab 页面虽然可见，但点击事件全被底下的 #chat 截走了。
    body.tab-away 由 switchTab() 管理，切到非 chat 页时挂上、回 chat 时摘掉。
    visibility:hidden 让 #chat 不透出来也不截事件，同时不清 #stream 滚动位置。 */
-.tab-page{position:relative;z-index:21;padding-bottom:var(--tabbar-space,90px)}body.tab-away #chat{visibility:hidden}.voice-bubble{display:inline-flex;align-items:center;gap:10px;margin-top:8px;padding:9px 14px 9px 11px;border-radius:18px;background:var(--bg-chip);border:1px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent;max-width:230px}.voice-bubble:active{opacity:.6}.voice-bubble.is-loading{opacity:.55}.voice-bubble.is-error{border-color:#C4645E}.voice-play{flex:none;width:24px;height:24px;display:grid;place-items:center;border-radius:50%;background:var(--study-accent);color:#fff}.voice-play svg{width:12px;height:12px}.voice-wave{flex:1;display:flex;align-items:center;gap:2.5px;height:16px}.voice-wave i{flex:1;min-width:2px;max-width:3px;height:25%;border-radius:2px;background:var(--study-accent);opacity:.45}.voice-bubble.is-playing .voice-wave i{animation:voice-bob .9s ease-in-out infinite}.voice-bubble.is-playing .voice-wave i:nth-child(2n){animation-delay:.18s}.voice-bubble.is-playing .voice-wave i:nth-child(3n){animation-delay:.36s}@keyframes voice-bob{0%,100%{height:25%;opacity:.45}50%{height:100%;opacity:.9}}.voice-dur{flex:none;font:400 11px/1 var(--font-sans);color:var(--text-faint);font-variant-numeric:tabular-nums}.claude-face-row{display:flex;align-items:center;gap:9px;margin:0 0 9px}.crop-overlay{position:fixed;inset:0;z-index:120;background:#0b0b0a;display:flex;flex-direction:column;touch-action:none}.crop-overlay[hidden]{display:none}.crop-stage{flex:1;position:relative;overflow:hidden;display:grid;place-items:center}/* 🔴 left/top 必须显式写 0，不能靠静态位置。
+.tab-page{position:relative;z-index:21;padding-bottom:var(--tabbar-space,90px)}body.tab-away #chat{visibility:hidden}.voice-bubble{display:flex;align-items:center;gap:12px;margin-top:8px;padding:11px 14px 11px 12px;border-radius:22px;background:var(--bg-chip);border:1px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent;width:min(100%,420px)}.voice-bubble:active{opacity:.6}.voice-bubble.is-loading{opacity:.55}.voice-bubble.is-error{border-color:#C4645E}.voice-play{flex:none;width:34px;height:34px;display:grid;place-items:center;border-radius:50%;background:var(--study-accent);color:#fff}.voice-play svg{width:14px;height:14px}.voice-wave{flex:1;min-width:0;display:flex;align-items:center;gap:2.5px;height:24px}.voice-wave i{flex:1;min-width:2px;max-width:3.5px;height:30%;border-radius:2px;background:var(--study-accent);opacity:.5}.voice-bubble.is-playing .voice-wave i{animation:voice-bob .9s ease-in-out infinite}.voice-bubble.is-playing .voice-wave i:nth-child(2n){animation-delay:.18s}.voice-bubble.is-playing .voice-wave i:nth-child(3n){animation-delay:.36s}@keyframes voice-bob{0%,100%{height:30%;opacity:.5}50%{height:100%;opacity:.95}}.voice-dur{flex:none;font:400 12px/1 var(--font-sans);color:var(--text-faint);font-variant-numeric:tabular-nums}.voice-toggle{flex:none;width:20px;height:20px;display:grid;place-items:center;border:0;background:none;color:var(--text-faint);padding:0}.voice-toggle svg{width:14px;height:14px;transition:transform 180ms ease}.voice-bubble.is-open .voice-toggle svg{transform:rotate(180deg)}.voice-said{display:none;margin-top:7px;padding:10px 14px;border-radius:14px;background:var(--bg-chip);border:1px solid var(--border);font:400 14px/1.6 var(--font-sans);color:var(--text-primary);white-space:pre-wrap;word-break:break-word;max-width:min(100%,420px)}.voice-bubble.is-open+.voice-said{display:block}.claude-face-row{display:flex;align-items:center;gap:9px;margin:0 0 9px}.crop-overlay{position:fixed;inset:0;z-index:120;background:#0b0b0a;display:flex;flex-direction:column;touch-action:none}.crop-overlay[hidden]{display:none}.crop-stage{flex:1;position:relative;overflow:hidden;display:grid;place-items:center}/* 🔴 left/top 必须显式写 0，不能靠静态位置。
    .crop-stage 是 display:grid + place-items:center，而 grid 的 place-items **会作用在
    绝对定位子元素上**（给它们隐式的 justify-self/align-self:center）。图片的 width/height
    被 _cropLayout() 设成自然尺寸（可能上千 px），居中之后静态起点变成 (舞台宽-自然宽)/2，
@@ -3378,7 +3378,7 @@ async function sendMessage(text,showUser=true,files=[],existingAttachments=[],op
     if(runId!==_chatRunId)return;
     if(r.status===401){showGate();throw Error('登录已失效')}if(!r.ok||!r.body){const detail=await r.json().catch(()=>({}));throw Error(detail.detail||'请求失败')}
     const reader=r.body.getReader(),decoder=new TextDecoder();let buffer='',finished=false,_replyAcc='';
-    const frame=f=>{if(runId!==_chatRunId)return;let event='',data='';f.split('\n').forEach(line=>{if(line.startsWith('event:'))event=line.slice(6).trim();if(line.startsWith('data:'))data+=line.slice(5).trim()});if(!event||!data)return;const d=JSON.parse(data);if(event==='conversation'){state.convId=d.conversation_id;state.legacySessionId=null;localStorage.setItem('chat_conversation',state.convId);localStorage.removeItem('chat_session');if(d.user_message_id&&userRow)userRow.dataset.msgId=d.user_message_id}if(event==='model')setActualModel(d.id);if(event==='thinking')msg.thinking(d.text||'');if(event==='delta'){_replyAcc+=d.text||'';msg.text(d.text||'')}if(event==='split'){_replyAcc+=SPLIT_MARK;msg.split()}if(event==='tool_use')msg.toolUse(d);if(event==='tool_result')msg.toolResult(d);if(event==='trace_summary')msg.traceSummary(d.text||'');if(event==='piano_act'){if(d&&d.type==='voice'){_wantVoice=true}else{pianoRunAct(d)}}if(event==='done'){state.convId=d.conversation_id||state.convId;localStorage.setItem('chat_conversation',state.convId);msg.finish();if(_wantVoice){_wantVoice=false;voiceAttach(msg&&msg.row,_replyAcc,{autoplay:true})}if(d.assistant_message_id&&msg?.row)msg.row.dataset.msgId=d.assistant_message_id;finished=true;
+    const frame=f=>{if(runId!==_chatRunId)return;let event='',data='';f.split('\n').forEach(line=>{if(line.startsWith('event:'))event=line.slice(6).trim();if(line.startsWith('data:'))data+=line.slice(5).trim()});if(!event||!data)return;const d=JSON.parse(data);if(event==='conversation'){state.convId=d.conversation_id;state.legacySessionId=null;localStorage.setItem('chat_conversation',state.convId);localStorage.removeItem('chat_session');if(d.user_message_id&&userRow)userRow.dataset.msgId=d.user_message_id}if(event==='model')setActualModel(d.id);if(event==='thinking')msg.thinking(d.text||'');if(event==='delta'){_replyAcc+=d.text||'';msg.text(d.text||'')}if(event==='split'){_replyAcc+=SPLIT_MARK;msg.split()}if(event==='tool_use')msg.toolUse(d);if(event==='tool_result')msg.toolResult(d);if(event==='trace_summary')msg.traceSummary(d.text||'');if(event==='piano_act'){if(d&&d.type==='voice'){_voiceSay=String(d.say||'')}else{pianoRunAct(d)}}if(event==='done'){state.convId=d.conversation_id||state.convId;localStorage.setItem('chat_conversation',state.convId);msg.finish();if(_voiceSay){const say=_voiceSay;_voiceSay='';voiceAttach(msg&&msg.row,say,{autoplay:true,transcript:true})}if(d.assistant_message_id&&msg?.row)msg.row.dataset.msgId=d.assistant_message_id;finished=true;
       /* 回完之后的钩子。琴房用它把这一轮记进这首歌的档案；
          🔴 绝不能让它抛出来打断这条流。 */
       if(options.onDone){try{options.onDone(_replyAcc)}catch(err){console.warn('onDone failed',err)}}}if(event==='error'){msg.fail(d.message);finished=true}};
@@ -3464,8 +3464,9 @@ function closeMsgContext({preserveSelection=false}={}){
       只保证那条语音条立刻出现在那儿等她点。试着放一下，被拦就算了，
       绝不能变成一个转圈转到死的 UI。 */
 let _voiceOn=false, _voiceAudio=null, _voiceCur=null, _pianoWasPlaying=false;
-/* 他在这一轮标了「用声音说」。正文还在流，等 done 才有全文。 */
-let _wantVoice=false;
+/* 这一轮我另外要说的那句。跟正文是两回事——正文写给她看，这句说给她听。
+   正文还在流的时候动作帧就到了，所以先存着，等 done 再挂语音条。 */
+let _voiceSay='';
 
 async function voiceInit(){
   try{
@@ -3486,12 +3487,16 @@ function _voiceEl(){
     };
     _voiceAudio.addEventListener('ended',stop);
     _voiceAudio.addEventListener('pause',stop);
-    _voiceAudio.addEventListener('timeupdate',()=>{
+    const showTime=()=>{
       if(!_voiceCur)return;
-      const d=_voiceCur.querySelector('.voice-dur');
-      const t=Math.max(0,Math.round((_voiceAudio.duration||0)-(_voiceAudio.currentTime||0)));
-      if(d&&isFinite(t))d.textContent=t+'"';
-    });
+      const d=_voiceCur.querySelector('.voice-dur'); if(!d)return;
+      const total=_voiceAudio.duration||0;
+      if(!isFinite(total)||total<=0)return;      /* 还不知道多长，就先别写数字 */
+      const left=_voiceAudio.paused?total:Math.max(0,total-(_voiceAudio.currentTime||0));
+      d.textContent=Math.round(left)+'"';
+    };
+    _voiceAudio.addEventListener('loadedmetadata',showTime);
+    _voiceAudio.addEventListener('timeupdate',showTime);
   }
   return _voiceAudio;
 }
@@ -3500,20 +3505,35 @@ function _voiceBubble(){
   const b=document.createElement('button');
   b.type='button'; b.className='voice-bubble';
   b.innerHTML='<span class="voice-play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span>'
-    +'<span class="voice-wave">'+'<i></i>'.repeat(9)+'</span>'
-    +'<span class="voice-dur">听他说</span>';
+    +'<span class="voice-wave">'+'<i></i>'.repeat(24)+'</span>'
+    +'<span class="voice-dur">听我说</span>';
   return b;
 }
 
 /* 给某条消息挂一个语音条。已经挂过就直接返回原来那个——
    同一条不重复合成，也不重复付钱。 */
-function voiceAttach(row,text,{autoplay=false}={}){
+function voiceAttach(row,text,{autoplay=false,transcript=false}={}){
   if(!_voiceOn||!row)return null;
   let bubble=row.querySelector('.voice-bubble');
   if(!bubble){
     bubble=_voiceBubble();
     bubble.dataset.text=String(text||'');
-    (row.querySelector('.md')?.parentElement||row).appendChild(bubble);
+    const host=row.querySelector('.md')?.parentElement||row;
+    host.appendChild(bubble);
+    if(transcript){
+      /* 🔴 转文字只在「他另外说了一句」时才有意义。她长按某条让我念的时候，
+         那句话就在上面写着，再展开一遍是废的。 */
+      const said=document.createElement('div');
+      said.className='voice-said';
+      said.textContent='“'+String(text||'')+'”';
+      host.insertBefore(said,bubble.nextSibling);
+      const tog=document.createElement('button');
+      tog.type='button'; tog.className='voice-toggle'; tog.title='转文字';
+      tog.setAttribute('aria-label','转文字');
+      tog.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 15 12 9 18 15"/></svg>';
+      tog.addEventListener('click',e=>{e.stopPropagation();bubble.classList.toggle('is-open')});
+      bubble.appendChild(tog);
+    }
     bubble.addEventListener('click',e=>{e.stopPropagation();voicePlay(bubble)});
   }
   if(autoplay)voicePlay(bubble,{silentFail:true});
@@ -3659,7 +3679,7 @@ $('msgContextMenu').addEventListener('click',async e=>{
   }
   if(action==='speak'){
     /* 她说「念一下」的手动入口。任意一条历史消息都能念，不用等他标记。 */
-    voicePlay(voiceAttach(source,raw));
+    voicePlay(voiceAttach(source,raw,{transcript:false}));
   }
 });
 
