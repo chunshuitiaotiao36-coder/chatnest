@@ -53,7 +53,13 @@ class ConvRegistry:
                 actor = None
             if actor is not None and actor.conv_id != conv_id:
                 if actor.busy:
-                    raise ActorBusyError("另一段会话仍在回复")
+                    # 🔴 四个出处的文案必须互不相同，她一眼要能看出撞的是哪一道门：
+                    #   main.py    chat_lock 被占        「上一条还在回，已经 N 秒了…」
+                    #   这里       换会话，上一个还忙    「另一段对话还没回完」
+                    #   下面       actor.busy（起跑前）  「上一条还在回（这一轮还没交卷）」
+                    #   actor.py   actor.busy（提交时）  「上一条还在回（同一个会话正忙）」
+                    # 以前四句一模一样，她说"又是那句话"的时候没人分得清是哪一个。
+                    raise ActorBusyError("另一段对话还没回完，等它收个尾")
                 await actor.close()
                 self._actor = None
                 actor = None
@@ -80,7 +86,7 @@ class ConvRegistry:
         async with self._lock:
             actor = self._actor
             if actor is not None and actor.alive and actor.busy:
-                raise ActorBusyError("上一条消息仍在回复")
+                raise ActorBusyError("上一条还在回（这一轮还没交卷）")
 
     async def invalidate(self, conv_id: str | None = None) -> None:
         async with self._lock:

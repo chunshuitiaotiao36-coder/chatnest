@@ -14,6 +14,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from app import claude, peek, push, store
+from app.chatlock import ChatLock
 
 # 借 uvicorn.error：全仓库没有 logging 配置，root logger 默认 WARNING 会把 .info() 吞掉
 night_logger = logging.getLogger("uvicorn.error")
@@ -222,7 +223,7 @@ async def _speak(conv_id: str, shot: Path | None = None) -> str:
     return text.strip()
 
 
-def _gate(chat_lock: asyncio.Lock, *, force: bool = False) -> tuple[str | None, str]:
+def _gate(chat_lock: ChatLock, *, force: bool = False) -> tuple[str | None, str]:
     """要不要开口。返回 (跳过原因 或 None, conv_id)。
 
     **只做判断，不做任何耗时的事**——这一段跑在 /api/events 的请求里。
@@ -296,7 +297,7 @@ async def _bark_background(conv_id: str) -> None:
         night_logger.exception("[凌晨守护] 后台开口失败")
 
 
-def trigger_bark(chat_lock: asyncio.Lock) -> str | None:
+def trigger_bark(chat_lock: ChatLock) -> str | None:
     """/api/events 用的：判断留在请求里，开口扔后台，上报立刻返回。
 
     返回跳过原因；None 表示已经派了后台任务。**不抛。**
@@ -316,7 +317,7 @@ def trigger_bark(chat_lock: asyncio.Lock) -> str | None:
         return "error"
 
 
-async def maybe_bark(chat_lock: asyncio.Lock, *, force: bool = False) -> dict:
+async def maybe_bark(chat_lock: ChatLock, *, force: bool = False) -> dict:
     """测试端点用的同步路径：等开口跑完、把那句话带回来。**任何情况都不抛。**
 
     线上真实触发走 trigger_bark()，不走这儿。

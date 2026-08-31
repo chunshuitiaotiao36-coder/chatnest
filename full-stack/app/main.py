@@ -30,6 +30,7 @@ MultiPartParser.max_part_size = 60 * 1024 * 1024  # 与 uploads.py 的 MAX_FILE_
 
 from app import anno, appicon, auth, backgrounds, faces, keepalive, listen, lorebook, moments, nightguard, peek, piano, piano_analysis, push, relays, starmap, store, telegram, voice
 from app.actor import ActorBusyError, _mem_kv
+from app.chatlock import CHAT_LOCK_WAIT_SECONDS, chat_lock
 from app.claude import (
     SessionResumeError,
     available_models,
@@ -91,7 +92,9 @@ from app.uploads import (
 logger = logging.getLogger(__name__)
 timing_logger = logging.getLogger("uvicorn.error")
 STATIC = ROOT / "static"
-chat_lock = asyncio.Lock()
+# chat_lock 从 app.chatlock 引进来（同一个对象，telegram.py 那个
+# `from app.main import chat_lock` 照旧能用）。裸 asyncio.Lock 换成薄封装的
+# 理由写在 chatlock.py 顶上：语义一个字没改，多的是「谁拿的、拿了多久」。
 initialize_store()
 TRACE_CONTENT_CHARS = 20_000
 
@@ -745,14 +748,10 @@ async def chat(body: ChatBody) -> StreamingResponse:
     )
 
     async def sse():
-        if chat_lock.locked():
-            payload = json.dumps(
-                {"message": "上一条消息仍在回复"},
-                ensure_ascii=False,
-            )
-            yield f"event: error\ndata: {payload}\n\n"
-            return
-        await chat_lock.acquire()
+        # 🔴 所有初始化都放在 acquire **之前**：这一段全是纯赋值，抛不出异常。
+        # 原来它们在 acquire 之后、try 之前——那中间任何一行抛一次，这把进程级
+        # 的锁就永久泄漏，只能重启进程。会抛的两个 stripper 构造挪进了下面的
+        # try，现在 acquire 和 try 之间一行都没有。
         conv_id = None
         user_message_id = None
         branch_restore_id = None
@@ -760,9 +759,56 @@ async def chat(body: ChatBody) -> StreamingResponse:
         response_text = ""
         response_thinking = ""
         response_traces: list[dict] = []
-        act_stripper = piano.ActStripper()      # 一轮一个，见 piano.py
-        split_stripper = piano.SplitStripper()  # 同上：<<SPLIT>> 分条
+        # 这一轮怎么结束的，跟着 release 记进 chat_lock 的流水账。
+        # 第 5 节第 3 步（客户端断开要不要提前放锁）需要先知道「她走的时候
+        # 这个生成器到底有没有被 close 掉」——这就是那个数据。
+        turn_outcome = "ok"
+        # 🔴 秒拒 → 有限等待。原来是 `if chat_lock.locked(): 报错 return`，
+        # 而她的重发几乎全都发生在 abort 之后那一瞬间（index.html 里
+        # `stopActiveResponseNow()` 后面跟着 `setTimeout(r,0)`），上一轮那时候
+        # 往往正在收尾——等几秒就拿到了，秒拒等于白白把她挡在门外。
+        # 先发一帧 queued 告诉前端「在排队」，别让她盯着一个不动的圈以为卡死。
+        # （这里到 acquire 之间锁可能正好放掉，那就白发一帧 queued，无害。）
+        if chat_lock.locked():
+            waiting = chat_lock.status()
+            payload = json.dumps(
+                {
+                    "held_seconds": waiting["held_seconds"],
+                    "holder": waiting["holder"],
+                    "holder_label": waiting["holder_label"],
+                    "wait_seconds": CHAT_LOCK_WAIT_SECONDS,
+                },
+                ensure_ascii=False,
+            )
+            yield f"event: queued\ndata: {payload}\n\n"
+        got_lock = await chat_lock.acquire_within(
+            CHAT_LOCK_WAIT_SECONDS,
+            holder="web",
+            request_id=request_id,
+        )
+        if not got_lock:
+            # 等不到才报错，而且说清楚是**哪一道门**、被谁占了多久。
+            # 四个出处以前文案一模一样，她撞上哪一个谁都分不清。
+            busy = chat_lock.status()
+            who = busy["holder_label"] or "另一边"
+            payload = json.dumps(
+                {
+                    "message": (
+                        f"上一条还在回，已经 {int(busy['held_seconds'])} 秒了"
+                        f"（{who}），再等我一下"
+                    ),
+                    "reason": "chat_lock",
+                    "held_seconds": busy["held_seconds"],
+                    "holder": busy["holder"],
+                },
+                ensure_ascii=False,
+            )
+            log_timing("chat_lock_timeout")
+            yield f"event: error\ndata: {payload}\n\n"
+            return
         try:
+            act_stripper = piano.ActStripper()      # 一轮一个，见 piano.py
+            split_stripper = piano.SplitStripper()  # 同上：<<SPLIT>> 分条
             await get_registry().assert_available()
             display_message = body.message.strip()
             current_attachment_items = attachment_items
@@ -1016,6 +1062,7 @@ async def chat(body: ChatBody) -> StreamingResponse:
                 data = json.dumps(chunk, ensure_ascii=False)
                 yield f"event: {name}\ndata: {data}\n\n"
         except ConversationNotFound:
+            turn_outcome = "conv_not_found"
             if branch_restore_id and not branch_committed:
                 restore_branch(branch_restore_id)
             payload = json.dumps(
@@ -1024,6 +1071,7 @@ async def chat(body: ChatBody) -> StreamingResponse:
             )
             yield f"event: error\ndata: {payload}\n\n"
         except ValueError as exc:
+            turn_outcome = "value_error"
             if branch_restore_id and not branch_committed:
                 restore_branch(branch_restore_id)
             payload = json.dumps(
@@ -1032,6 +1080,7 @@ async def chat(body: ChatBody) -> StreamingResponse:
             )
             yield f"event: error\ndata: {payload}\n\n"
         except SessionResumeError:
+            turn_outcome = "resume_failed"
             if branch_restore_id and not branch_committed:
                 restore_branch(branch_restore_id)
             payload = json.dumps(
@@ -1040,6 +1089,7 @@ async def chat(body: ChatBody) -> StreamingResponse:
             )
             yield f"event: error\ndata: {payload}\n\n"
         except ActorBusyError as exc:
+            turn_outcome = "actor_busy"
             if branch_restore_id and not branch_committed:
                 restore_branch(branch_restore_id)
             payload = json.dumps(
@@ -1047,7 +1097,21 @@ async def chat(body: ChatBody) -> StreamingResponse:
                 ensure_ascii=False,
             )
             yield f"event: error\ndata: {payload}\n\n"
+        except asyncio.CancelledError:
+            # Starlette 发现对端走了会取消这个 task，走的是 CancelledError；
+            # 生成器被 close 掉走的是下面那条 GeneratorExit。两条都要留标记：
+            # 第 5 节第 3 步要判断的正是「她走的时候后端到底收不收得到信号」，
+            # 流水账里出现哪一个，决定那一步该怎么做。
+            turn_outcome = "cancelled"
+            raise
+        except GeneratorExit:
+            # 她提前走了（关标签页 / 前端 abort），Starlette 把这个生成器
+            # close 掉。不吞——吞了这一轮就永远挂在这儿。只留一个标记：
+            # 它出现在流水账里，就说明「客户端断开」这条信号是收得到的。
+            turn_outcome = "client_gone"
+            raise
         except Exception as exc:
+            turn_outcome = "exception"
             if branch_restore_id and not branch_committed:
                 restore_branch(branch_restore_id)
             logger.exception("Claude SDK request failed")
@@ -1062,7 +1126,9 @@ async def chat(body: ChatBody) -> StreamingResponse:
             )
             yield f"event: error\ndata: {payload}\n\n"
         finally:
-            chat_lock.release()
+            # 任何路径都从这儿过：正常结束、四种异常、以及她提前走掉那次
+            # （GeneratorExit）。锁在这里一定放得掉。
+            chat_lock.release(turn_outcome)
 
     return StreamingResponse(
         sse(),
@@ -1614,7 +1680,12 @@ async def keepalive_status() -> dict:
         "push_configured": push_configured,
         "push_subscriptions": len(subs),
         "has_conversation": bool(conv),
+        # 老字段留着（只有 true/false），前端和别的调用方照旧能读。
         "chat_locked": chat_lock.locked(),
+        # 🔴 新的这一坨才是有用的：谁拿的、拿了多久、上一次是怎么结束的。
+        # 卡住的时候她在 Home 首页那一行就能看见，不用来问我、也不用翻日志。
+        # 里面只有来源标签和秒数，凭据一个字节都不出这个进程。
+        "chat_lock": chat_lock.status(),
     }
 
 

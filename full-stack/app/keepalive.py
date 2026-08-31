@@ -14,6 +14,7 @@ import re
 from datetime import datetime, timedelta, timezone
 
 from app import claude, push, store
+from app.chatlock import ChatLock
 from app.nightguard import (
     CN_TZ,
     _activity_block,
@@ -302,7 +303,7 @@ async def _wake(conv_id: str, push_ok: bool = True) -> None:
 
 # ── tick：每次醒来的判断链 ────────────────────────────────────────────
 
-async def _tick(chat_lock: asyncio.Lock) -> None:
+async def _tick(chat_lock: ChatLock) -> None:
     hour = _cn_hour()
 
     # 1. 时段
@@ -373,7 +374,7 @@ async def _tick(chat_lock: asyncio.Lock) -> None:
 
 # ── 主循环 ────────────────────────────────────────────────────────────
 
-async def keepalive_loop(chat_lock: asyncio.Lock):
+async def keepalive_loop(chat_lock: ChatLock):
     """lifespan 里 create_task 启动，容器关掉时自动结束。"""
     logger.info("[唤醒] 定时器已启动")
     while True:

@@ -875,7 +875,10 @@ async def _reply_to(text: str, user_text: str, target: dict, update_id: int) -> 
         from app.main import chat_lock  # 局部 import：main 在启动时 import 我们
         from app.registry import get_registry
 
-        await chat_lock.acquire()
+        # holder="tg"：卡住的时候她要能分清占着锁的是 TG 还是小窝。
+        # 这里照旧是无限等——她在 TG 上发完就放下手机了，排队等几秒没感觉；
+        # 小窝那边是有限等（正看着屏幕）。同一把锁，两种表现，见 main.py。
+        await chat_lock.acquire(holder="tg")
         try:
             # TG 焊死在订阅线路上。架构表里写的「TG 走订阅」从来没被实现——
             # 它一直跟着小窝当前激活的线路走，于是 07-30 深夜小朵在小窝切到

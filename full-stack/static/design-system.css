@@ -2802,3 +2802,48 @@ body.has-bg-dark  #tabHome .profile-nav-row {
   from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: none; }
 }
+
+/* ===================================================================
+   「上一条消息仍在回复」那一单的两块只读状态
+   （施工单：施工单-上一条消息仍在回复.md 第 4.3 / 第 5 步第 2 步）
+   写在文件末尾：它在 index.html 的内联 <style> 之后加载，同特异度稳赢，
+   不会出现「写了但被上面某条盖掉」的哑火。见 AGENTS.md 第 6 条。
+   =================================================================== */
+
+/* Home「服务」组里那一行「回复状态」。它是 div 不是 button：点不进去，
+   所以要明确地不像按钮——没有 chevron，也不给 :active 的按下反馈。
+   其余排版原样继承 .profile-nav-row，跟上面那行「中转站」对得齐。 */
+.profile-nav-row.is-status {
+  cursor: default;
+}
+.profile-nav-row.is-status:active {
+  transform: none;
+  opacity: 1;
+}
+/* 🔴 「正在回复」这一档的颜色写死，不挂 --accent。
+   它表达的是「性质」——现在有人占着那把锁——跟主题色没有关系。挂上去以后
+   浅色下巧合一致、暗色当场分家，这个坑在语义色那一单上已经踩过一次。
+   🔴 明暗**两个值**，不是一个：一个橙没法同时压过纸白和压过夜底。
+      量出来的（headless，rgba 先合成到底色再算）：
+        浅色 #A85B18 落在 rgb(253,252,250) 上 = 4.88
+        暗色 #D18A3F 落在 rgb( 38, 37, 35) 上 = 5.37
+      第一版只写了一个 #C8792E，浅色下只有 3.29——这行字本来就小，看不清。 */
+.profile-nav-row.is-status .home-row-state[data-busy="1"] {
+  color: #A85B18;
+}
+@media (prefers-color-scheme: dark) {
+  .profile-nav-row.is-status .home-row-state[data-busy="1"] {
+    color: #D18A3F;
+  }
+}
+
+/* 气泡里那条「正在等上一条收尾…」。
+   后端在排队等 chat_lock 的那几秒里显示，拿到锁就立刻撤掉。
+   刻意做得很轻：她要看的是正文，这只是一句「没卡死，在等」。 */
+.queued-note {
+  margin: 2px 0 6px;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  opacity: .85;
+}

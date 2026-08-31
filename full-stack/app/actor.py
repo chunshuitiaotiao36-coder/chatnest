@@ -128,7 +128,9 @@ class ConvActor:
             if not self.alive:
                 raise RuntimeError("Claude 会话连接已失效")
             if self.busy:
-                raise ActorBusyError("上一条消息仍在回复")
+                # 文案跟 registry.py / main.py 那三处刻意不一样，
+                # 见 registry.py 里那段红字。别改回同一句。
+                raise ActorBusyError("上一条还在回（同一个会话正忙）")
             self.busy = True
         outbox: asyncio.Queue = asyncio.Queue()
         await self._inbox.put(

@@ -497,6 +497,11 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
     <section class="home-group">
       <div class="home-group-title">服务</div>
       <button class="profile-nav-row" id="openRelayDetail"><span class="profile-nav-row-icon" data-profile-icon="relay"></span><span class="profile-nav-row-title">中转站<span class="profile-nav-row-note">线路、模型、密钥</span></span><span class="home-row-state" id="relayRowState"></span><span class="profile-nav-chevron">›</span></button>
+      <!-- 🔴 只读状态行，不是按钮：点不进去，也不许变成按钮。
+           这是「上一条消息仍在回复」那一单里她唯一能自己判断「是不是又犯了」
+           的手段——发不出消息的时候来这儿看一眼，就知道锁是不是被占着、
+           被谁占着、占了多久。读的是 /api/keepalive/status.chat_lock。 -->
+      <div class="profile-nav-row is-status" id="chatLockRow"><span class="profile-nav-row-icon" data-profile-icon="pulse"></span><span class="profile-nav-row-title">回复状态<span class="profile-nav-row-note">发不出消息时先看这里</span></span><span class="home-row-state" id="chatLockState">—</span></div>
     </section>
 
     <section class="home-group">
@@ -1544,9 +1549,12 @@ const lucidePaths={
   chatAdd:'<path d="M128,24A104,104,0,0,0,36.18,176.88L24.83,210.93a16,16,0,0,0,20.24,20.24l34.05-11.35A104,104,0,1,0,128,24Z"/><path fill="#fff" d="M172,120a8,8,0,0,1-8,8H136v28a8,8,0,0,1-16,0V128H92a8,8,0,0,1,0-16h28V84a8,8,0,0,1,16,0v28h28A8,8,0,0,1,172,120Z"/>',
   history:'<path d="M136,80v43.47l36.12,21.67a8,8,0,0,1-8.24,13.72l-40-24A8,8,0,0,1,120,128V80a8,8,0,0,1,16,0Zm-8-48A95.44,95.44,0,0,0,60.08,60.15C52.81,67.51,46.35,74.59,40,82V64a8,8,0,0,0-16,0v40a8,8,0,0,0,8,8H72a8,8,0,0,0,0-16H49c7.15-8.42,14.27-16.35,22.39-24.57a80,80,0,1,1,1.66,114.75,8,8,0,1,0-11,11.64A96,96,0,1,0,128,32Z"/>'
 };
-/* Home 四行的描边图标（lucide 24 格，走 _actionPaths 那条描边分支）：
-   中转站=分叉的线路、用量=柱状图、外观=半明半暗的圆。 */
+/* Home 那几行的描边图标（lucide 24 格，走 _actionPaths 那条描边分支）：
+   中转站=分叉的线路、用量=柱状图、外观=半明半暗的圆、回复状态=心电图。
+   🔴 一律用描边的这一套，别混进 lucidePaths 里那些 256 格的实心图标——
+      同一组行里一个填充一个描边，视觉重量当场分家。 */
 const _homeIconPaths={
+  pulse:'<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
   relay:'<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M6 9v6"/><path d="M11 6h4a2 2 0 0 1 2 2v1"/><path d="M11 18h4a2 2 0 0 0 2-2v-1"/><circle cx="19" cy="10" r="2"/><circle cx="19" cy="15" r="2"/>',
   usage:'<path d="M3 3v16a2 2 0 0 0 2 2h16"/><rect x="7" y="12" width="3" height="5" rx="1"/><rect x="12" y="8" width="3" height="9" rx="1"/><rect x="17" y="5" width="3" height="12" rx="1"/>',
   appearance:'<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none"/>'
@@ -3420,6 +3428,43 @@ initSheetDrag($('thoughtSheet'),'#closeThought',()=>{delete $('thoughtSheet').da
 initSheetDrag($('modelSheet'),'#closeModel',()=>{_modelPage='main'});
 async function recoverAfterBreak(msg,convId,failText,isActive=()=>true){if(!msg)return;if(!convId){if(isActive())msg.fail(failText);return}await new Promise(r=>setTimeout(r,1500));if(!isActive())return;try{const r=await api(`/api/sessions/${encodeURIComponent(convId)}/messages`);if(!r.ok)throw 0;const data=await r.json();if(!isActive())return;const list=data.messages||[];const last=[...list].reverse().find(m=>m.role==='assistant');if(!last||!(last.text||'').trim())throw 0;if(last.thinking)msg.thinking(last.thinking);msg.text(last.text);msg.finish()}catch{if(isActive())msg.fail(failText)}}
 
+function showQueuedNote(msg,d){
+  const row=msg&&msg.row; if(!row)return;
+  let el=row.querySelector('.queued-note');
+  if(!el){
+    el=document.createElement('div');el.className='queued-note';
+    /* 🔴 别写成 `md?.before(el)||row.append(el)`：before() 返回 undefined，
+       || 右边照样执行，等于先插进正文前面、再被 append 挪到整行末尾——
+       看着有这句话，位置却在气泡最下面。headless 断言当场抓到的。 */
+    const md=row.querySelector('.md');
+    if(md)md.before(el); else row.append(el);
+  }
+  const held=Math.round(Number(d&&d.held_seconds)||0);
+  const who=(d&&d.holder_label)||'';
+  /* 「已 N 秒」比「请稍候」有用得多：她能自己判断这是正常收尾还是又卡住了。 */
+  el.textContent='正在等上一条收尾'+(held?`（${who?who+' ':''}已 ${held} 秒）`:'')+'…';
+}
+function clearQueuedNote(msg){msg&&msg.row&&msg.row.querySelector('.queued-note')?.remove()}
+/* Home 首页那行「回复状态」。/api/keepalive/status 不带鉴权，所以走裸 fetch——
+   api() 的 401 会 showGate() 把她踹回登录页，这条只读的路不该有那个副作用。 */
+let _chatLockTimer=0;
+async function loadChatLockState(){
+  const el=document.getElementById('chatLockState'); if(!el)return;
+  try{
+    const r=await fetch('/api/keepalive/status');
+    if(!r.ok)throw 0;
+    const L=(await r.json()).chat_lock||{};
+    if(L.locked){
+      const held=Math.round(Number(L.held_seconds)||0);
+      el.textContent=`正在回复（已 ${held} 秒${L.holder_label?' · '+L.holder_label:''}）`;
+    }else{
+      el.textContent='空闲';
+    }
+    el.dataset.busy=L.locked?'1':'0';
+  }catch{el.textContent='读不到';el.dataset.busy='0'}
+}
+function startChatLockPoll(){stopChatLockPoll();loadChatLockState();_chatLockTimer=setInterval(loadChatLockState,5000)}
+function stopChatLockPoll(){if(_chatLockTimer){clearInterval(_chatLockTimer);_chatLockTimer=0}}
 let _chatAbort=null,_chatRunId=0,_activeMsg=null;
 function _finishDanglingStreamingRows(){
   document.querySelectorAll('.msg-claude.streaming').forEach(row=>{
@@ -3480,7 +3525,11 @@ async function sendMessage(text,showUser=true,files=[],existingAttachments=[],op
     if(runId!==_chatRunId)return;
     if(r.status===401){showGate();throw Error('登录已失效')}if(!r.ok||!r.body){const detail=await r.json().catch(()=>({}));throw Error(detail.detail||'请求失败')}
     const reader=r.body.getReader(),decoder=new TextDecoder();let buffer='',finished=false,_replyAcc='';
-    const frame=f=>{if(runId!==_chatRunId)return;let event='',data='';f.split('\n').forEach(line=>{if(line.startsWith('event:'))event=line.slice(6).trim();if(line.startsWith('data:'))data+=line.slice(5).trim()});if(!event||!data)return;const d=JSON.parse(data);if(event==='conversation'){state.convId=d.conversation_id;state.legacySessionId=null;localStorage.setItem('chat_conversation',state.convId);localStorage.removeItem('chat_session');if(d.user_message_id&&userRow)userRow.dataset.msgId=d.user_message_id}if(event==='model')setActualModel(d.id);if(event==='thinking')msg.thinking(d.text||'');if(event==='delta'){_replyAcc+=d.text||'';msg.text(d.text||'')}if(event==='split'){_replyAcc+=SPLIT_MARK;msg.split()}if(event==='tool_use')msg.toolUse(d);if(event==='tool_result')msg.toolResult(d);if(event==='trace_summary')msg.traceSummary(d.text||'');if(event==='piano_act'){if(d&&d.type==='voice'){_voiceSay=String(d.say||'')}else{pianoRunAct(d)}}if(event==='done'){state.convId=d.conversation_id||state.convId;localStorage.setItem('chat_conversation',state.convId);msg.finish();if(_voiceSay){const say=_voiceSay;_voiceSay='';voiceAttach(msg&&msg.row,say,{autoplay:true,transcript:true})}if(d.assistant_message_id&&msg?.row)msg.row.dataset.msgId=d.assistant_message_id;finished=true;
+    /* queued：后端在排队等 chat_lock。她的重发几乎都发生在 abort 之后那一瞬间，
+       后端会等几秒再决定——这几秒里必须告诉她「在等上一条收尾」，否则又是一个
+       不动的圈，跟卡死长得一模一样。除 queued 外的任何一帧到达 = 拿到锁了，
+       统一在这里把那句提示撤掉，不用每个分支各写一遍。 */
+    const frame=f=>{if(runId!==_chatRunId)return;let event='',data='';f.split('\n').forEach(line=>{if(line.startsWith('event:'))event=line.slice(6).trim();if(line.startsWith('data:'))data+=line.slice(5).trim()});if(!event||!data)return;const d=JSON.parse(data);if(event==='queued'){showQueuedNote(msg,d);return}clearQueuedNote(msg);if(event==='conversation'){state.convId=d.conversation_id;state.legacySessionId=null;localStorage.setItem('chat_conversation',state.convId);localStorage.removeItem('chat_session');if(d.user_message_id&&userRow)userRow.dataset.msgId=d.user_message_id}if(event==='model')setActualModel(d.id);if(event==='thinking')msg.thinking(d.text||'');if(event==='delta'){_replyAcc+=d.text||'';msg.text(d.text||'')}if(event==='split'){_replyAcc+=SPLIT_MARK;msg.split()}if(event==='tool_use')msg.toolUse(d);if(event==='tool_result')msg.toolResult(d);if(event==='trace_summary')msg.traceSummary(d.text||'');if(event==='piano_act'){if(d&&d.type==='voice'){_voiceSay=String(d.say||'')}else{pianoRunAct(d)}}if(event==='done'){state.convId=d.conversation_id||state.convId;localStorage.setItem('chat_conversation',state.convId);msg.finish();if(_voiceSay){const say=_voiceSay;_voiceSay='';voiceAttach(msg&&msg.row,say,{autoplay:true,transcript:true})}if(d.assistant_message_id&&msg?.row)msg.row.dataset.msgId=d.assistant_message_id;finished=true;
       /* 回完之后的钩子。琴房用它把这一轮记进这首歌的档案；
          🔴 绝不能让它抛出来打断这条流。 */
       if(options.onDone){try{options.onDone(_replyAcc)}catch(err){console.warn('onDone failed',err)}}}if(event==='error'){msg.fail(d.message);finished=true}};
@@ -4247,8 +4296,8 @@ function renderProfile(){profileDraft=normalizeProfileClient(profileDraft);$('pr
 async function loadProfile(){const r=await api('/api/profile');if(!r.ok)throw Error('load failed');const data=await r.json();profileState=normalizeProfileClient(data.profile);profileDraft=cloneProfile(profileState);renderProfile();setProfileDirty(false)}
 async function saveProfile(){const payload=normalizeProfileClient(profileDraft);const r=await api('/api/profile',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});if(!r.ok)throw Error('save failed');const data=await r.json();profileState=normalizeProfileClient(data.profile||payload);profileDraft=cloneProfile(profileState);renderProfile();setProfileDirty(false);toast('Profile saved')}
 /* Home tab 内的 profile 面板：不再是 overlay，进出由 switchTab 驱动 */
-async function openHomeProfile(){$('memoryPanel').classList.add('show');$('memoryPanel').setAttribute('aria-hidden','false');showProfilePage('profileHome');loadRelays();loadUsage();await loadProfile()}
-function closeHomeProfile(){$('memoryPanel').classList.remove('show');$('memoryPanel').setAttribute('aria-hidden','true');$('memorySearchBar').classList.remove('show')}
+async function openHomeProfile(){$('memoryPanel').classList.add('show');$('memoryPanel').setAttribute('aria-hidden','false');showProfilePage('profileHome');loadRelays();loadUsage();startChatLockPoll();await loadProfile()}
+function closeHomeProfile(){$('memoryPanel').classList.remove('show');$('memoryPanel').setAttribute('aria-hidden','true');$('memorySearchBar').classList.remove('show');stopChatLockPoll()}
 $('closeMemory').onclick=()=>{switchTab('chat')};
 let _diaryEntries=[],_diaryMonth='all';
 /* Diary 从侧栏入口迁到 Home → Profile 里的一行，是 Home 的二级页 */
