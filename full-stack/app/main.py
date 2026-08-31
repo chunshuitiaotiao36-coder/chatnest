@@ -28,7 +28,7 @@ from starlette.formparsers import MultiPartParser
 
 MultiPartParser.max_part_size = 60 * 1024 * 1024  # 与 uploads.py 的 MAX_FILE_BYTES 对齐
 
-from app import anno, appicon, auth, backgrounds, faces, keepalive, lorebook, moments, nightguard, peek, piano, piano_analysis, push, relays, starmap, store, telegram, voice
+from app import anno, appicon, auth, backgrounds, faces, keepalive, listen, lorebook, moments, nightguard, peek, piano, piano_analysis, push, relays, starmap, store, telegram, voice
 from app.actor import ActorBusyError, _mem_kv
 from app.claude import (
     SessionResumeError,
@@ -258,6 +258,10 @@ class ChatBody(BaseModel):
     # 琴房 tab 在放歌时带上来的「现在放的是什么」。只有琴房会送这个字段，
     # 别的 tab 一个字都不加。**它绝不进 system prompt**，见下面注入点的注释。
     piano: dict[str, Any] | None = None
+    # 她按住麦克风说的那一句，hervoice 分析出来的语气。跟 piano 一个规矩：
+    # 只有按麦克风那条路会送，**绝不进 system prompt**，也**不进她那条消息的
+    # 显示文本**——显示出来就变成「系统在她旁边标注她的情绪」，感觉很差。
+    voice: dict[str, Any] | None = None
 
 
 class ToolCaptionBody(BaseModel):
@@ -447,6 +451,8 @@ def render_context_prompt(messages: list[dict[str, Any]]) -> str:
 app.include_router(anno.router)
 # 他的声音。合成 + 缓存都在服务端，见 app/voice.py 开头那段。
 app.include_router(voice.router)
+# 听她说话（hervoice）。跟上面正好反过来：那个是我说给她听，这个是她说给我听。
+app.include_router(listen.router)
 
 
 @app.get("/")
@@ -859,6 +865,11 @@ async def chat(body: ChatBody) -> StreamingResponse:
                             )
                 if block:
                     prompt += f"\n\n{block}"
+            # 她这一句是说出来的。把「怎么说的」附在用户消息侧——
+            # 上游 hervoice 那句话：「我没事」三个字，打出来和说出来是两回事。
+            tone = listen.tone_block(body.voice)
+            if tone:
+                prompt += f"\n\n{tone}"
             chat_args = (prompt, conv_id, resume_id, body.model,
                          body.effort, body.extended, log_timing)
             if body.model == "codex":

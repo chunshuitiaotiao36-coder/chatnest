@@ -20,6 +20,12 @@ RUN chmod +x *.sh
 RUN cd anno/server && npm install --omit=dev \
  && pip install --no-cache-dir pymupdf ebooklib
 
+# ── 听她说话（hervoice）──────────────────────────────────────────────
+# 🔴 ffmpeg 是硬依赖：hervoice 用它把手机录的 webm 转成 16k 单声道 wav。
+#    librosa/numpy 小窝本来就有（琴房频谱在用）。
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
+ && rm -rf /var/lib/apt/lists/*
+
 # 🔴 anno 的 server.mjs 把四个路径写死成常量（第 19-22 行），改不了：
 #      /opt/marginalia/{data,uploads,extract_pdf.py,extract_epub.py}
 #    而这个镜像的持久卷是 /data。这儿只做 /opt 里那条软链——它在镜像层里，
@@ -37,7 +43,9 @@ ENV AGENT_APP_ROOT=/data \
     ANNO_HOME=/data/marginalia \
     ANNO_ORIGIN=http://127.0.0.1:3300 \
     ANNO_MCP_URL=http://127.0.0.1:3300/mcp/sse \
-    VOICE_CACHE_DIR=/data/voice
+    VOICE_CACHE_DIR=/data/voice \
+    HERVOICE_ORIGIN=http://127.0.0.1:8010 \
+    HERVOICE_DATA=/data/hervoice
 
 RUN mkdir -p /data
 

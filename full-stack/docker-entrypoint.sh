@@ -68,5 +68,19 @@ for _ in $(seq 1 40); do
   sleep 0.25
 done
 
+# ── 听她说话（hervoice）。🔴 只在开启时才起：它一跑起来就要装着 librosa，
+#    那是几十 MB 常驻。不用这个功能的时候一个字节都不该占。 ──
+if [ "${HERVOICE_ENABLED:-0}" = "1" ]; then
+  mkdir -p "${HERVOICE_DATA:-/data/hervoice}"
+  echo "[entrypoint] 起 hervoice（听她说话）…"
+  ( cd hervoice && exec python3 -m uvicorn hervoice:app --host 127.0.0.1 --port 8010 ) &
+  HV_PID=$!
+  # 跟 anno 一个规矩：它挂了不拖垮容器，只是麦克风那个键不好使。
+  ( while kill -0 "$HV_PID" 2>/dev/null; do sleep 30; done
+    echo "[entrypoint] ⚠️ hervoice 退出了，按住说话会用不了；其余功能不受影响" ) &
+else
+  echo "[entrypoint] hervoice 未开启（HERVOICE_ENABLED=0），麦克风键会提示没开"
+fi
+
 echo "[entrypoint] 起小窝…"
 exec python3 -m uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8787}"

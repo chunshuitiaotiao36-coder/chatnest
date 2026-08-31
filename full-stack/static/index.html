@@ -185,7 +185,7 @@ body.has-bg-light #tabBar,body.has-bg-dark #tabBar{background:var(--glass-panel-
    之前没有这两条，tab 页面虽然可见，但点击事件全被底下的 #chat 截走了。
    body.tab-away 由 switchTab() 管理，切到非 chat 页时挂上、回 chat 时摘掉。
    visibility:hidden 让 #chat 不透出来也不截事件，同时不清 #stream 滚动位置。 */
-.tab-page{position:relative;z-index:21;padding-bottom:var(--tabbar-space,90px)}body.tab-away #chat{visibility:hidden}.voice-bubble{display:flex;align-items:center;gap:12px;margin-top:8px;padding:11px 14px 11px 12px;border-radius:22px;background:var(--bg-chip);border:1px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent;width:min(100%,420px)}.voice-bubble:active{opacity:.6}.voice-bubble.is-loading{opacity:.55}.voice-bubble.is-error{border-color:#C4645E}.voice-play{flex:none;width:34px;height:34px;display:grid;place-items:center;border-radius:50%;background:var(--study-accent);color:#fff}.voice-play svg{width:14px;height:14px}.voice-wave{flex:1;min-width:0;display:flex;align-items:center;gap:2.5px;height:24px}.voice-wave i{flex:1;min-width:2px;max-width:3.5px;height:30%;border-radius:2px;background:var(--study-accent);opacity:.5}.voice-bubble.is-playing .voice-wave i{animation:voice-bob .9s ease-in-out infinite}.voice-bubble.is-playing .voice-wave i:nth-child(2n){animation-delay:.18s}.voice-bubble.is-playing .voice-wave i:nth-child(3n){animation-delay:.36s}@keyframes voice-bob{0%,100%{height:30%;opacity:.5}50%{height:100%;opacity:.95}}.voice-dur{flex:none;font:400 12px/1 var(--font-sans);color:var(--text-faint);font-variant-numeric:tabular-nums}.voice-toggle{flex:none;width:20px;height:20px;display:grid;place-items:center;border:0;background:none;color:var(--text-faint);padding:0}.voice-toggle svg{width:14px;height:14px;transition:transform 180ms ease}.voice-bubble.is-open .voice-toggle svg{transform:rotate(180deg)}.voice-said{display:none;margin-top:7px;padding:10px 14px;border-radius:14px;background:var(--bg-chip);border:1px solid var(--border);font:400 14px/1.6 var(--font-sans);color:var(--text-primary);white-space:pre-wrap;word-break:break-word;max-width:min(100%,420px)}.voice-bubble.is-open+.voice-said{display:block}.claude-face-row{display:flex;align-items:center;gap:9px;margin:0 0 9px}.crop-overlay{position:fixed;inset:0;z-index:120;background:#0b0b0a;display:flex;flex-direction:column;touch-action:none}.crop-overlay[hidden]{display:none}.crop-stage{flex:1;position:relative;overflow:hidden;display:grid;place-items:center}/* 🔴 left/top 必须显式写 0，不能靠静态位置。
+.tab-page{position:relative;z-index:21;padding-bottom:var(--tabbar-space,90px)}body.tab-away #chat{visibility:hidden}.voice-bubble{display:flex;align-items:center;gap:12px;margin-top:8px;padding:11px 14px 11px 12px;border-radius:22px;background:var(--bg-chip);border:1px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent;width:min(100%,420px)}.voice-bubble:active{opacity:.6}.voice-bubble.is-loading{opacity:.55}.voice-bubble.is-error{border-color:#C4645E}.voice-play{flex:none;width:34px;height:34px;display:grid;place-items:center;border-radius:50%;background:var(--study-accent);color:#fff}.voice-play svg{width:14px;height:14px}.voice-wave{flex:1;min-width:0;display:flex;align-items:center;gap:2.5px;height:24px}.voice-wave i{flex:1;min-width:2px;max-width:3.5px;height:30%;border-radius:2px;background:var(--study-accent);opacity:.5}.voice-bubble.is-playing .voice-wave i{animation:voice-bob .9s ease-in-out infinite}.voice-bubble.is-playing .voice-wave i:nth-child(2n){animation-delay:.18s}.voice-bubble.is-playing .voice-wave i:nth-child(3n){animation-delay:.36s}@keyframes voice-bob{0%,100%{height:30%;opacity:.5}50%{height:100%;opacity:.95}}.voice-dur{flex:none;font:400 12px/1 var(--font-sans);color:var(--text-faint);font-variant-numeric:tabular-nums}#micButton.is-recording{background:#C4645E;color:#fff}#micButton.is-working{opacity:.5}.rec-hint{position:absolute;left:0;right:0;bottom:calc(100% + 10px);z-index:6;display:none;justify-content:center}.rec-hint.show{display:flex}.rec-hint span{padding:8px 16px;border-radius:16px;background:var(--text-primary);color:var(--bg-primary);font:400 13px/1.3 var(--font-sans);white-space:nowrap;box-shadow:0 6px 20px rgba(0,0,0,.18)}.rec-hint.cancel span{background:#C4645E;color:#fff}.voice-toggle{flex:none;width:20px;height:20px;display:grid;place-items:center;border:0;background:none;color:var(--text-faint);padding:0}.voice-toggle svg{width:14px;height:14px;transition:transform 180ms ease}.voice-bubble.is-open .voice-toggle svg{transform:rotate(180deg)}.voice-said{display:none;margin-top:7px;padding:10px 14px;border-radius:14px;background:var(--bg-chip);border:1px solid var(--border);font:400 14px/1.6 var(--font-sans);color:var(--text-primary);white-space:pre-wrap;word-break:break-word;max-width:min(100%,420px)}.voice-bubble.is-open+.voice-said{display:block}.claude-face-row{display:flex;align-items:center;gap:9px;margin:0 0 9px}.crop-overlay{position:fixed;inset:0;z-index:120;background:#0b0b0a;display:flex;flex-direction:column;touch-action:none}.crop-overlay[hidden]{display:none}.crop-stage{flex:1;position:relative;overflow:hidden;display:grid;place-items:center}/* 🔴 left/top 必须显式写 0，不能靠静态位置。
    .crop-stage 是 display:grid + place-items:center，而 grid 的 place-items **会作用在
    绝对定位子元素上**（给它们隐式的 justify-self/align-self:center）。图片的 width/height
    被 _cropLayout() 设成自然尺寸（可能上千 px），居中之后静态起点变成 (舞台宽-自然宽)/2，
@@ -428,7 +428,7 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
           <button class="composer-icon" id="attachButton" aria-label="添加文件"></button>
           <button class="model-capsule" id="modelCapsule" aria-label="选择模型"><span id="modelCapsuleText">Sonnet 4.6</span><span class="model-capsule-effort" id="modelCapsuleEffort">Medium</span><span class="model-capsule-arrow" id="modelCapsuleArrow"></span></button>
           <span class="composer-spacer"></span>
-          <button class="composer-icon" id="micButton" aria-label="麦克风"></button>
+          <button class="composer-icon" id="micButton" aria-label="按住说话"></button>
           <button id="send" aria-label="语音"></button>
         </div>
       </div>
@@ -1617,9 +1617,106 @@ $('attachButton').onclick=()=>$('fileInput').click();
 $('fileInput').onchange=e=>addSelectedFiles([...e.target.files]);
 (()=>{const cb=document.querySelector('.composer-box');if(!cb)return;cb.addEventListener('dragover',e=>{if(!e.dataTransfer?.types?.includes('Files'))return;e.preventDefault();cb.classList.add('drag-over')});cb.addEventListener('dragleave',e=>{if(e.target===cb)cb.classList.remove('drag-over')});cb.addEventListener('drop',e=>{e.preventDefault();cb.classList.remove('drag-over');const files=[...(e.dataTransfer?.files||[])];if(files.length)addSelectedFiles(files)})})();
 $('input').addEventListener('paste',e=>{const items=e.clipboardData?.items;const files=e.clipboardData?.files;const collected=[];if(items){for(const it of items){if(it.kind==='file'){const f=it.getAsFile();if(!f)continue;if(it.type.startsWith('image/')){const ext=(it.type.split('/')[1]||'png').replace(/^jpeg$/,'jpg');collected.push(new File([f],`paste-${Date.now()}.${ext}`,{type:it.type}))}else{collected.push(f)}}}}if(!collected.length&&files?.length){for(const f of files)collected.push(f)}if(collected.length){e.preventDefault();addSelectedFiles(collected)}});
-$('micButton').onclick=()=>toast('语音功能开发中');
+/* ───────── 按住说话 ─────────
+   录下来交给 hervoice（app/listen.py）：转写「说了什么」，也分析「怎么说的」。
+   转写填进输入框由她过目再发；语气跟着这一轮送出去，不显示在她那条消息里。
 
-function showChat(){document.body.classList.add('chat-ready');voiceInit();$('gate').classList.add('hidden');$('chat').classList.remove('hidden');loadBg()}
+   🔴 语气**不进她的消息文本**。她说出口的是那句话，不是那段分析；
+      显示出来就变成系统在旁边标注她的情绪，那个感觉很差。 */
+let _recOn=false, _rec=null, _recChunks=[], _recStream=null, _recCancel=false, _recStartY=0;
+let _lastVoiceTone=null;   /* 这一轮要跟着发出去的语气，发完就清 */
+
+async function listenInit(){
+  try{ const r=await api('/api/listen/status'); _recOn=!!(await r.json()).enabled }catch{ _recOn=false }
+}
+
+function _recHint(show,cancel){
+  let el=document.querySelector('.rec-hint');
+  if(!el){
+    el=document.createElement('div'); el.className='rec-hint';
+    el.innerHTML='<span></span>';
+    (input.closest('.composer-wrap')||document.body).appendChild(el);
+  }
+  el.classList.toggle('show',!!show);
+  el.classList.toggle('cancel',!!cancel);
+  el.querySelector('span').textContent=cancel?'松开取消':'松开发送 · 上滑取消';
+}
+
+async function recStart(e){
+  if(!_recOn||_rec)return;
+  _recCancel=false; _recStartY=(e.touches?e.touches[0]:e).clientY||0;
+  try{
+    _recStream=await navigator.mediaDevices.getUserMedia({audio:true});
+  }catch(err){
+    /* 麦克风要 HTTPS 或 localhost。出声，别让她按半天以为是坏了。 */
+    toast(location.protocol==='https:'?'拿不到麦克风权限':'麦克风需要 HTTPS');
+    return;
+  }
+  _recChunks=[];
+  _rec=new MediaRecorder(_recStream);
+  _rec.ondataavailable=ev=>{ if(ev.data&&ev.data.size)_recChunks.push(ev.data) };
+  _rec.onstop=recFinish;
+  _rec.start();
+  $('micButton').classList.add('is-recording');
+  _recHint(true,false);
+  try{ navigator.vibrate&&navigator.vibrate(8) }catch{}
+}
+
+function recMove(e){
+  if(!_rec)return;
+  const y=(e.touches?e.touches[0]:e).clientY||0;
+  const cancel=(_recStartY-y)>70;      /* 上滑 70px 以上算取消 */
+  if(cancel!==_recCancel){_recCancel=cancel;_recHint(true,cancel)}
+}
+
+function recStop(){
+  if(!_rec)return;
+  $('micButton').classList.remove('is-recording');
+  _recHint(false,false);
+  try{ _rec.stop() }catch{}
+}
+
+async function recFinish(){
+  const chunks=_recChunks, cancelled=_recCancel;
+  _recChunks=[]; _rec=null; _recCancel=false;
+  if(_recStream){_recStream.getTracks().forEach(t=>t.stop());_recStream=null}
+  if(cancelled||!chunks.length)return;
+  const blob=new Blob(chunks,{type:chunks[0].type||'audio/webm'});
+  if(blob.size<1200)return;            /* 手滑点了一下，不值得花一次转写 */
+
+  const mic=$('micButton'); mic.classList.add('is-working');
+  try{
+    const fd=new FormData();
+    fd.append('file',blob,'voice.webm');
+    const r=await api('/api/listen',{method:'POST',body:fd});
+    if(!r.ok){ let why=''; try{ why=(await r.json()).detail||'' }catch{}; throw new Error(why||('听不到 '+r.status)) }
+    const d=await r.json();
+    if(!d.text){ toast('没听清'); return }
+    /* 🔴 填进输入框而不是直接发出去：转写会出错，让她过一眼再决定。
+       语气存着，跟这一句一起走。 */
+    input.value=(input.value?input.value+' ':'')+d.text;
+    _resizeComposerInput(); updateSendButton(); input.focus();
+    _lastVoiceTone=(d.emotion||d.hint)?{emotion:d.emotion,confidence:d.confidence,hint:d.hint}:null;
+  }catch(e){
+    toast(String(e&&e.message||'听不到'));
+  }finally{
+    mic.classList.remove('is-working');
+  }
+}
+
+(function bindMic(){
+  const mic=$('micButton'); if(!mic)return;
+  mic.addEventListener('contextmenu',e=>e.preventDefault());
+  mic.addEventListener('pointerdown',e=>{
+    if(!_recOn){toast('还没开启听声音');return}
+    e.preventDefault(); mic.setPointerCapture?.(e.pointerId); recStart(e);
+  });
+  mic.addEventListener('pointermove',recMove);
+  mic.addEventListener('pointerup',recStop);
+  mic.addEventListener('pointercancel',()=>{_recCancel=true;recStop()});
+})();
+
+function showChat(){document.body.classList.add('chat-ready');voiceInit();listenInit();$('gate').classList.add('hidden');$('chat').classList.remove('hidden');loadBg()}
 function showGate(){document.body.classList.remove('chat-ready');closeDrawer();switchTab('chat');$('chat').classList.add('hidden');$('gate').classList.remove('hidden')}
 async function api(path,options={}){const headers={...(options.headers||{})};if(state.token)headers.Authorization=`Bearer ${state.token}`;const res=await fetch(path,{...options,headers});if(res.status===401){state.token=null;localStorage.removeItem('chat_token');showGate();throw Error('unauthorized')}return res}
 
@@ -3374,6 +3471,11 @@ async function sendMessage(text,showUser=true,files=[],existingAttachments=[],op
     /* 琴房在放歌时才带这个；后端把它挂在用户消息侧，不进 system prompt。
        别的 tab 一个字都不加。 */
     if(options.piano)body.piano=options.piano;
+    /* 她刚按住麦克风说的那一句的语气。跟 piano 一个规矩：挂在用户消息侧，
+       不进 system prompt，也不进她那条消息的显示文本。
+       🔴 用完立刻清掉——语气只属于说出来的那一句，不能粘到她下一条打字的
+          消息上去。 */
+    if(_lastVoiceTone){body.voice=_lastVoiceTone;_lastVoiceTone=null;}
     const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${state.token}`},body:JSON.stringify(body),signal:controller.signal});
     if(runId!==_chatRunId)return;
     if(r.status===401){showGate();throw Error('登录已失效')}if(!r.ok||!r.body){const detail=await r.json().catch(()=>({}));throw Error(detail.detail||'请求失败')}
