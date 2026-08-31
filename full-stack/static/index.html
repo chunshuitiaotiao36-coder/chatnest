@@ -185,7 +185,7 @@ body.has-bg-light #tabBar,body.has-bg-dark #tabBar{background:var(--glass-panel-
    之前没有这两条，tab 页面虽然可见，但点击事件全被底下的 #chat 截走了。
    body.tab-away 由 switchTab() 管理，切到非 chat 页时挂上、回 chat 时摘掉。
    visibility:hidden 让 #chat 不透出来也不截事件，同时不清 #stream 滚动位置。 */
-.tab-page{position:relative;z-index:21;padding-bottom:var(--tabbar-space,90px)}body.tab-away #chat{visibility:hidden}.claude-face-row{display:flex;align-items:center;gap:9px;margin:0 0 9px}.crop-overlay{position:fixed;inset:0;z-index:120;background:#0b0b0a;display:flex;flex-direction:column;touch-action:none}.crop-overlay[hidden]{display:none}.crop-stage{flex:1;position:relative;overflow:hidden;display:grid;place-items:center}/* 🔴 left/top 必须显式写 0，不能靠静态位置。
+.tab-page{position:relative;z-index:21;padding-bottom:var(--tabbar-space,90px)}body.tab-away #chat{visibility:hidden}.voice-bubble{display:inline-flex;align-items:center;gap:10px;margin-top:8px;padding:9px 14px 9px 11px;border-radius:18px;background:var(--bg-chip);border:1px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent;max-width:230px}.voice-bubble:active{opacity:.6}.voice-bubble.is-loading{opacity:.55}.voice-bubble.is-error{border-color:#C4645E}.voice-play{flex:none;width:24px;height:24px;display:grid;place-items:center;border-radius:50%;background:var(--study-accent);color:#fff}.voice-play svg{width:12px;height:12px}.voice-wave{flex:1;display:flex;align-items:center;gap:2.5px;height:16px}.voice-wave i{flex:1;min-width:2px;max-width:3px;height:25%;border-radius:2px;background:var(--study-accent);opacity:.45}.voice-bubble.is-playing .voice-wave i{animation:voice-bob .9s ease-in-out infinite}.voice-bubble.is-playing .voice-wave i:nth-child(2n){animation-delay:.18s}.voice-bubble.is-playing .voice-wave i:nth-child(3n){animation-delay:.36s}@keyframes voice-bob{0%,100%{height:25%;opacity:.45}50%{height:100%;opacity:.9}}.voice-dur{flex:none;font:400 11px/1 var(--font-sans);color:var(--text-faint);font-variant-numeric:tabular-nums}.claude-face-row{display:flex;align-items:center;gap:9px;margin:0 0 9px}.crop-overlay{position:fixed;inset:0;z-index:120;background:#0b0b0a;display:flex;flex-direction:column;touch-action:none}.crop-overlay[hidden]{display:none}.crop-stage{flex:1;position:relative;overflow:hidden;display:grid;place-items:center}/* 🔴 left/top 必须显式写 0，不能靠静态位置。
    .crop-stage 是 display:grid + place-items:center，而 grid 的 place-items **会作用在
    绝对定位子元素上**（给它们隐式的 justify-self/align-self:center）。图片的 width/height
    被 _cropLayout() 设成自然尺寸（可能上千 px），居中之后静态起点变成 (舞台宽-自然宽)/2，
@@ -472,6 +472,9 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
 <div id="msgContextMenu" class="context-menu hidden" role="menu" aria-hidden="true">
   <button class="context-menu-item" type="button" data-msg-action="copy"><span data-context-icon="copy"></span><span>Copy</span></button>
   <button class="context-menu-item" type="button" data-msg-action="edit"><span data-context-icon="pencil"></span><span>Edit</span></button>
+  <!-- 他的声音。没配 ElevenLabs 时这一项整条藏起来（见 voiceInit），
+       不给她一个点下去只会报错的按钮。 -->
+  <button class="context-menu-item" type="button" data-msg-action="speak" id="msgActionSpeak" hidden><span data-context-icon="volume-2"></span><span>念一下</span></button>
 </div>
 
 
@@ -1616,7 +1619,7 @@ $('fileInput').onchange=e=>addSelectedFiles([...e.target.files]);
 $('input').addEventListener('paste',e=>{const items=e.clipboardData?.items;const files=e.clipboardData?.files;const collected=[];if(items){for(const it of items){if(it.kind==='file'){const f=it.getAsFile();if(!f)continue;if(it.type.startsWith('image/')){const ext=(it.type.split('/')[1]||'png').replace(/^jpeg$/,'jpg');collected.push(new File([f],`paste-${Date.now()}.${ext}`,{type:it.type}))}else{collected.push(f)}}}}if(!collected.length&&files?.length){for(const f of files)collected.push(f)}if(collected.length){e.preventDefault();addSelectedFiles(collected)}});
 $('micButton').onclick=()=>toast('语音功能开发中');
 
-function showChat(){document.body.classList.add('chat-ready');$('gate').classList.add('hidden');$('chat').classList.remove('hidden');loadBg()}
+function showChat(){document.body.classList.add('chat-ready');voiceInit();$('gate').classList.add('hidden');$('chat').classList.remove('hidden');loadBg()}
 function showGate(){document.body.classList.remove('chat-ready');closeDrawer();switchTab('chat');$('chat').classList.add('hidden');$('gate').classList.remove('hidden')}
 async function api(path,options={}){const headers={...(options.headers||{})};if(state.token)headers.Authorization=`Bearer ${state.token}`;const res=await fetch(path,{...options,headers});if(res.status===401){state.token=null;localStorage.removeItem('chat_token');showGate();throw Error('unauthorized')}return res}
 
@@ -3375,7 +3378,7 @@ async function sendMessage(text,showUser=true,files=[],existingAttachments=[],op
     if(runId!==_chatRunId)return;
     if(r.status===401){showGate();throw Error('登录已失效')}if(!r.ok||!r.body){const detail=await r.json().catch(()=>({}));throw Error(detail.detail||'请求失败')}
     const reader=r.body.getReader(),decoder=new TextDecoder();let buffer='',finished=false,_replyAcc='';
-    const frame=f=>{if(runId!==_chatRunId)return;let event='',data='';f.split('\n').forEach(line=>{if(line.startsWith('event:'))event=line.slice(6).trim();if(line.startsWith('data:'))data+=line.slice(5).trim()});if(!event||!data)return;const d=JSON.parse(data);if(event==='conversation'){state.convId=d.conversation_id;state.legacySessionId=null;localStorage.setItem('chat_conversation',state.convId);localStorage.removeItem('chat_session');if(d.user_message_id&&userRow)userRow.dataset.msgId=d.user_message_id}if(event==='model')setActualModel(d.id);if(event==='thinking')msg.thinking(d.text||'');if(event==='delta'){_replyAcc+=d.text||'';msg.text(d.text||'')}if(event==='split'){_replyAcc+=SPLIT_MARK;msg.split()}if(event==='tool_use')msg.toolUse(d);if(event==='tool_result')msg.toolResult(d);if(event==='trace_summary')msg.traceSummary(d.text||'');if(event==='piano_act')pianoRunAct(d);if(event==='done'){state.convId=d.conversation_id||state.convId;localStorage.setItem('chat_conversation',state.convId);msg.finish();if(d.assistant_message_id&&msg?.row)msg.row.dataset.msgId=d.assistant_message_id;finished=true;
+    const frame=f=>{if(runId!==_chatRunId)return;let event='',data='';f.split('\n').forEach(line=>{if(line.startsWith('event:'))event=line.slice(6).trim();if(line.startsWith('data:'))data+=line.slice(5).trim()});if(!event||!data)return;const d=JSON.parse(data);if(event==='conversation'){state.convId=d.conversation_id;state.legacySessionId=null;localStorage.setItem('chat_conversation',state.convId);localStorage.removeItem('chat_session');if(d.user_message_id&&userRow)userRow.dataset.msgId=d.user_message_id}if(event==='model')setActualModel(d.id);if(event==='thinking')msg.thinking(d.text||'');if(event==='delta'){_replyAcc+=d.text||'';msg.text(d.text||'')}if(event==='split'){_replyAcc+=SPLIT_MARK;msg.split()}if(event==='tool_use')msg.toolUse(d);if(event==='tool_result')msg.toolResult(d);if(event==='trace_summary')msg.traceSummary(d.text||'');if(event==='piano_act'){if(d&&d.type==='voice'){_wantVoice=true}else{pianoRunAct(d)}}if(event==='done'){state.convId=d.conversation_id||state.convId;localStorage.setItem('chat_conversation',state.convId);msg.finish();if(_wantVoice){_wantVoice=false;voiceAttach(msg&&msg.row,_replyAcc,{autoplay:true})}if(d.assistant_message_id&&msg?.row)msg.row.dataset.msgId=d.assistant_message_id;finished=true;
       /* 回完之后的钩子。琴房用它把这一轮记进这首歌的档案；
          🔴 绝不能让它抛出来打断这条流。 */
       if(options.onDone){try{options.onDone(_replyAcc)}catch(err){console.warn('onDone failed',err)}}}if(event==='error'){msg.fail(d.message);finished=true}};
@@ -3448,6 +3451,109 @@ function closeMsgContext({preserveSelection=false}={}){
   $('msgContextMenu').classList.add('hidden');$('msgContextMenu').setAttribute('aria-hidden','true');
   if(_msgCtx.source){_msgCtx.source.classList.remove('msg-pressing');_msgCtx.source=null}
   _msgCtx.longPressed=false;
+}
+
+/* ───────── 他的声音 ─────────
+   合成在服务端（app/voice.py），这儿只管放。
+
+   🔴 不复用琴房那个 <audio id="pianoAudio">：那是音乐播放器，共用一个元素
+      会把她正在听的歌的进度冲掉。单独一个，并且开口前先把歌摁停、
+      念完再放回去——他说话的时候不该有背景音乐盖着。
+
+   🔴 自动播放在 iOS 上会被拦。所以「他标记了要念」不承诺自动出声，
+      只保证那条语音条立刻出现在那儿等她点。试着放一下，被拦就算了，
+      绝不能变成一个转圈转到死的 UI。 */
+let _voiceOn=false, _voiceAudio=null, _voiceCur=null, _pianoWasPlaying=false;
+/* 他在这一轮标了「用声音说」。正文还在流，等 done 才有全文。 */
+let _wantVoice=false;
+
+async function voiceInit(){
+  try{
+    const r=await api('/api/voice/status'); const d=await r.json();
+    _voiceOn=!!d.enabled;
+  }catch{ _voiceOn=false }
+  const item=$('msgActionSpeak'); if(item) item.hidden=!_voiceOn;
+}
+
+function _voiceEl(){
+  if(!_voiceAudio){
+    _voiceAudio=new Audio();
+    _voiceAudio.preload='none';
+    const stop=()=>{
+      if(_voiceCur){_voiceCur.classList.remove('is-playing');_voiceCur=null}
+      /* 念完把歌放回去。她刚才在听什么就接着听什么。 */
+      if(_pianoWasPlaying&&pianoAudio){_pianoWasPlaying=false;pianoAudio.play().catch(()=>{})}
+    };
+    _voiceAudio.addEventListener('ended',stop);
+    _voiceAudio.addEventListener('pause',stop);
+    _voiceAudio.addEventListener('timeupdate',()=>{
+      if(!_voiceCur)return;
+      const d=_voiceCur.querySelector('.voice-dur');
+      const t=Math.max(0,Math.round((_voiceAudio.duration||0)-(_voiceAudio.currentTime||0)));
+      if(d&&isFinite(t))d.textContent=t+'"';
+    });
+  }
+  return _voiceAudio;
+}
+
+function _voiceBubble(){
+  const b=document.createElement('button');
+  b.type='button'; b.className='voice-bubble';
+  b.innerHTML='<span class="voice-play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span>'
+    +'<span class="voice-wave">'+'<i></i>'.repeat(9)+'</span>'
+    +'<span class="voice-dur">听他说</span>';
+  return b;
+}
+
+/* 给某条消息挂一个语音条。已经挂过就直接返回原来那个——
+   同一条不重复合成，也不重复付钱。 */
+function voiceAttach(row,text,{autoplay=false}={}){
+  if(!_voiceOn||!row)return null;
+  let bubble=row.querySelector('.voice-bubble');
+  if(!bubble){
+    bubble=_voiceBubble();
+    bubble.dataset.text=String(text||'');
+    (row.querySelector('.md')?.parentElement||row).appendChild(bubble);
+    bubble.addEventListener('click',e=>{e.stopPropagation();voicePlay(bubble)});
+  }
+  if(autoplay)voicePlay(bubble,{silentFail:true});
+  return bubble;
+}
+
+async function voicePlay(bubble,{silentFail=false}={}){
+  if(!bubble)return;
+  const audio=_voiceEl();
+  /* 再点一下 = 停。 */
+  if(_voiceCur===bubble&&!audio.paused){audio.pause();return}
+  const dur=bubble.querySelector('.voice-dur');
+  try{
+    if(!bubble.dataset.src){
+      bubble.classList.add('is-loading'); bubble.classList.remove('is-error');
+      if(dur)dur.textContent='…';
+      const r=await api('/api/voice',{method:'POST',headers:{'Content-Type':'application/json'},
+                                      body:JSON.stringify({text:bubble.dataset.text||''})});
+      if(!r.ok){
+        /* 出声，别静默。额度用完和 voice_id 填错长得一模一样。 */
+        let why=''; try{ why=(await r.json()).detail||'' }catch{}
+        throw new Error(why||('语音服务 '+r.status));
+      }
+      bubble.dataset.src=URL.createObjectURL(await r.blob());
+    }
+    bubble.classList.remove('is-loading');
+    if(pianoAudio&&!pianoAudio.paused){_pianoWasPlaying=true;pianoAudio.pause()}
+    if(_voiceCur&&_voiceCur!==bubble)_voiceCur.classList.remove('is-playing');
+    audio.src=bubble.dataset.src;
+    _voiceCur=bubble; bubble.classList.add('is-playing');
+    await audio.play();
+  }catch(e){
+    bubble.classList.remove('is-loading','is-playing');
+    _voiceCur=null;
+    if(dur)dur.textContent='听他说';
+    /* 自动播放被浏览器拦掉不算错——语音条就在那儿等她点。 */
+    if(silentFail&&String(e&&e.name)==='NotAllowedError')return;
+    bubble.classList.add('is-error');
+    toast(String(e&&e.message||'念不出来'));
+  }
 }
 
 function openMsgContextMenu(row,x,y){
@@ -3550,6 +3656,10 @@ $('msgContextMenu').addEventListener('click',async e=>{
   if(action==='edit'){
     if(!isUser){toast('只能编辑你发出的消息');return}
     enterEditMode(source,raw);
+  }
+  if(action==='speak'){
+    /* 她说「念一下」的手动入口。任意一条历史消息都能念，不用等他标记。 */
+    voicePlay(voiceAttach(source,raw));
   }
 });
 

@@ -28,7 +28,7 @@ from starlette.formparsers import MultiPartParser
 
 MultiPartParser.max_part_size = 60 * 1024 * 1024  # 与 uploads.py 的 MAX_FILE_BYTES 对齐
 
-from app import anno, appicon, auth, backgrounds, faces, keepalive, lorebook, moments, nightguard, peek, piano, piano_analysis, push, relays, starmap, store, telegram
+from app import anno, appicon, auth, backgrounds, faces, keepalive, lorebook, moments, nightguard, peek, piano, piano_analysis, push, relays, starmap, store, telegram, voice
 from app.actor import ActorBusyError, _mem_kv
 from app.claude import (
     SessionResumeError,
@@ -445,6 +445,8 @@ def render_context_prompt(messages: list[dict[str, Any]]) -> str:
 # 一起看书（书房第五栏）。anno 的阅读器前端 + 转发到它 Node 服务的 /api。
 # 前缀必须是 /marginalia：anno 前端里写死的，见 app/anno.py 开头。
 app.include_router(anno.router)
+# 他的声音。合成 + 缓存都在服务端，见 app/voice.py 开头那段。
+app.include_router(voice.router)
 
 
 @app.get("/")

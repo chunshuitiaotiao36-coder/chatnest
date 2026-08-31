@@ -36,6 +36,10 @@ link_opt() {
 }
 link_opt "$ANNO_HOME"
 
+# 他的声音的缓存。🔴 跟 anno 一个道理，必须在**启动时**建：
+# 构建期在 /data 下建的会被挂上来的持久卷盖掉。
+mkdir -p "${VOICE_CACHE_DIR:-/data/voice}"
+
 # 书架空着就放一本示例书，省得她第一次打开是白的。
 if [ -z "$(ls -A "$ANNO_HOME/data" 2>/dev/null)" ]; then
   cp -n anno/data.example/*.json "$ANNO_HOME/data/" 2>/dev/null || true

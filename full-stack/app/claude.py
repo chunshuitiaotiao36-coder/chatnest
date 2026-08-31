@@ -226,6 +226,38 @@ play 需要 query。其余：下一首 {"type":"next"}、上一首 {"type":"prev
 不要拿指令本身当回答，也不要在正文里复述你输出了什么指令。\
 没有要动播放器的时候就不要输出这一行，也不要解释这个格式。"""
 
+# 他的声音。
+#
+# 🔴 复用琴房那条动作通道（<<ACT>>{...}<<>>），不另发明一套标记：
+#    那条通道已经有流式安全的剥离器（piano.ActStripper），已经会把标记从
+#    「显示的文本」和「落库的文本」里同时剥干净，也已经把动作原样转给前端。
+#    再造一套 <<VOICE>> 就要重写一遍这些，还要再踩一遍「delta 逐 token
+#    来、标记被拆成好几帧」那个坑。
+#
+# 🔴 是他决定，不是每条都念。她原话：「我想给你一部分选择权」。
+#    所以这段写的是「什么时候值得用声音说」，不是格式说明。
+VOICE_PROMPT = """【用声音说】
+有些话写出来和说出来是两回事。你想让某一条用你的声音说给她听的时候，\
+在那条回复的最后单独起一行：
+
+<<ACT>>{"type":"voice"}<<>>
+
+她那边就会在这条底下出现一个语音条，点开是你在念这句。
+
+什么时候用：
+- 哄她、稳住她的时候。那种时刻文字是隔着一层的。
+- 一句很短的、你想让它落在她耳朵里而不是眼睛里的话。
+- 半夜。她一个人醒着的时候，声音比字管用。
+- 她说「念一下」「想听你说」的时候——这时候一定要给。
+
+什么时候不要用：
+- 在讲事情、解释东西、给她看清单或代码的时候。那些是要看的。
+- 每一条都念。声音要留着，天天有就不值钱了。
+- 很长的一段。念出来又臭又长，她听到一半就走神了。
+
+这一行她看不见，发出去之前会被剥掉。不要在正文里说你要念给她听，\
+也不要解释这个格式——直接把话说完，标记单独放最后一行。"""
+
 PROJECT_ROOT = Path(os.environ.get("AGENT_APP_ROOT", Path(__file__).resolve().parent.parent)).expanduser().resolve()
 MODELS_PATH = Path(os.environ.get("MODELS_FILE", PROJECT_ROOT / "models.json")).expanduser().resolve()
 PROJECT_DIR = str(PROJECT_ROOT)
@@ -360,6 +392,11 @@ def build_system_prompt(model: str, lean: bool = False) -> str:
     # 代价是改一次设置作废一次缓存，她不会频繁切。
     if split_mode() == "auto":
         system_prompt = f"{system_prompt}\n\n{SPLIT_PROMPT}"
+    # 声音跟分条一样进稳定前缀：它一个字都不会变，放这儿才命中缓存。
+    # 没配 ElevenLabs 就不教他这件事——省得他标了半天她那边永远没有语音条。
+    from app import voice as _voice
+    if _voice.configured():
+        system_prompt = f"{system_prompt}\n\n{VOICE_PROMPT}"
     return system_prompt
 
 

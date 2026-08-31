@@ -36,7 +36,8 @@ ENV AGENT_APP_ROOT=/data \
     PORT=8787 \
     ANNO_HOME=/data/marginalia \
     ANNO_ORIGIN=http://127.0.0.1:3300 \
-    ANNO_MCP_URL=http://127.0.0.1:3300/mcp/sse
+    ANNO_MCP_URL=http://127.0.0.1:3300/mcp/sse \
+    VOICE_CACHE_DIR=/data/voice
 
 RUN mkdir -p /data
 
