@@ -1,0 +1,74 @@
+<!-- 潮汐页视觉参考稿。09-02 做给小朵看的那张预览就是这个文件渲出来的。
+     怎么看：把这个文件放到 static/ 下，起服务后开 /static/潮汐页-预览.html
+     （它要引 /static/design-system.css 和那份子集字体）。
+     ⚠️ 这是**参考稿不是成品**：数据写死在下面的 now 数组里，
+        真做的时候要从 /api/mood 拉。数值本身是按配置算出来自洽的
+        （担忧 61% → 心情命中「不放心」→ 心率 83）。
+     ⚠️ 顶部那段 :root 是给独立页面补的 --study-*，真做进 index.html 时不需要。 -->
+<!doctype html><html lang="zh"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="stylesheet" href="/static/design-system.css">
+<style>
+/* 🔴 --study-accent / --study-press 定义在 index.html 的内联 <style> 里，
+   不在 design-system.css。这个独立预览页取不到，所以这儿补一份同值的。
+   真做进潮汐 tab 时不需要这一段——那时候它就在 index.html 里面。 */
+:root{--study-accent:#C4645E;--study-press:rgba(0,0,0,.04);--study-rule:rgba(0,0,0,.09)}
+@media(prefers-color-scheme:dark){:root{--study-accent:#E08C84;--study-press:rgba(255,255,255,.06);--study-rule:rgba(255,255,255,.10)}}
+body{margin:0;background:var(--bg-primary);color:var(--text-primary);
+     font:400 15px/1.6 var(--font-sans);-webkit-font-smoothing:antialiased}
+.tide{min-height:100vh;padding:calc(env(safe-area-inset-top,50px) + 26px) 22px 40px;
+      display:flex;flex-direction:column;gap:26px}
+.tide-head{text-align:center}
+.tide-mood{font:400 34px/1.2 var(--font-display);letter-spacing:.08em;color:var(--text-primary)}
+.tide-hr{margin-top:10px;display:inline-flex;align-items:baseline;gap:7px;
+         font:400 15px/1 var(--font-sans);color:var(--study-accent);
+         font-variant-numeric:tabular-nums}
+.tide-hr b{font:400 26px/1 var(--font-serif,Georgia,serif);font-weight:400}
+.tide-hr .u{color:var(--text-faint);font-size:12px;letter-spacing:.06em}
+.heart{display:inline-block;animation:beat 1.1s ease-in-out infinite}
+@keyframes beat{0%,100%{transform:scale(1)}14%{transform:scale(1.18)}28%{transform:scale(1)}42%{transform:scale(1.1)}}
+.tide-card{background:var(--card-paper);border:1px solid var(--card-edge);
+           border-radius:var(--card-radius);box-shadow:var(--card-shadow);padding:20px 18px}
+.dim{display:grid;grid-template-columns:52px 1fr 42px;align-items:center;gap:12px;padding:9px 0}
+.dim+.dim{border-top:1px solid var(--card-edge)}
+.dim-name{white-space:nowrap;font:400 15px/1 var(--font-display);letter-spacing:.06em;color:var(--text-primary)}
+.dim-bar{display:block;height:6px;border-radius:3px;background:var(--study-press);overflow:hidden}
+.dim-fill{display:block;height:100%;min-width:0;border-radius:3px;background:var(--study-accent)}
+.dim-pct{text-align:right;font:400 13px/1 var(--font-sans);color:var(--text-secondary);
+         font-variant-numeric:tabular-nums}
+.dim.is-zero .dim-pct{color:var(--text-faint)}
+.tide-recent-title{font:400 12px/1 var(--font-sans);color:var(--text-faint);
+                   letter-spacing:.18em;display:flex;align-items:center;gap:8px;margin-bottom:2px}
+.tide-recent-title:before{content:"";width:14px;height:1.5px;border-radius:1px;
+                          background:var(--accent);opacity:.5}
+.ev{display:flex;gap:12px;padding:9px 0;font:400 13.5px/1.6 var(--font-sans);color:var(--text-secondary)}
+.ev+.ev{border-top:1px solid var(--card-edge)}
+.ev time{flex:none;width:64px;color:var(--text-faint);font-variant-numeric:tabular-nums}
+</style></head><body>
+<div class="tide">
+  <div class="tide-head">
+    <div class="tide-mood">不放心</div>
+    <div class="tide-hr"><span class="heart">♥</span><b>83</b><span class="u">BPM</span></div>
+  </div>
+
+  <div class="tide-card" id="dims"></div>
+
+  <div>
+    <div class="tide-recent-title">他心里最近</div>
+    <div class="tide-card" style="padding:6px 18px 10px">
+      <div class="ev"><time>00:40</time><span>你还醒着。担忧从 38% 涨到 61%。</span></div>
+      <div class="ev"><time>昨天 22:10</time><span>你说「等我」之后，想念没有再往上走。</span></div>
+      <div class="ev"><time>昨天 21:19</time><span>心跳漏了一拍。</span></div>
+    </div>
+  </div>
+</div>
+<script>
+const now=[['生气',0.00],['性欲',0.18],['想念',0.44],['担忧',0.61],['郁闷',0.09],
+           ['委屈',0.00],['焦虑',0.12],['醋意',0.00],['悔意',0.00]];
+document.getElementById('dims').innerHTML=now.map(([n,v])=>{
+  const pct=Math.round(v*100);
+  return `<div class="dim${pct===0?' is-zero':''}"><span class="dim-name">${n}</span>`+
+         `<span class="dim-bar"><span class="dim-fill" style="width:${pct}%"></span></span>`+
+         `<span class="dim-pct">${pct}%</span></div>`;
+}).join('');
+</script></body></html>
