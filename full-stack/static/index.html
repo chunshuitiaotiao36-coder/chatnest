@@ -3543,6 +3543,10 @@ async function sendMessage(text,showUser=true,files=[],existingAttachments=[],op
   if(!text&&!files.length&&!existingAttachments.length)return;
   if(state.busy){stopActiveResponseNow();await new Promise(r=>setTimeout(r,0))}
   state.busy=true;updateSendButton();let msg,userRow=options.userRow||null;
+  /* 🔴 每轮开头清一次。它只在 done 帧里被消费掉，中途断线/报错的那一轮
+     不会走到 done——留着的话下一条回复会挂上上一轮那句话，
+     看起来就是「语音条串了」。 */
+  _voiceSay='';
   const runId=++_chatRunId,controller=new AbortController();
   _chatAbort=controller;_activeMsg=null;
   try{
