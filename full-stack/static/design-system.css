@@ -2883,3 +2883,59 @@ body.voice-mode #input      { display: none; }
   color: var(--study-accent);
 }
 .voice-bar.is-working { opacity: .5; }
+
+/* —— 寄相思自己的底图 ————————————————————————————————————
+   她说「寄相思太素了」，要能自己传背景，而且**昨天那些半透明的块块不要删掉**。
+   所以这一层只往下垫一张图，08-31 定的「玻璃桌面上放着一张纸」原样保留：
+   现在那张桌子换成她自己的照片，信和回信还是压在上面那张不透明的纸。
+
+   🔴 字永远落在纸上。这是上一轮的教训（她原话：半透明了就看不清字），
+      所以这里不许把 .letter-detail / .letter-replies-section 变透明，
+      一个字都不要动它们。这段只负责「纸后面是什么」。
+
+   槽位叫 letters，走的是已有的那套背景机制（app/backgrounds.py 的 SLOTS）：
+   前端 fetch 带 Bearer 取回后转 blob: URL 塞进 --bg-img-letters，
+   body 上挂 has-bg-letters。没设图 → 不挂这个类 → 下面整段不命中 → 照旧。 */
+/* 🔴 薄纱压到刚够「纸边上那圈不刺眼」为止，不要更浓。
+      她要的是**看得见自己的图**（原话「太素了」）；可读性已经由那张不透明
+      的纸兜住了，不需要再靠这层灰去救。第一版调了 40%/52%，出来整张图发灰，
+      跟没传一样。 */
+:root                                  { --letter-veil: rgba(250, 249, 246, .20); }
+@media (prefers-color-scheme: dark) { :root { --letter-veil: rgba(18, 17, 16, .34); } }
+
+/* 🔴 特异度要压得过 `body.has-bg-light .letter-overlay`（0,2,1）那条，
+      所以两个 has-bg 的组合形式都写出来，不靠「谁写在后面」赌赢。 */
+body.has-bg-letters .letter-overlay,
+body.has-bg-light.has-bg-letters .letter-overlay,
+body.has-bg-dark.has-bg-letters  .letter-overlay {
+  background-color: transparent;
+  /* 第一层是那块薄纱，第二层才是她的图——background-image 里越靠前越在上面 */
+  background-image: linear-gradient(var(--letter-veil), var(--letter-veil)), var(--bg-img-letters);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  /* 自己已经铺了一张不透明的图，再糊一层背景模糊纯粹是白烧 GPU */
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* 信件列表那一页也铺上，不然点进去有图、退出来又秃了。 */
+body.has-bg-letters #lettersPanel {
+  background-color: transparent;
+  background-image: linear-gradient(var(--letter-veil), var(--letter-veil)), var(--bg-img-letters);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+/* 🔴 但列表里那些卡片必须跟着变成纸。
+      它们平时是 --glass-panel（42%），垫在照片上就是上一轮那个
+      「半透明了就看不清字」原样重演。这里换成不透明的纸，
+      跟书房、Home 的卡片同一种材质。 */
+body.has-bg-letters #lettersPanel .letter-card {
+  background: var(--card-paper);
+  border-color: var(--card-edge);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}

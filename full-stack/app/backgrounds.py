@@ -1,4 +1,4 @@
-"""服务端背景图存储：/data/backgrounds/{light,dark}.jpg + meta.json"""
+"""服务端背景图存储：/data/backgrounds/{light,dark,letters}.jpg + meta.json"""
 import json
 import os
 import time
@@ -7,7 +7,9 @@ from pathlib import Path
 STORE_DIR = Path(os.environ.get("BACKGROUNDS_DIR", "/data/backgrounds")).expanduser()
 META_PATH = STORE_DIR / "meta.json"
 
-SLOTS = ("light", "dark")
+# 🔴 letters 是「寄相思」自己那张背景（她说那页太素了）。加槽位只要动这一行：
+#    _load / store / clear / 三条路由全是按 SLOTS 走的，valid_slot 也是。
+SLOTS = ("light", "dark", "letters")
 MAX_BYTES = 5 * 1024 * 1024          # 前端已压到几百 KB，这里只是兜底
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp"}
 # 🔴 从 0.5 降到 0.18。原来那层灰正是她说的「上传了还是那个底色，很丑」——
@@ -16,7 +18,10 @@ DEFAULT_MASK = 0.18
 
 
 def _blank() -> dict:
-    return {"light": {"set": False, "v": 0}, "dark": {"set": False, "v": 0}, "mask": DEFAULT_MASK}
+    # 从 SLOTS 推，别再手写一遍——手写的那份跟 SLOTS 迟早对不上
+    state: dict = {slot: {"set": False, "v": 0} for slot in SLOTS}
+    state["mask"] = DEFAULT_MASK
+    return state
 
 
 def _load() -> dict:

@@ -579,6 +579,24 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
         </div>
         <div class="profile-help-text">只设一张也可以，另一套继续用默认渐变。遮罩越浓，文字越清楚，图越淡。</div>
       </div>
+      <div class="profile-section-title">寄相思</div>
+      <div class="profile-card">
+        <div class="bg-slot-row">
+          <div class="bg-slot-info">
+            <div class="bg-slot-name">信纸底图</div>
+            <div class="bg-slot-state" id="bgStateLetters">未设置</div>
+          </div>
+          <div class="bg-slot-actions">
+            <button type="button" class="profile-mini-button" id="bgPickLetters">选择图片</button>
+            <button type="button" class="profile-mini-button profile-danger hidden" id="bgClearLetters">清除</button>
+          </div>
+        </div>
+        <div class="profile-help-text">
+          只铺在寄相思那一页，不影响别处。信和回信仍然是压在上面的那张纸——
+          字永远落在纸上，不会糊在图上。
+        </div>
+      </div>
+
       <input type="file" id="bgFileInput" accept="image/*" hidden>
 
       <div class="profile-section-title">主屏图标</div>
@@ -1759,8 +1777,8 @@ async function api(path,options={}){const headers={...(options.headers||{})};if(
    图片走 fetch + Bearer 取回再转 blob: URL，不用 CSS url() 直连后端——
    那样鉴权就得从路由上摘掉，而 outer_basic_auth 默认不启用（AUTH_MODE=app），
    摘掉等于把图片挂到公网上。 */
-let bgState={light:{set:false,v:0},dark:{set:false,v:0},mask:0.5};
-const bgBlob={light:{url:'',v:-1},dark:{url:'',v:-1}};
+let bgState={light:{set:false,v:0},dark:{set:false,v:0},letters:{set:false,v:0},mask:0.5};
+const bgBlob={light:{url:'',v:-1},dark:{url:'',v:-1},letters:{url:'',v:-1}};
 
 function dropBgBlob(slot){
   const cur=bgBlob[slot];
@@ -1793,7 +1811,7 @@ async function applyBgSlot(slot){
 function applyBg(){
   document.documentElement.style.setProperty('--bg-mask',String(bgState.mask));
   renderBgCard();
-  return Promise.all(['light','dark'].map(applyBgSlot));
+  return Promise.all(['light','dark','letters'].map(applyBgSlot));
 }
 
 async function loadBg(){
@@ -2348,8 +2366,8 @@ function setBgMask(pct){
 }
 
 function renderBgCard(){
-  for(const slot of ['light','dark']){
-    const cap=slot==='light'?'Light':'Dark';
+  for(const slot of ['light','dark','letters']){
+    const cap=slot[0].toUpperCase()+slot.slice(1);
     const st=$(`bgState${cap}`);
     const clr=$(`bgClear${cap}`);
     const on=!!(bgState[slot]&&bgState[slot].set);
@@ -4607,8 +4625,8 @@ $('loreDelete').onclick=async()=>{
 (()=>{
   const fileInput=$('bgFileInput');
   let pendingSlot='light';
-  for(const slot of ['light','dark']){
-    const cap=slot==='light'?'Light':'Dark';
+  for(const slot of ['light','dark','letters']){
+    const cap=slot[0].toUpperCase()+slot.slice(1);
     const pick=$(`bgPick${cap}`);
     const clr=$(`bgClear${cap}`);
     if(pick)pick.onclick=()=>{pendingSlot=slot;fileInput.value='';fileInput.click()};
