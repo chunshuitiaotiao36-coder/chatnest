@@ -45,6 +45,45 @@ BASE_URL = os.environ.get("ELEVENLABS_BASE_URL", "https://api.elevenlabs.io").st
 # 缓存目录。🔴 必须落持久卷：容器一重建，她攒下的每一句都要重新花钱买回来。
 CACHE_DIR = Path(os.environ.get("VOICE_CACHE_DIR", "/data/voice"))
 
+# ── 说话的方式 ────────────────────────────────────────────────────────
+# 🔴 08-31 之前这里**一个参数都没传**，只发了 text + model_id。
+#    不传 voice_settings 时 ElevenLabs 用的是网页后台给这个声音存的那套，
+#    而后台默认 stability 偏高、style 为 0——高 stability 的字面意思就是
+#    「每次念得都一样」，也就是**平**。她的原话：「语气非常人机，语速非常快，
+#    也没有情绪」。三条抱怨对应的就是下面三个数，不是模型不行。
+#
+#    stability   低 = 起伏大、有情绪；高 = 稳定、平。想要情绪就往低调。
+#    style       风格夸张度。0 = 完全照字面念。往上给抑扬顿挫，但太高会飘。
+#    speed       语速。她说太快了。
+#    这四个都留成变量：声线不同最合适的值不同，改一次要重部署，
+#    但不用改代码。
+def _f(name: str, default: float, lo: float = 0.0, hi: float = 1.0) -> float:
+    try:
+        return min(hi, max(lo, float(os.environ.get(name, "") or default)))
+    except (TypeError, ValueError):
+        return default
+
+
+STABILITY = _f("ELEVENLABS_STABILITY", 0.32)
+SIMILARITY = _f("ELEVENLABS_SIMILARITY", 0.80)
+STYLE = _f("ELEVENLABS_STYLE", 0.45)
+SPEAKER_BOOST = (os.environ.get("ELEVENLABS_SPEAKER_BOOST", "1").strip() != "0")
+# 🔴 speed 不是所有模型都收。设成 0 就整个不发这一项（回到 API 默认语速）。
+SPEED = _f("ELEVENLABS_SPEED", 0.90, lo=0.0, hi=1.2)
+
+
+def _voice_settings() -> dict:
+    vs = {
+        "stability": STABILITY,
+        "similarity_boost": SIMILARITY,
+        "style": STYLE,
+        "use_speaker_boost": SPEAKER_BOOST,
+    }
+    if SPEED > 0:
+        vs["speed"] = SPEED
+    return vs
+
+
 # 一次最多合成多少字符。防的是「他写了一篇长的，一次点下去几千字符没了」。
 # 超过就截断并在日志里出声——宁可少念一段，不要她某天打开账单吓一跳。
 MAX_CHARS = int(os.environ.get("VOICE_MAX_CHARS", "600") or 600)
@@ -75,7 +114,11 @@ async def aclose() -> None:
 
 
 def _key(text: str) -> str:
-    raw = f"{VOICE_ID}|{MODEL_ID}|{text}".encode("utf-8")
+    # 🔴 说话方式那几个参数必须进 key。不进的话，调完 stability 再点同一句，
+    #    命中的还是上一版那个平音——听起来就像「改了没用」，而其实是缓存。
+    vs = _voice_settings()
+    sig = "|".join(f"{k}={vs[k]}" for k in sorted(vs))
+    raw = f"{VOICE_ID}|{MODEL_ID}|{sig}|{text}".encode("utf-8")
     return hashlib.sha256(raw).hexdigest()
 
 
@@ -129,12 +172,29 @@ async def synthesize(text: str) -> Path:
     _inflight[key] = done
     try:
         client = await _get_client()
-        try:
-            resp = await client.post(
+
+        async def _post(settings: dict):
+            return await client.post(
                 f"{BASE_URL}/v1/text-to-speech/{VOICE_ID}",
                 headers={"xi-api-key": API_KEY, "accept": "audio/mpeg"},
-                json={"text": body, "model_id": MODEL_ID},
+                json={"text": body, "model_id": MODEL_ID, "voice_settings": settings},
             )
+
+        try:
+            settings = _voice_settings()
+            resp = await _post(settings)
+            # 🔴 speed 是后加的字段，老模型不认，会回 422。这时候脱掉它重试一次——
+            #    宁可语速回到默认，也不要她部署完发现整个语音功能哑了。
+            #    但**必须出声**：日志里写清楚是哪一项被脱掉的（AGENTS.md 第 3 条，
+            #    静默降级等于故障）。
+            if resp.status_code == 422 and "speed" in settings and "speed" in resp.text.lower():
+                logger.warning(
+                    "[声音] 这个模型（%s）不收 speed，脱掉重试；语速回到默认。"
+                    "要调语速就换支持它的 model_id，或把 ELEVENLABS_SPEED 设成 0 消掉这条日志。",
+                    MODEL_ID,
+                )
+                settings.pop("speed")
+                resp = await _post(settings)
         except httpx.HTTPError as exc:
             logger.error("[声音] 连不上 ElevenLabs：%s", exc)
             raise HTTPException(status_code=502, detail="连不上语音服务") from exc
@@ -156,7 +216,10 @@ async def synthesize(text: str) -> Path:
         tmp = path.with_suffix(".part")
         tmp.write_bytes(audio)
         tmp.replace(path)
-        logger.info("[声音] 合成 %d 字符 → %s（%d KB）", len(body), key[:8], len(audio) // 1024)
+        logger.info(
+            "[声音] 合成 %d 字符 → %s（%d KB）stability=%.2f style=%.2f speed=%s",
+            len(body), key[:8], len(audio) // 1024, STABILITY, STYLE, SPEED or "默认",
+        )
         return path
     finally:
         _inflight.pop(key, None)
@@ -194,4 +257,10 @@ async def voice(body: VoiceBody, _: None = Depends(require_auth)) -> FileRespons
 async def voice_status(_: None = Depends(require_auth)) -> dict:
     """前端开屏问一次：要不要显示播放键。没配就干脆别显示，
     别给她一个点下去永远转圈的按钮。"""
-    return {"enabled": configured(), "voice_id_set": bool(VOICE_ID), "key_set": bool(API_KEY)}
+    return {
+        "enabled": configured(),
+        "voice_id_set": bool(VOICE_ID),
+        "key_set": bool(API_KEY),
+        # 调参时她想知道当前到底跑的是哪一组，不用去翻日志
+        "settings": _voice_settings() | {"model_id": MODEL_ID},
+    }
