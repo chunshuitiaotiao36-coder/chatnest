@@ -4250,6 +4250,10 @@ function _renderMessagesIntoFragment(slice){
     const row=m.role==='user'
       ?_buildUserRow(m.text,m.timestamp,m._la||[],m.id)
       :_buildClaudeRow(m.text,m._lu||'',m.thinking,m.timestamp,m._la||[],m.traces||[],m.id);
+    /* 🔴 语音条要从库里重新长出来。以前它只在流式那一次挂到 DOM 上，
+       退出对话再进来就没了——她原话「这个语音条怎么还是阅后即焚样式的」。
+       autoplay 一定是 false：翻旧消息不该突然出声。 */
+    if(m.role!=='user'&&m.voice_say) voiceAttach(row,m.voice_say,{autoplay:false,transcript:true});
     frag.appendChild(row);
   });
   return frag;

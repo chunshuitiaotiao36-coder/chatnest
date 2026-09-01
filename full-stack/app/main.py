@@ -784,6 +784,11 @@ async def chat(body: ChatBody) -> StreamingResponse:
         response_text = ""
         response_thinking = ""
         response_traces: list[dict] = []
+        # 🔴 他用声音说的那一句要单独留住。它**不在 response_text 里**——
+        #    按设计语音条说的话就不出现在正文中（见 claude.py 的 VOICE_PROMPT）。
+        #    不落库的话，前端那份只活在这一次流式的 DOM 上，她退出对话
+        #    再进来语音条就没了。她原话：「这个语音条怎么还是阅后即焚样式的」。
+        response_voice_say = ""
         # 这一轮怎么结束的，跟着 release 记进 chat_lock 的流水账。
         # 第 5 节第 3 步（客户端断开要不要提前放锁）需要先知道「她走的时候
         # 这个生成器到底有没有被 close 掉」——这就是那个数据。
@@ -984,6 +989,10 @@ async def chat(body: ChatBody) -> StreamingResponse:
                     clean, acts = act_stripper.feed(chunk.get("text", ""))
                     for act in acts:
                         logger.info("[琴房] DJ 动作 conv=%s act=%s", conv_id, act)
+                        # 语音那条顺手留一份给落库。一轮里他要是说了两句，
+                        # 以最后一句为准——前端也是这么处理的（_voiceSay 直接覆盖）。
+                        if isinstance(act, dict) and act.get("type") == "voice":
+                            response_voice_say = str(act.get("say") or "")
                         act_data = json.dumps(act, ensure_ascii=False)
                         yield f"event: piano_act\ndata: {act_data}\n\n"
                     if not clean:
@@ -1077,6 +1086,7 @@ async def chat(body: ChatBody) -> StreamingResponse:
                         response_text,
                         response_thinking,
                         response_traces,
+                        response_voice_say,
                     )
                     if body.piano:
                         _capture_piano_impression(body.piano, response_traces)

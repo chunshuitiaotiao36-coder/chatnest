@@ -67,6 +67,12 @@ def initialize_store() -> None:
                 thinking TEXT NOT NULL DEFAULT '',
                 attachments_json TEXT NOT NULL DEFAULT '[]',
                 traces_json TEXT NOT NULL DEFAULT '[]',
+                -- 🔴 他用声音说的那一句。**不在 text 里**——语音条说的话按设计
+                --    就不出现在正文中（见 claude.py 的 VOICE_PROMPT）。
+                --    不单独存一列的话，退出对话再进来语音条就没了：DOM 上那一份
+                --    是流式过程中挂的，重新渲染历史时无处可取。她原话：
+                --    「这个语音条怎么还是阅后即焚样式的」。
+                voice_say TEXT NOT NULL DEFAULT '',
                 edited INTEGER NOT NULL DEFAULT 0,
                 timestamp TEXT NOT NULL
             );
@@ -252,6 +258,13 @@ def initialize_store() -> None:
                 """
                 ALTER TABLE messages
                 ADD COLUMN traces_json TEXT NOT NULL DEFAULT '[]'
+                """
+            )
+        if "voice_say" not in message_columns:
+            db.execute(
+                """
+                ALTER TABLE messages
+                ADD COLUMN voice_say TEXT NOT NULL DEFAULT ''
                 """
             )
         if "edited" not in message_columns:
@@ -632,6 +645,7 @@ def complete_turn(
     text: str,
     thinking: str,
     traces: list | None = None,
+    voice_say: str = "",
 ) -> int:
     now = _now()
     with _connect() as db:
@@ -660,11 +674,12 @@ def complete_turn(
         cursor = db.execute(
             """
             INSERT INTO messages(
-                conv_id, role, text, thinking, attachments_json, traces_json, timestamp
+                conv_id, role, text, thinking, attachments_json, traces_json,
+                voice_say, timestamp
             )
-            VALUES (?, 'assistant', ?, ?, '[]', ?, ?)
+            VALUES (?, 'assistant', ?, ?, '[]', ?, ?, ?)
             """,
-            (conv_id, text, thinking, traces_str, now),
+            (conv_id, text, thinking, traces_str, voice_say, now),
         )
         return int(cursor.lastrowid)
 
@@ -677,7 +692,7 @@ def _select_context_messages(
     rows = db.execute(
         """
         SELECT m.id, m.source_id, m.role, m.text, m.thinking, m.attachments_json,
-               m.traces_json, m.edited, m.timestamp,
+               m.traces_json, m.voice_say, m.edited, m.timestamp,
                (
                    SELECT COUNT(*)
                    FROM message_branches b
@@ -712,7 +727,7 @@ def prepare_edit_turn(
         row = db.execute(
             """
             SELECT id, source_id, role, text, thinking, attachments_json,
-                   traces_json, edited, timestamp
+                   traces_json, voice_say, edited, timestamp
             FROM messages
             WHERE conv_id = ? AND id = ?
             """,
@@ -725,7 +740,7 @@ def prepare_edit_turn(
         tail_rows = db.execute(
             """
             SELECT id, source_id, role, text, thinking, attachments_json,
-                   traces_json, edited, timestamp, 0 AS branch_count
+                   traces_json, voice_say, edited, timestamp, 0 AS branch_count
             FROM messages
             WHERE conv_id = ? AND id >= ?
             ORDER BY id
@@ -813,7 +828,7 @@ def prepare_retry_turn(
         user_row = db.execute(
             """
             SELECT id, source_id, role, text, thinking, attachments_json,
-                   traces_json, edited, timestamp
+                   traces_json, voice_say, edited, timestamp
             FROM messages
             WHERE conv_id = ? AND id < ? AND role = 'user'
             ORDER BY id DESC
@@ -826,7 +841,7 @@ def prepare_retry_turn(
         tail_rows = db.execute(
             """
             SELECT id, source_id, role, text, thinking, attachments_json,
-                   traces_json, edited, timestamp, 0 AS branch_count
+                   traces_json, voice_say, edited, timestamp, 0 AS branch_count
             FROM messages
             WHERE conv_id = ? AND id >= ?
             ORDER BY id
@@ -913,7 +928,7 @@ def restore_branch(branch_id: int | None) -> None:
                 """
                 INSERT OR REPLACE INTO messages(
                     id, conv_id, source_id, role, text, thinking,
-                    attachments_json, traces_json, edited, timestamp
+                    attachments_json, traces_json, voice_say, edited, timestamp
                 )
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
@@ -960,7 +975,7 @@ def conversation_messages(
             rows = db.execute(
                 f"""
                 SELECT m.id, m.role, m.text, m.thinking, m.attachments_json,
-                       m.traces_json, m.edited, m.timestamp,
+                       m.traces_json, m.voice_say, m.edited, m.timestamp,
                        (
                            SELECT COUNT(*)
                            FROM message_branches b
@@ -982,7 +997,7 @@ def conversation_messages(
             rows = db.execute(
                 """
                 SELECT m.id, m.role, m.text, m.thinking, m.attachments_json,
-                       m.traces_json, m.edited, m.timestamp,
+                       m.traces_json, m.voice_say, m.edited, m.timestamp,
                        (
                            SELECT COUNT(*)
                            FROM message_branches b
