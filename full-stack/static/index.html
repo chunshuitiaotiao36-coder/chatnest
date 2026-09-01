@@ -5435,11 +5435,51 @@ async function refreshBadges(){
     /* tab 栏那个只是一个点，不带数字——底部导航的字已经够小了，
        塞数字会挤。分项数字在书房里看。 */
     $('tabBadgeReading')?.classList.toggle('show',(b.total||0)>0);
+
+    syncAppBadge(b.total||0);
+  }catch(e){}
+}
+
+/* 主屏图标上那个红点（Badging API）。
+   🔴 三个条件缺一不可，缺了就是整段静默跳过，不报错也不提示：
+        1) iOS 16.4 以上
+        2) **装到主屏**（Safari 标签页里没有这回事）
+        3) 通知权限已授予
+      她三条都满足（推送已经通了），但别人 clone 这个仓库未必，
+      所以这里只做能力检测，不做提示——它是装饰，不是信号源。
+   🔴 数字用 /api/badges 的 total（未读的信 + 动态），跟书房里那两个红点
+      同一个数。不另起一套计数，就不会出现「主屏挂着 3 条、点进去干干净净」。 */
+async function syncAppBadge(total){
+  try{
+    if(!('setAppBadge'in navigator))return;
+    if(total>0) await navigator.setAppBadge(total);
+    else await navigator.clearAppBadge();
+  }catch(e){}
+}
+
+/* 回到前台 = 她看见了。把还挂在通知中心里的收掉，
+   这样 sw.js 里那个「数还挂着几条」重新从 0 开始算。
+   🔴 不在这儿直接 clearAppBadge()：紧跟着的 refreshBadges() 会用真实未读数
+      重画，中间那一下清零会让还有未读信的时候红点闪一次。 */
+async function clearSeenNotifications(){
+  try{
+    /* 🔴 用 getRegistration() 而不是 .ready：
+       没有注册过 Service Worker 时，`.ready` 这个 Promise **永远不 resolve**
+       ——不是 reject，是一直挂着。那样这个函数就永远停在这一行，
+       外面的 try/catch 一辈子等不到异常。getRegistration() 没有时直接给
+       undefined，当场返回。（这条是跑测试时卡死两分钟才发现的。） */
+    const reg=await navigator.serviceWorker?.getRegistration();
+    if(!reg||!reg.getNotifications)return;
+    (await reg.getNotifications()).forEach(n=>n.close());
   }catch(e){}
 }
 /* 什么时候刷：进 app、切回前台、每 60 秒一次。
    不做更频繁的轮询——这是邮箱，不是聊天，差一分钟看到没关系。 */
-document.addEventListener('visibilitychange',()=>{ if(!document.hidden) refreshBadges(); });
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden)return;
+  clearSeenNotifications();   /* 先收通知，再拿真实未读数重画角标 */
+  refreshBadges();
+});
 setInterval(()=>{ if(!document.hidden) refreshBadges(); },60000);
 
 /* 事件委托：卡片是整片重绘的，逐个绑定会在重绘后全部失效 */
