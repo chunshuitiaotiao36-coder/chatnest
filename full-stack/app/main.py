@@ -682,16 +682,15 @@ async def static_font(name: str) -> FileResponse:
     )
 
 
-@app.post("/api/auth")
-async def login(body: AuthBody, request: Request) -> Response:
-    token = auth.issue_token(body.password)
-    if token is None:
-        raise HTTPException(status_code=401, detail="unauthorized")
-    # 🔴 除了照旧把 token 发回去，再种一个 cookie。
-    #    书房「一起看书」是嵌进来的 anno 阅读器（iframe），iframe 里发出的
-    #    请求带不了 Authorization 头，只能靠 cookie 认。见 app/anno.py。
-    #    HttpOnly：JS 读不到，少一条被 XSS 顺走的路；前端本来也不需要读它。
-    resp = JSONResponse({"token": token})
+def _set_auth_cookie(resp: Response, token: str, request: Request) -> Response:
+    """把登录 token 种成 cookie。
+
+    🔴 书房「一起看书」是嵌进来的 anno 阅读器（iframe），iframe 里发出的
+       请求带不了 Authorization 头，只能靠 cookie 认。见 app/anno.py。
+       HttpOnly：JS 读不到，少一条被 XSS 顺走的路；前端本来也不需要读它。
+    🔴 登录和补种两条路都走这一个函数。分开写过一次，结果就是下面那个 bug：
+       只有登录那条种了 cookie，早就登录过的人永远拿不到。
+    """
     resp.set_cookie(
         anno.COOKIE_NAME,
         token,
@@ -702,6 +701,32 @@ async def login(body: AuthBody, request: Request) -> Response:
         path="/",
     )
     return resp
+
+
+@app.post("/api/auth")
+async def login(body: AuthBody, request: Request) -> Response:
+    token = auth.issue_token(body.password)
+    if token is None:
+        raise HTTPException(status_code=401, detail="unauthorized")
+    return _set_auth_cookie(JSONResponse({"token": token}), token, request)
+
+
+@app.post("/api/auth/cookie")
+async def auth_cookie(request: Request, authorization: str = Header(default="")) -> Response:
+    """拿手上已有的 Bearer token 换一个同内容的 cookie。
+
+    🔴 为什么需要这条：cookie 原来只在 /api/auth 登录那一刻种。而她的 token
+       一直躺在 localStorage 里，几个月没重新登录过——于是从来没拿到过
+       cookie，点开「一起看书」是一整屏 unauthorized。让她退出重登能解决，
+       但那是把维护成本推给她，而且 cookie 到期之后还会再犯。
+    🔴 这条不放宽任何东西：要求一个**已经有效的** Bearer token，发出去的
+       cookie 装的就是同一个 token，权限一模一样。没有 token 的人这里也
+       什么都拿不到。
+    """
+    token = authorization.removeprefix("Bearer ").strip()
+    if not token or not auth.verify_token(token):
+        raise HTTPException(status_code=401, detail="unauthorized")
+    return _set_auth_cookie(JSONResponse({"ok": True}), token, request)
 
 
 @app.post("/api/chat", dependencies=[Depends(require_auth)])

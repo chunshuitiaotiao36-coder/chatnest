@@ -5799,8 +5799,23 @@ $('lettersPanelBack').onclick=()=>{
    🔴 故意不给它挂 bindSheetSwipeClose：anno 最核心的功能是选中一句话画线，
       横滑关闭的手势会跟选字直接打架——挂上去等于把划线砍了。
       退出走左上角那个返回键。 */
-$('openAnnoPanel').onclick=()=>{
+let _annoCookieOk=false;
+$('openAnnoPanel').onclick=async()=>{
   const f=$('annoFrame');
+  /* 🔴 先把登录 cookie 补上，再让 iframe 去加载。
+     iframe 里发出的请求带不了 Authorization 头，anno 那条代理认的是
+     cookie（app/anno.py）。而这个 cookie 原来只在 /api/auth 登录那一刻种，
+     她的 token 一直躺在 localStorage 里、几个月没重新登录过——于是从来
+     没拿到过 cookie，点进来是一整屏 unauthorized。
+     只补一次：补成功之后把 src 清掉让它重载（她之前那一屏是错误页，
+     不清就一直显示那个）。之后再开就直接用缓存里的那一页，
+     不会把读到一半的位置和没存完的批注冲掉。 */
+  if(!_annoCookieOk){
+    try{
+      const r=await api('/api/auth/cookie',{method:'POST'});
+      if(r.ok){ _annoCookieOk=true; f.removeAttribute('src') }
+    }catch(e){}
+  }
   /* 懒加载：不打开就不建 iframe。建了就留着——回来还是她刚才那一页，
      不会把读到一半的位置和没存完的批注冲掉。 */
   if(!f.getAttribute('src')) f.setAttribute('src','/marginalia/');
