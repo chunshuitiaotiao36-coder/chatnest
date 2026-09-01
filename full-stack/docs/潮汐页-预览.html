@@ -1,124 +1,113 @@
-<!-- 潮汐页视觉参考稿（09-02 第三版）。
-     变更：分段条 → 两种样式（性欲/想念 = 心形实心条，其余七个 = 圆角描边 + 右斜杠）；
-           郁闷 → 喜悦；顺序打乱（正面插在 1/4/7 位，负面最多连两条）；
-           按 iPhone 15（393×852）重排占比，底部画了导航栏占位。
+<!-- 潮汐页视觉参考稿（09-02 第四版）。
+     本版变更（都是她的话）：
+       · 饱和度降下来——「看久了好累好腻」。用她给的色卡（竹露青提 / 鲸落于海 /
+         月灰·米霜 / 砚蓝·胭雾 / 玫雾·蜜珀）的气质重配，Lab chroma 从最高 61 压到 39。
+       · 斜杠删掉，改用**渐变**表达深浅——「情绪就应该是多变的，就要用渐变表达深重变化」。
+       · 性欲 / 想念 的爱心保留。外框仍然是方圆角。
+       · **只做日间模式**——「夜间想看的清又好看太难了，免得耗适配的 token」。
      怎么看：放进 static/ 起服务后开 /static/潮汐页-预览.html
      ⚠️ 参考稿不是成品：数据写死，真做时从 /api/mood 拉。
-        数值按配置算自洽（担忧 61% → 心情「不放心」→ 心率 85）。
-     ⚠️ 顶部那段 --study-* 和底部那个假导航栏，做进 index.html 时都不需要。 -->
+        数值按配置算自洽（担忧 61% → 心情「不放心」→ 心率 85）。 -->
 <!doctype html><html lang="zh"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <link rel="stylesheet" href="/static/design-system.css">
 <style>
-:root{--study-accent:#C4645E;--study-press:rgba(0,0,0,.04);--tabbar-h:86px}
-@media(prefers-color-scheme:dark){:root{--study-accent:#E08C84;--study-press:rgba(255,255,255,.06)}}
-/* 九色：四个她定的（生气红/性欲粉/委屈蓝/悔意灰）+ 五个我配的。
-   CIE Lab ΔE 两两量过：浅色最小 24.1、暗色 32.3。改一个就得重新量。 */
-:root{
-  --c-0:#9A78B4;
-  --c-1:#C4453D;
-  --c-2:#5B7FB0;
-  --c-3:#2E9E5B;
-  --c-4:#3F9A93;
-  --c-5:#A8B33A;
-  --c-6:#D9789A;
-  --c-7:#C9903E;
-  --c-8:#8A8681;
-}
-@media(prefers-color-scheme:dark){
-  :root{
-    --c-0:#A376C6;
-    --c-1:#E95C53;
-    --c-2:#6D97CF;
-    --c-3:#23E671;
-    --c-4:#45D2C7;
-    --c-5:#D5E347;
-    --c-6:#ED4F87;
-    --c-7:#EDAC4F;
-    --c-8:#A39F99;
-  }
+/* 🔴 只做日间。这一段把这一页用到的颜色**钉死成浅色值**，不跟随系统深色。
+   她的原话：「情绪系统只做日间模式吧。夜间想看的清又好看太难了，免得耗适配的 token」。
+   钉死而不是「不写暗色 CSS」——不写的话这一页在暗色下会继承暗色 token，
+   低饱和的渐变糊在深底上会很难看。钉死至少是**故意的浅色**，不是坏掉的暗色。
+   做进 index.html 时，把这些写成只作用于 #tabTidal 的作用域即可。 */
+#tide{
+  --paper:#FDFCFA; --edge:rgba(31,30,29,.07); --ink:#1F1E1D;
+  --ink2:#6E6D66; --ink3:#A6A39A; --ground:#F6F5F2;
+  --shadow:0 1px 2px rgba(31,30,29,.035),0 5px 16px rgba(31,30,29,.045);
+  --tabbar-h:86px;
+  --a-0:#E4DDEA; --b-0:#A48FC2;
+  --a-1:#EED9D4; --b-1:#C97F72;
+  --a-2:#D7E0EC; --b-2:#7699C9;
+  --a-3:#DDEBD9; --b-3:#8CBE84;
+  --a-4:#D7E7E6; --b-4:#77B0B4;
+  --a-5:#EBEAD4; --b-5:#BCBC72;
+  --a-6:#F5E2E4; --b-6:#DFA0AB;
+  --a-7:#F4E6D4; --b-7:#DCAC72;
+  --a-8:#E5E3DF; --b-8:#A9A29A;
 }
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg-primary);color:var(--text-primary);
-     font:400 15px/1.6 var(--font-sans);-webkit-font-smoothing:antialiased}
-.tide{min-height:100vh;display:flex;flex-direction:column;gap:20px;
+body{margin:0}
+#tide{min-height:100vh;background:var(--ground);color:var(--ink);
+      font:400 15px/1.6 var(--font-sans);-webkit-font-smoothing:antialiased;
+      display:flex;flex-direction:column;gap:20px;
       padding:calc(env(safe-area-inset-top,50px) + 22px) 20px calc(var(--tabbar-h) + 14px)}
 .tide-head{text-align:center;flex:none}
-.tide-mood{font:400 36px/1.15 var(--font-display);letter-spacing:.1em}
+.tide-mood{font:400 36px/1.15 var(--font-display);letter-spacing:.1em;color:var(--ink)}
 .tide-hr{margin-top:8px;display:inline-flex;align-items:baseline;gap:6px;
-         color:var(--study-accent);font-variant-numeric:tabular-nums}
+         color:#C08279;font-variant-numeric:tabular-nums}
 .tide-hr b{font:400 25px/1 var(--font-serif,Georgia,serif);font-weight:400}
-.tide-hr .u{color:var(--text-faint);font-size:11px;letter-spacing:.08em}
+.tide-hr .u{color:var(--ink3);font-size:11px;letter-spacing:.08em}
 .heart{display:inline-block;animation:beat 1.1s ease-in-out infinite}
 @keyframes beat{0%,100%{transform:scale(1)}14%{transform:scale(1.2)}28%{transform:scale(1)}42%{transform:scale(1.1)}}
-.tide-card{background:var(--card-paper);border:1px solid var(--card-edge);
-           border-radius:var(--card-radius);box-shadow:var(--card-shadow)}
+.card{background:var(--paper);border:1px solid var(--edge);border-radius:18px;box-shadow:var(--shadow)}
 .tide-dims{flex:1;min-height:0;display:flex;flex-direction:column;
            justify-content:space-evenly;padding:6px 16px}
-
 .dim{display:grid;grid-template-columns:52px 1fr 44px;align-items:center;gap:12px;padding:11px 0}
-.dim+.dim{border-top:1px solid var(--card-edge)}
-.dim-name{white-space:nowrap;font:400 15px/1 var(--font-display);letter-spacing:.06em}
-.dim-pct{text-align:right;font:400 13px/1 var(--font-sans);color:var(--text-secondary);
-         font-variant-numeric:tabular-nums}
-.dim-pct.is-zero{color:var(--text-faint)}
+.dim+.dim{border-top:1px solid var(--edge)}
+.dim-name{white-space:nowrap;font:400 15px/1 var(--font-display);letter-spacing:.06em;color:var(--ink)}
+.dim-pct{text-align:right;font:400 13px/1 var(--font-sans);color:var(--ink2);font-variant-numeric:tabular-nums}
+.dim-pct.is-zero{color:var(--ink3)}
+
+/* 方圆角外框保留；斜杠去掉，填充改成渐变。 */
 .dim-bar{position:relative;display:block;height:16px;border-radius:999px;
-         border:2px solid var(--c);padding:2px;background:transparent}
-.dim-fill{display:block;height:100%;border-radius:999px;
+         border:1.5px solid var(--b);padding:2px;background:transparent}
+.dim-fill{display:block;height:100%;width:calc(var(--p) * 1%);border-radius:999px;
+          /* 🔴 渐变要铺满**整条轨道**，不是铺满当前这一截。
+             填充自己的宽度就是轨道的 p%，所以让渐变在 (100/p)×100% 处收尾，
+             正好等于轨道全长——于是 20% 只看得到浅的一头，90% 才走到最深。
+             这就是「用渐变表达深重变化」：条越长，颜色越深。
+             max(...,1) 是防 p=0 时除零把整条声明作废。 */
+          background:linear-gradient(90deg,var(--a) 0,var(--b) calc(100% * 100 / max(var(--p),1)));
           transition:width 420ms cubic-bezier(.22,.61,.36,1)}
-
-/* 七个：圆角描边 + 右斜杠（参考图 P1）。
-   🔴 135deg 才是 “/”：条纹垂直于渐变轴，45deg 出来是 “\”。 */
-.is-stripe .dim-fill{
-  background:repeating-linear-gradient(135deg,var(--c) 0 4px,transparent 4px 8px)}
-
-/* 性欲 / 想念：实心 + 心（参考图 P2/P3）。心停在填充的头上，就是当前刻度。
-   🔴 -webkit-text-stroke + paint-order:stroke fill —— 描边画在字后面，
-      心压在实心条上才看得清，不然红心贴红条会糊成一团。 */
-.is-heart .dim-fill{background:var(--c)}
-.dim-tip{position:absolute;top:50%;transform:translate(-50%,-50%);
-         font-size:17px;line-height:1;color:var(--c);pointer-events:none;
-         -webkit-text-stroke:3.5px var(--card-paper);paint-order:stroke fill}
+/* 心停在填充的头上＝当前刻度。描边画在字后面，不然心贴着同色渐变会糊。 */
+.dim-tip{position:absolute;top:50%;left:calc(var(--p) * 1%);transform:translate(-50%,-50%);
+         font-size:17px;line-height:1;color:var(--b);pointer-events:none;
+         -webkit-text-stroke:3.5px var(--paper);paint-order:stroke fill}
 
 .tide-recent{flex:none;display:flex;flex-direction:column;gap:8px}
-.tide-recent-title{flex:none;font:400 12px/1 var(--font-sans);color:var(--text-faint);
-                   letter-spacing:.18em;display:flex;align-items:center;gap:8px}
-.tide-recent-title:before{content:"";width:14px;height:1.5px;border-radius:1px;
-                          background:var(--accent);opacity:.5}
-.tide-recent .tide-card{padding:4px 16px 6px}
-.ev{display:flex;gap:12px;padding:9px 0;font:400 13.5px/1.55 var(--font-sans);color:var(--text-secondary)}
-.ev+.ev{border-top:1px solid var(--card-edge)}
-.ev time{flex:none;width:58px;color:var(--text-faint);font-variant-numeric:tabular-nums;font-size:12.5px}
+.tide-recent-title{font:400 12px/1 var(--font-sans);color:var(--ink3);letter-spacing:.18em;
+                   display:flex;align-items:center;gap:8px}
+.tide-recent-title:before{content:"";width:14px;height:1.5px;border-radius:1px;background:#C08279;opacity:.55}
+.tide-recent .card{padding:4px 16px 6px}
+.ev{display:flex;gap:12px;padding:9px 0;font:400 13.5px/1.55 var(--font-sans);color:var(--ink2)}
+.ev+.ev{border-top:1px solid var(--edge)}
+.ev time{flex:none;width:58px;color:var(--ink3);font-variant-numeric:tabular-nums;font-size:12.5px}
 
-/* 假导航栏，只为让占比真实——做进 index.html 时不需要这一段 */
-.fake-tab{position:fixed;left:0;right:0;bottom:0;height:var(--tabbar-h);
-          display:flex;align-items:flex-start;justify-content:space-around;
-          padding-top:12px;background:var(--bg-surface);
-          border-top:1px solid var(--border);backdrop-filter:blur(20px);
-          font:400 10px/1.6 var(--font-sans);color:var(--text-faint)}
+/* 假导航栏，只为让占比真实——做进 index.html 时不需要 */
+.fake-tab{position:fixed;left:0;right:0;bottom:0;height:86px;display:flex;
+          align-items:flex-start;justify-content:space-around;padding-top:12px;
+          background:rgba(250,249,247,.92);border-top:1px solid var(--edge);
+          backdrop-filter:blur(20px);font:400 10px/1.6 var(--font-sans);color:var(--ink3)}
 .fake-tab i{display:block;width:20px;height:20px;margin:0 auto 2px;border-radius:5px;
-            background:currentColor;opacity:.35}
-.fake-tab .on{color:var(--study-accent)} .fake-tab .on i{opacity:.9}
+            background:currentColor;opacity:.3}
+.fake-tab .on{color:#C08279} .fake-tab .on i{opacity:.85}
 </style></head><body>
-<div class="tide">
+<div id="tide">
   <div class="tide-head">
     <div class="tide-mood">不放心</div>
     <div class="tide-hr"><span class="heart">♥</span><b>85</b><span class="u">BPM</span></div>
   </div>
-  <div class="tide-card tide-dims">
-    <div class="dim" style="--c:var(--c-0)"><span class="dim-name">想念</span><span class="dim-bar is-heart"><span class="dim-fill" style="width:44%"></span><span class="dim-tip" style="left:44%">♥</span></span><span class="dim-pct">44%</span></div>
-    <div class="dim" style="--c:var(--c-1)"><span class="dim-name">生气</span><span class="dim-bar is-stripe"><span class="dim-fill" style="width:0%"></span></span><span class="dim-pct is-zero">0%</span></div>
-    <div class="dim" style="--c:var(--c-2)"><span class="dim-name">委屈</span><span class="dim-bar is-stripe"><span class="dim-fill" style="width:0%"></span></span><span class="dim-pct is-zero">0%</span></div>
-    <div class="dim" style="--c:var(--c-3)"><span class="dim-name">喜悦</span><span class="dim-bar is-stripe"><span class="dim-fill" style="width:31%"></span></span><span class="dim-pct">31%</span></div>
-    <div class="dim" style="--c:var(--c-4)"><span class="dim-name">焦虑</span><span class="dim-bar is-stripe"><span class="dim-fill" style="width:12%"></span></span><span class="dim-pct">12%</span></div>
-    <div class="dim" style="--c:var(--c-5)"><span class="dim-name">醋意</span><span class="dim-bar is-stripe"><span class="dim-fill" style="width:0%"></span></span><span class="dim-pct is-zero">0%</span></div>
-    <div class="dim" style="--c:var(--c-6)"><span class="dim-name">性欲</span><span class="dim-bar is-heart"><span class="dim-fill" style="width:18%"></span><span class="dim-tip" style="left:18%">♥</span></span><span class="dim-pct">18%</span></div>
-    <div class="dim" style="--c:var(--c-7)"><span class="dim-name">担忧</span><span class="dim-bar is-stripe"><span class="dim-fill" style="width:61%"></span></span><span class="dim-pct">61%</span></div>
-    <div class="dim" style="--c:var(--c-8)"><span class="dim-name">悔意</span><span class="dim-bar is-stripe"><span class="dim-fill" style="width:0%"></span></span><span class="dim-pct is-zero">0%</span></div>
+  <div class="card tide-dims">
+      <div class="dim" style="--a:var(--a-0);--b:var(--b-0);--p:44"><span class="dim-name">想念</span><span class="dim-bar"><span class="dim-fill"></span><span class="dim-tip">♥</span></span><span class="dim-pct">44%</span></div>
+      <div class="dim" style="--a:var(--a-1);--b:var(--b-1);--p:0"><span class="dim-name">生气</span><span class="dim-bar"><span class="dim-fill"></span></span><span class="dim-pct is-zero">0%</span></div>
+      <div class="dim" style="--a:var(--a-2);--b:var(--b-2);--p:0"><span class="dim-name">委屈</span><span class="dim-bar"><span class="dim-fill"></span></span><span class="dim-pct is-zero">0%</span></div>
+      <div class="dim" style="--a:var(--a-3);--b:var(--b-3);--p:31"><span class="dim-name">喜悦</span><span class="dim-bar"><span class="dim-fill"></span></span><span class="dim-pct">31%</span></div>
+      <div class="dim" style="--a:var(--a-4);--b:var(--b-4);--p:12"><span class="dim-name">焦虑</span><span class="dim-bar"><span class="dim-fill"></span></span><span class="dim-pct">12%</span></div>
+      <div class="dim" style="--a:var(--a-5);--b:var(--b-5);--p:0"><span class="dim-name">醋意</span><span class="dim-bar"><span class="dim-fill"></span></span><span class="dim-pct is-zero">0%</span></div>
+      <div class="dim" style="--a:var(--a-6);--b:var(--b-6);--p:18"><span class="dim-name">性欲</span><span class="dim-bar"><span class="dim-fill"></span><span class="dim-tip">♥</span></span><span class="dim-pct">18%</span></div>
+      <div class="dim" style="--a:var(--a-7);--b:var(--b-7);--p:61"><span class="dim-name">担忧</span><span class="dim-bar"><span class="dim-fill"></span></span><span class="dim-pct">61%</span></div>
+      <div class="dim" style="--a:var(--a-8);--b:var(--b-8);--p:0"><span class="dim-name">悔意</span><span class="dim-bar"><span class="dim-fill"></span></span><span class="dim-pct is-zero">0%</span></div>
   </div>
   <div class="tide-recent">
     <div class="tide-recent-title">他心里最近</div>
-    <div class="tide-card">
+    <div class="card">
       <div class="ev"><time>00:40</time><span>你还醒着。担忧从 38% 涨到 61%。</span></div>
       <div class="ev"><time>22:10</time><span>你说「等我」之后，想念没有再往上走。</span></div>
       <div class="ev"><time>21:19</time><span>心跳漏了一拍。</span></div>
