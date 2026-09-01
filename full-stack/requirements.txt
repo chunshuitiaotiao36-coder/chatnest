@@ -13,9 +13,15 @@ websockets
 # 没有它，用户消息前面那行时间会静默消失（_now_line 吞掉异常返回空串）。
 tzdata
 
-chromadb>=0.5.0
-jieba
-rank-bm25
+# 🔴 记忆检索那三个（chromadb / jieba / rank-bm25）搬到 requirements-memory.txt 了。
+#    原因不是嫌它们没用，是**容器里根本不加载它们**：
+#      - 只有 memory_search_service/ 那两个文件 import 它们，app/ 里零引用
+#      - docker-entrypoint.sh 只起 anno、hervoice、app.main，没起记忆检索服务
+#      - app/claude.py 是走 HTTP 找它的（MEMORY_SEARCH_URL），不是直接 import
+#    而 chromadb 拖着 onnxruntime / grpcio / tokenizers / opentelemetry 一整串，
+#    是这份 requirements 里最重的一块。08-31 她的部署连着两次卡满 Coolify 一小时
+#    的 job 超时，这一块是大头。
+#    要在本机跑记忆检索：pip install -r requirements-memory.txt
 
 # 琴房频谱：在本地把歌算出来（BPM/调性/能量/频谱图），不经过任何 AI 接口。
 # 🔴 只在 app/piano_analysis.py 的函数里 import，不许放模块顶部——

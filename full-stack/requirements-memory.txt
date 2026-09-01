@@ -1,0 +1,18 @@
+# 本地记忆检索服务（memory_search_service/）单独的依赖。
+#
+# 🔴 故意不在 requirements.txt 里，也故意不进 Docker 镜像：
+#    容器只跑 anno + hervoice + app.main（见 docker-entrypoint.sh），
+#    这三个包一个都不会被 import。装进去纯粹是让每次构建多花几十分钟。
+#    小窝是通过 HTTP 找这个服务的（MEMORY_SEARCH_URL，默认
+#    http://127.0.0.1:3900/search），服务跑在哪都行，不必跟它同一个容器。
+#
+# 要跑记忆检索：
+#     pip install -r requirements-memory.txt
+#     ./run-memory-vectorize.sh     # 先建索引
+#     ./run-memory-search.sh        # 再起服务
+#
+# 服务没起时小窝照常跑，只是检索那一路拿不到结果——这是原本就有的降级行为。
+
+chromadb>=0.5.0
+jieba
+rank-bm25

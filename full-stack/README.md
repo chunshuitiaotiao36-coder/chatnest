@@ -54,6 +54,14 @@ PY
 ./run.sh
 ```
 
+记忆检索的依赖单独放在 `requirements-memory.txt`（chromadb 那一串很重，
+而主应用是通过 HTTP 找这个服务的，不需要 import 它，所以没有放进
+`requirements.txt`，也不进 Docker 镜像）。要用先装：
+
+```bash
+pip install -r requirements-memory.txt
+```
+
 同时启动主应用和本地记忆检索：
 
 ```bash
