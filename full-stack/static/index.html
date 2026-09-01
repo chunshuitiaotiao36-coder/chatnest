@@ -422,7 +422,7 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
       <div class="attachment-preview hidden" id="attachmentPreview"></div>
       <div class="composer">
         <input class="hidden" id="fileInput" type="file" multiple accept="image/*,.pdf,.txt,.text,.md,.py,.js,.jsx,.ts,.tsx,.json,.yaml,.yml,.html,.css,.scss,.sh,.ps1,.java,.c,.cc,.cpp,.h,.hpp,.go,.rs,.rb,.php,.sql,.xml,.toml,.ini,.log,.csv">
-        <div class="composer-input-row"><textarea id="input" rows="1" placeholder="想和小忱说……" enterkeyhint="enter"></textarea></div>
+        <div class="composer-input-row"><textarea id="input" rows="1" placeholder="想和小忱说……" enterkeyhint="enter"></textarea><button type="button" class="voice-bar" id="voiceBar">按住 说话</button></div>
         <div class="composer-actions">
           <!-- 顺序照官端：先「+」（圆形底托着），再模型胶囊。 -->
           <button class="composer-icon" id="attachButton" aria-label="添加文件"></button>
@@ -1559,7 +1559,7 @@ const _homeIconPaths={
   usage:'<path d="M3 3v16a2 2 0 0 0 2 2h16"/><rect x="7" y="12" width="3" height="5" rx="1"/><rect x="12" y="8" width="3" height="9" rx="1"/><rect x="17" y="5" width="3" height="12" rx="1"/>',
   appearance:'<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none"/>'
 };
-const _actionPaths={...(_homeIconPaths),copy:'<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',share:'<path d="M12 2v13"/><path d="m16 6-4-4-4 4"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>',play:'<path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/>',stop:'<rect width="18" height="18" x="3" y="3" rx="2"/>',up:'<path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/><path d="M7 10v12"/>',down:'<path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z"/><path d="M17 14V2"/>',audio:'<path d="M2 10v3"/><path d="M6 6v11"/><path d="M10 3v18"/><path d="M14 8v7"/><path d="M18 5v13"/><path d="M22 10v3"/>'};
+const _actionPaths={...(_homeIconPaths),keyboard:'<rect width="20" height="16" x="2" y="4" rx="2"/><path d="M6 8h.01"/><path d="M10 8h.01"/><path d="M14 8h.01"/><path d="M18 8h.01"/><path d="M8 12h.01"/><path d="M12 12h.01"/><path d="M16 12h.01"/><path d="M7 16h10"/>',copy:'<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',share:'<path d="M12 2v13"/><path d="m16 6-4-4-4 4"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>',play:'<path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/>',stop:'<rect width="18" height="18" x="3" y="3" rx="2"/>',up:'<path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/><path d="M7 10v12"/>',down:'<path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z"/><path d="M17 14V2"/>',audio:'<path d="M2 10v3"/><path d="M6 6v11"/><path d="M10 3v18"/><path d="M14 8v7"/><path d="M18 5v13"/><path d="M22 10v3"/>'};
 const icon=name=>_actionPaths[name]?`<svg class="lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${_actionPaths[name]}</svg>`:`<svg class="lucide" viewBox="0 0 256 256" fill="currentColor">${lucidePaths[name]||''}</svg>`;
 const logo=(cls='mark-20')=>`<svg class="brand-mark ${cls}"><use href="#claude-mark"/></svg>`;
 document.querySelectorAll('[data-icon]').forEach(el=>{el.innerHTML=icon(el.dataset.icon)});
@@ -1665,7 +1665,8 @@ async function recStart(e){
   _rec.ondataavailable=ev=>{ if(ev.data&&ev.data.size)_recChunks.push(ev.data) };
   _rec.onstop=recFinish;
   _rec.start();
-  $('micButton').classList.add('is-recording');
+  const _bar=$('voiceBar');
+  if(_bar){_bar.classList.add('is-recording');_bar.textContent='松开 结束'}
   _recHint(true,false);
   try{ navigator.vibrate&&navigator.vibrate(8) }catch{}
 }
@@ -1679,7 +1680,8 @@ function recMove(e){
 
 function recStop(){
   if(!_rec)return;
-  $('micButton').classList.remove('is-recording');
+  const _bar=$('voiceBar');
+  if(_bar){_bar.classList.remove('is-recording');_bar.textContent='按住 说话'}
   _recHint(false,false);
   try{ _rec.stop() }catch{}
 }
@@ -1692,7 +1694,7 @@ async function recFinish(){
   const blob=new Blob(chunks,{type:chunks[0].type||'audio/webm'});
   if(blob.size<1200)return;            /* 手滑点了一下，不值得花一次转写 */
 
-  const mic=$('micButton'); mic.classList.add('is-working');
+  const mic=$('voiceBar')||$('micButton'); mic.classList.add('is-working');
   try{
     const fd=new FormData();
     fd.append('file',blob,'voice.webm');
@@ -1702,6 +1704,8 @@ async function recFinish(){
     if(!d.text){ toast('没听清'); return }
     /* 🔴 填进输入框而不是直接发出去：转写会出错，让她过一眼再决定。
        语气存着，跟这一句一起走。 */
+    setVoiceMode(false);   /* 🔴 必须切回来：转写是填进输入框等她过目的，
+                              留在语音模式下那行字她根本看不见。 */
     input.value=(input.value?input.value+' ':'')+d.text;
     _resizeComposerInput(); updateSendButton(); input.focus();
     _lastVoiceTone=(d.emotion||d.hint)?{emotion:d.emotion,confidence:d.confidence,hint:d.hint}:null;
@@ -1712,16 +1716,39 @@ async function recFinish(){
   }
 }
 
+/* 🔴 改成微信那一套：麦克风键是**切换**，不是按住说话的地方。
+   点一下 → 输入框整条换成「按住 说话」，麦克风图标变成键盘；
+   再点一下（或者转写完成）→ 换回输入框。
+   她原话：「外国这种需要点按的我可能用不太顺手」——指的就是原来那种
+   在一个 36px 的小圆钮上按住不放。现在按住落在一条通栏的条上，
+   手指落点大十倍，不用瞄。 */
+function setVoiceMode(on){
+  if(_rec)return;                     /* 正在录音时不许切，会把这一段丢掉 */
+  document.body.classList.toggle('voice-mode',!!on);
+  const mic=$('micButton');
+  if(mic){
+    mic.innerHTML=icon(on?'keyboard':'mic');
+    mic.setAttribute('aria-label',on?'切回打字':'切到说话');
+  }
+  if(on){ try{input.blur()}catch{} }   /* 收键盘，不然宽条被顶上去 */
+  else { _resizeComposerInput() }      /* 回来时输入框刚从 display:none 出来，重量一次高度 */
+}
+
 (function bindMic(){
-  const mic=$('micButton'); if(!mic)return;
-  mic.addEventListener('contextmenu',e=>e.preventDefault());
-  mic.addEventListener('pointerdown',e=>{
+  const mic=$('micButton'), bar=$('voiceBar');
+  if(mic)mic.addEventListener('click',()=>{
     if(!_recOn){toast('还没开启听声音');return}
-    e.preventDefault(); mic.setPointerCapture?.(e.pointerId); recStart(e);
+    setVoiceMode(!document.body.classList.contains('voice-mode'));
   });
-  mic.addEventListener('pointermove',recMove);
-  mic.addEventListener('pointerup',recStop);
-  mic.addEventListener('pointercancel',()=>{_recCancel=true;recStop()});
+  if(!bar)return;
+  bar.addEventListener('contextmenu',e=>e.preventDefault());
+  bar.addEventListener('pointerdown',e=>{
+    if(!_recOn){toast('还没开启听声音');return}
+    e.preventDefault(); bar.setPointerCapture?.(e.pointerId); recStart(e);
+  });
+  bar.addEventListener('pointermove',recMove);
+  bar.addEventListener('pointerup',recStop);
+  bar.addEventListener('pointercancel',()=>{_recCancel=true;recStop()});
 })();
 
 function showChat(){document.body.classList.add('chat-ready');voiceInit();listenInit();$('gate').classList.add('hidden');$('chat').classList.remove('hidden');loadBg()}

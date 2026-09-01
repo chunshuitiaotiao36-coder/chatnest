@@ -2847,3 +2847,39 @@ body.has-bg-dark  #tabHome .profile-nav-row {
   line-height: 1.4;
   opacity: .85;
 }
+
+/* —— 说话 / 打字 两种输入模式（微信那一套）——————————————————
+   她原话：「我想要微信这样的，点那个麦克风切换打字 or 语音，
+   外国这种需要点按的我可能用不太顺手」。
+   原来是在 36px 的小麦克风圆钮上按住不放——落点小、容易划出去、
+   松手位置一偏就丢了。现在麦克风键只负责**切换**，按住说话落在
+   一条通栏的宽条上。
+   显隐由 body.voice-mode 这一个状态驱动（AGENTS.md 第 7 条：
+   浮层/互斥元素必须状态驱动，不许靠 z-index 压）。 */
+.voice-bar {
+  display: none;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-chip);
+  color: var(--text-primary);
+  font: 500 15px/1.5 var(--font-sans);
+  letter-spacing: .16em;
+  text-indent: .16em;            /* 抵掉 letter-spacing 挂在最后一个字后面的那一格 */
+  text-align: center;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  /* 🔴 必须 none：默认的 pan-y 会让「上滑取消」被浏览器当成滚动手势抢走。 */
+  touch-action: none;
+}
+body.voice-mode .voice-bar { display: block; }
+body.voice-mode #input      { display: none; }
+
+.voice-bar.is-recording {
+  background: var(--study-press);
+  border-color: var(--study-accent);
+  color: var(--study-accent);
+}
+.voice-bar.is-working { opacity: .5; }
