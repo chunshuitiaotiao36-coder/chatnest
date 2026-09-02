@@ -3588,7 +3588,7 @@ async function sendMessage(text,showUser=true,files=[],existingAttachments=[],op
        后端会等几秒再决定——这几秒里必须告诉她「在等上一条收尾」，否则又是一个
        不动的圈，跟卡死长得一模一样。除 queued 外的任何一帧到达 = 拿到锁了，
        统一在这里把那句提示撤掉，不用每个分支各写一遍。 */
-    const frame=f=>{if(runId!==_chatRunId)return;let event='',data='';f.split('\n').forEach(line=>{if(line.startsWith('event:'))event=line.slice(6).trim();if(line.startsWith('data:'))data+=line.slice(5).trim()});if(!event||!data)return;const d=JSON.parse(data);if(event==='queued'){showQueuedNote(msg,d);return}clearQueuedNote(msg);if(event==='conversation'){state.convId=d.conversation_id;state.legacySessionId=null;localStorage.setItem('chat_conversation',state.convId);localStorage.removeItem('chat_session');if(d.user_message_id&&userRow)userRow.dataset.msgId=d.user_message_id}if(event==='model')setActualModel(d.id);if(event==='thinking')msg.thinking(d.text||'');if(event==='delta'){_replyAcc+=d.text||'';msg.text(d.text||'')}if(event==='split'){_replyAcc+=SPLIT_MARK;msg.split()}if(event==='tool_use')msg.toolUse(d);if(event==='tool_result')msg.toolResult(d);if(event==='trace_summary')msg.traceSummary(d.text||'');if(event==='piano_act'){if(d&&d.type==='voice'){_voiceSay=String(d.say||'')}else{pianoRunAct(d)}}if(event==='done'){state.convId=d.conversation_id||state.convId;localStorage.setItem('chat_conversation',state.convId);msg.finish();if(_voiceSay){const say=_voiceSay;_voiceSay='';voiceAttach(msg&&msg.row,say,{autoplay:true,transcript:true})}if(d.assistant_message_id&&msg?.row)msg.row.dataset.msgId=d.assistant_message_id;finished=true;
+    const frame=f=>{if(runId!==_chatRunId)return;let event='',data='';f.split('\n').forEach(line=>{if(line.startsWith('event:'))event=line.slice(6).trim();if(line.startsWith('data:'))data+=line.slice(5).trim()});if(!event||!data)return;const d=JSON.parse(data);if(event==='queued'){showQueuedNote(msg,d);return}clearQueuedNote(msg);if(event==='conversation'){state.convId=d.conversation_id;state.legacySessionId=null;localStorage.setItem('chat_conversation',state.convId);localStorage.removeItem('chat_session');if(d.user_message_id&&userRow)userRow.dataset.msgId=d.user_message_id}if(event==='model')setActualModel(d.id);if(event==='thinking')msg.thinking(d.text||'');if(event==='delta'){_replyAcc+=d.text||'';msg.text(d.text||'')}if(event==='split'){_replyAcc+=SPLIT_MARK;msg.split()}if(event==='tool_use')msg.toolUse(d);if(event==='tool_result')msg.toolResult(d);if(event==='trace_summary')msg.traceSummary(d.text||'');if(event==='mood')moodAttach(msg&&msg.row,d);if(event==='piano_act'){if(d&&d.type==='voice'){_voiceSay=String(d.say||'')}else{pianoRunAct(d)}}if(event==='done'){state.convId=d.conversation_id||state.convId;localStorage.setItem('chat_conversation',state.convId);msg.finish();if(_voiceSay){const say=_voiceSay;_voiceSay='';voiceAttach(msg&&msg.row,say,{autoplay:true,transcript:true})}if(d.assistant_message_id&&msg?.row)msg.row.dataset.msgId=d.assistant_message_id;finished=true;
       /* 回完之后的钩子。琴房用它把这一轮记进这首歌的档案；
          🔴 绝不能让它抛出来打断这条流。 */
       if(options.onDone){try{options.onDone(_replyAcc)}catch(err){console.warn('onDone failed',err)}}}if(event==='error'){msg.fail(d.message);finished=true}};
@@ -3722,6 +3722,61 @@ function _voiceBubble(){
 
 /* 给某条消息挂一个语音条。已经挂过就直接返回原来那个——
    同一条不重复合成，也不重复付钱。 */
+/* ---- 忱的心绪：把注入给他的那一段，显示成她看得见的一行 ----------------
+   🔴 她的原话：「注入到 chat 里了会显示在回复中吗？**我不想要静默的**。
+      我想在 thinking 上方……写明『忱的心绪：焦虑20%，委屈11%』」。
+
+   注入的**原文**她仍然看不见——那段是写给他读的，里面还写着「她看不见，
+   也不要在回复里复述」，显示出来会很怪。但「这一轮他心里什么样、我往他
+   那儿塞了没有」必须看得见。所以这一行是那段注入的**回执**。
+
+   位置：挂在头像行后面、thinking 折叠条前面，也就是整条消息最上面。
+   两条渲染路径都要挂——流式那次由 SSE 的 mood 帧驱动，翻历史那次由
+   store 里的 mood_json 驱动。只挂流式那一次的话，退出对话再进来这一行
+   就没了（语音条踩过这个坑，她原话「怎么还是阅后即焚样式的」）。 */
+function moodAttach(row,badge){
+  if(!row||!badge)return;
+  row.querySelector(':scope > .mood-line')?.remove();   /* 幂等：重复挂不叠 */
+  const line=document.createElement('div');
+  line.className='mood-line';
+  const label=document.createElement('span');
+  label.className='mood-line-label';label.textContent='忱的心绪';
+  line.append(label);
+
+  if(badge.ok===false){
+    const e=document.createElement('span');
+    e.className='mood-line-mood is-off';
+    e.textContent=badge.error||'没连上';
+    line.append(e);
+  }else{
+    if(badge.mood){
+      const m=document.createElement('span');
+      m.className='mood-line-mood';m.textContent=badge.mood;
+      line.append(m);
+    }
+    (Array.isArray(badge.dims)?badge.dims:[]).forEach(d=>{
+      const name=String(d&&d.name||'');
+      let pct=Number(d&&d.pct);
+      if(!name||!Number.isFinite(pct))return;
+      pct=Math.max(0,Math.min(100,Math.round(pct)));
+      const chip=document.createElement('span');
+      chip.className='mood-chip';chip.dataset.dim=name;
+      chip.textContent=`${name} ${pct}%`;
+      line.append(chip);
+    });
+    /* 这一轮到底有没有影响他说话。有的话左边那道竖线亮起来——
+       「什么都没塞」跟「塞了但你看不见」是两回事，她要分得清。 */
+    if(badge.injected){
+      line.classList.add('is-injected');
+      line.title='这一轮把这份心情作为「倾向」告诉他了（不是命令，他可以不理）';
+    }else{
+      line.title='这一轮什么都没往他那儿塞——他这会儿心平气和';
+    }
+  }
+  const face=row.querySelector(':scope > .claude-face-row');
+  if(face)face.after(line); else row.prepend(line);
+  return line;
+}
 function voiceAttach(row,text,{autoplay=false,transcript=false}={}){
   if(!_voiceOn||!row)return null;
   let bubble=row.querySelector('.voice-bubble');
@@ -4268,6 +4323,8 @@ function _renderMessagesIntoFragment(slice){
        退出对话再进来就没了——她原话「这个语音条怎么还是阅后即焚样式的」。
        autoplay 一定是 false：翻旧消息不该突然出声。 */
     if(m.role!=='user'&&m.voice_say) voiceAttach(row,m.voice_say,{autoplay:false,transcript:true});
+    /* 「忱的心绪」也要从库里重新长出来，理由跟上面那条一模一样 */
+    if(m.role!=='user'&&m.mood) moodAttach(row,m.mood);
     frag.appendChild(row);
   });
   return frag;

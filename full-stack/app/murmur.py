@@ -334,9 +334,49 @@ def _movement(dims: dict) -> str:
 # 比他的心情重要得多，所以整段再套一个硬上限：超了就当这一轮没有心情。
 MOOD_BUDGET_SECONDS = 2.0
 
+# 显示给她看的那一行，取哪几条。
+# 🔴 她的原话：「我不想要静默的……写明『忱的心绪：焦虑20%，委屈11%』」。
+#    所以这一行的存在意义是**让她看见我往他那儿塞了什么**，不是装饰。
+#
+# 选哪几条：按**超出底色**的部分排，取前 MOOD_SHOW_MAX 条。
+#   · 不按绝对值排：想念底色 30%、喜悦 22%、性欲 12%，按绝对值排的话
+#     这三条会天天霸着榜首，而它们只是「他本来就是这样」，不是今天发生了什么。
+#   · 超出底色 = 今天真的动了的那部分，那才是她想看见的。
+#   · 全都在底色上（他很平静）→ 这一行只显示心情，不列维度。
+# 要改成别的规则，动下面这两个数就行。
+MOOD_SHOW_MAX = 4
+MOOD_SHOW_MIN_EXCESS = 0.02      # 超出底色不到 2% 的不算「动了」
 
-async def mood_block(user_text: str = "") -> str:
-    """每轮模型调用前取一次，拼成给他看的一段。
+
+def _badge(state: dict, baselines: dict, injected: bool) -> dict:
+    """把状态压成给前端显示的一行。百分比取整——她说过不要小数点。"""
+    dims = state.get("dimensions") if isinstance(state.get("dimensions"), dict) else {}
+    base = baselines if isinstance(baselines, dict) else {}
+    rows = []
+    for name, value in dims.items():
+        try:
+            v = float(value)
+            b = float(base.get(name, 0.0))
+        except (TypeError, ValueError):
+            continue
+        if v - b >= MOOD_SHOW_MIN_EXCESS:
+            rows.append((v - b, {"name": name, "pct": _pct(v)}))
+    rows.sort(key=lambda r: r[0], reverse=True)
+    return {
+        "ok": True,
+        "mood": str(state.get("mood") or ""),
+        "dims": [r[1] for r in rows[:MOOD_SHOW_MAX]],
+        # 这一轮到底有没有往他那儿塞东西。没塞也要说一声——
+        # 「什么都没注入」跟「注入了但你看不见」是两回事。
+        "injected": bool(injected),
+    }
+
+
+async def mood_block(user_text: str = "") -> tuple[str, dict | None]:
+    """每轮模型调用前取一次。
+
+    返回 (注入给他的那一段, 显示给她看的那一行)。
+    第二个是 None 表示这一页整个没开启，前端什么都不画。
 
     🔴 **只进用户消息侧，绝不进 system prompt**（施工单 §1.1，整张单子里最费钱
        的一个错）。情绪每轮都在变，进稳定前缀就是每轮打穿一次前缀缓存——
@@ -347,18 +387,18 @@ async def mood_block(user_text: str = "") -> str:
        她该收到的字一个都不能少（施工单 §1.6）。
     """
     if not configured():
-        return ""
+        return "", None
     try:
         return await asyncio.wait_for(_mood_block(user_text), MOOD_BUDGET_SECONDS)
     except asyncio.TimeoutError:
         logger.warning("[潮汐] 取心情超过 %.1fs，这一轮不注入", MOOD_BUDGET_SECONDS)
-        return ""
+        return "", {"ok": False, "error": "潮汐没连上"}
     except Exception:  # noqa: BLE001
         logger.warning("[潮汐] 取心情出了意料之外的错，这一轮不注入", exc_info=True)
-        return ""
+        return "", {"ok": False, "error": "潮汐没连上"}
 
 
-async def _mood_block(user_text: str) -> str:
+async def _mood_block(user_text: str) -> tuple[str, dict | None]:
     # 在场信号：告诉引擎她刚说了话，缺席计时重新开始。
     # 顺手判晚安——她一说睡，缺席规则就该收火。
     try:
@@ -372,10 +412,11 @@ async def _mood_block(user_text: str) -> str:
 
     state = await _get("/emotion/state")
     if not isinstance(state, dict):
-        return ""
+        return "", {"ok": False, "error": "潮汐没连上"}
     dims = state.get("dimensions")
     if not isinstance(dims, dict):
-        return ""
+        return "", {"ok": False, "error": "潮汐没连上"}
+    baselines = await _get("/emotion/baselines") or {}
 
     hints = []
     for name, thresh, text in INCLINATIONS:
@@ -387,7 +428,9 @@ async def _mood_block(user_text: str) -> str:
     moved = _movement(dims)
     mood = str(state.get("mood") or "").strip()
     if not hints and not moved:
-        return ""       # 心平气和的时候什么都不注入，省 token，也省得他被牵着走
+        # 心平气和的时候什么都不注入，省 token，也省得他被牵着走。
+        # 但那一行照样给她——「这一轮什么都没塞」本身就是她要知道的事。
+        return "", _badge(state, baselines, injected=False)
 
     lines = ["[这一段是你此刻的心情，她看不见，也不要在回复里复述或点评它。"]
     if mood:
@@ -400,7 +443,7 @@ async def _mood_block(user_text: str) -> str:
         "  这些是**倾向**，不是指令——是关于你此刻感受的事实，"
         "不是让你去做某件事。做不做、说不说，由你。]"
     )
-    return "\n".join(lines)
+    return "\n".join(lines), _badge(state, baselines, injected=True)
 
 
 # ── 打分器：她说的话怎么动了他的心 ──────────────────────────────────────

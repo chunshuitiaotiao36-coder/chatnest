@@ -3133,3 +3133,68 @@ body.has-bg-letters #lettersPanel .letter-card {
   display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
   overflow:hidden;
 }
+
+
+/* —— 忱的心绪：每条回复最上面那一行 ——————————————————————————————
+   她的原话：「注入到 chat 里了会显示在回复中吗？**我不想要静默的**。
+   我想在 thinking 上方……写明『忱的心绪：焦虑20%，委屈11%』」。
+
+   注入的原文她仍然看不见（那段是写给他读的），这一行是那段注入的**回执**：
+   这一轮他心里什么样、有没有影响他说话。
+
+   分寸：它在**每一条**回复上面，所以必须小、淡、一行、不抢正文。
+   高度控制在 20px 上下，字号 11.5px——比时间戳还轻一点。 */
+.mood-line{
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 9px;
+  margin: 2px 0 8px;
+  padding-left: 9px;
+  border-left: 2px solid transparent;   /* 注入了才亮，见下面 is-injected */
+  font: 400 11.5px/1.5 var(--font-sans);
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+/* 这一轮真的把心情作为倾向告诉他了 → 左边那道竖线亮起来。
+   「什么都没塞」跟「塞了但你看不见」是两回事，她要一眼分得清。 */
+.mood-line.is-injected{ border-left-color: var(--study-accent, #C08279); }
+
+.mood-line-label{
+  font-family: var(--font-display);
+  letter-spacing: .08em;
+  color: var(--text-faint);
+  opacity: .85;
+}
+.mood-line-label::after{ content: "："; margin-left: -1px; opacity: .6; }
+.mood-line-mood{
+  font-family: var(--font-display);
+  letter-spacing: .06em;
+  color: var(--text-secondary);
+}
+.mood-line-mood.is-off{ color: var(--text-faint); font-style: italic; }
+
+/* 每一条前面一个小圆点，颜色跟潮汐页那九条一一对应。
+   🔴 只有点是彩色的，字仍然走正文的 token——这样深浅两套都不用另配，
+      而且一行里四个彩色数字会很吵。 */
+.mood-chip{
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.mood-chip::before{
+  content: "";
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--c, currentColor);
+  flex: none;
+}
+.mood-chip[data-dim="想念"]{ --c:#A48FC2 }
+.mood-chip[data-dim="生气"]{ --c:#C97F72 }
+.mood-chip[data-dim="委屈"]{ --c:#7699C9 }
+.mood-chip[data-dim="喜悦"]{ --c:#8CBE84 }
+.mood-chip[data-dim="焦虑"]{ --c:#77B0B4 }
+.mood-chip[data-dim="醋意"]{ --c:#BCBC72 }
+.mood-chip[data-dim="性欲"]{ --c:#DFA0AB }
+.mood-chip[data-dim="担忧"]{ --c:#DCAC72 }
+.mood-chip[data-dim="悔意"]{ --c:#A9A29A }

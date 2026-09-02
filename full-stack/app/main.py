@@ -956,9 +956,17 @@ async def chat(body: ChatBody) -> StreamingResponse:
             #    绝不进 system prompt**。情绪每轮都在变，进稳定前缀就是每轮
             #    打穿一次前缀缓存——症状是账单，不是报错。
             # mood_block() 自己吞掉所有异常，引擎挂了只会返回空串。
-            mood = await murmur.mood_block(body.message or "")
+            # 第二个返回值是**给她看的那一行**——她要求这套东西不许是静默的：
+            # 「我不想要静默的……写明『忱的心绪：焦虑20%，委屈11%』」。
+            # 注入的原文她看不见（那是给他读的），但塞了什么、当时他心里什么样，
+            # 必须显示出来。
+            mood, mood_badge = await murmur.mood_block(body.message or "")
             if mood:
                 prompt += f"\n\n{mood}"
+            mood_json = json.dumps(mood_badge, ensure_ascii=False) if mood_badge else ""
+            if mood_badge:
+                # 先发一帧，让这一行在他开口之前就出现在消息顶上。
+                yield f"event: mood\ndata: {mood_json}\n\n"
             chat_args = (prompt, conv_id, resume_id, body.model,
                          body.effort, body.extended, log_timing)
             if body.model == "codex":
@@ -1100,6 +1108,7 @@ async def chat(body: ChatBody) -> StreamingResponse:
                         response_thinking,
                         response_traces,
                         response_voice_say,
+                        mood_json,
                     )
                     if body.piano:
                         _capture_piano_impression(body.piano, response_traces)

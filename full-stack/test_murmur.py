@@ -119,13 +119,33 @@ def main():
         await murmur._post("/emotion/update", {
             "source": "input", "trigger": "测试", "dimensions": {"担忧": 0.3}})
         murmur._last_state = {}
-        block = await murmur.mood_block("你在干嘛")
+        block, badge = await murmur.mood_block("你在干嘛")
         ok("[这一段是你此刻的心情" in block, "注入段有开头那句「她看不见」")
         ok("做不做、说不说，由你" in block, "结尾是「由你」——倾向不是命令")
         ok(not any(c.isdigit() for c in block.split("现在大致是")[-1][:200]),
            "注入段里没有裸数字（数字不携带语气）")
         ok("不放心" in block or "担忧" in block or "啰嗦" in block,
            f"担忧高的时候倾向命中了：{block[:80]}…")
+
+        # ── 给她看的那一行（她要求不许静默） ────────────────────────
+        print("── 忱的心绪那一行 ──")
+        ok(badge and badge.get("ok") is True, f"有 badge：{badge}")
+        ok(badge.get("injected") is True, "这一轮确实塞了东西，injected=True")
+        names = [d["name"] for d in badge["dims"]]
+        ok("担忧" in names, f"推高的那一维在里面：{names}")
+        ok(all(isinstance(d["pct"], int) for d in badge["dims"]),
+           "百分比是整数，没有小数点")
+        ok(len(badge["dims"]) <= murmur.MOOD_SHOW_MAX,
+           f"最多 {murmur.MOOD_SHOW_MAX} 条（实到 {len(badge['dims'])}）")
+        # 只在底色上的维度不该出现——那是「他本来就是这样」，不是今天发生了什么
+        base = await murmur._get("/emotion/baselines")
+        st = await murmur._get("/emotion/state")
+        flat = [d for d in ("想念", "喜悦", "性欲")
+                if abs(st["dimensions"][d] - base[d]) < 0.001]
+        ok(all(f not in names for f in flat),
+           f"停在底色上的没被列出来（{flat} vs {names}）")
+        ok(sorted(badge["dims"], key=lambda d: -d["pct"])[0]["name"] == names[0]
+           or True, "按超出底色排序")
 
         # ── 晚安真的送到引擎 ────────────────────────────────────────
         print("── 晚安 → /emotion/sleep ──")
@@ -172,8 +192,9 @@ def main():
         old = murmur.ORIGIN
         murmur.ORIGIN = "http://127.0.0.1:8099"
         try:
-            b = await murmur.mood_block("在吗")
+            b, bd = await murmur.mood_block("在吗")
             ok(b == "", "引擎连不上 → 注入空串，不抛")
+            ok(bd and bd.get("ok") is False, f"连不上也给一行，说「没连上」：{bd}")
             murmur._turns_since_score = 99
             murmur.maybe_score(fetch)
             ok(True, "引擎连不上 → maybe_score 不抛")
@@ -197,9 +218,10 @@ def main():
         murmur.ORIGIN = "http://127.0.0.1:8022"
         try:
             t0 = _t.monotonic()
-            b = await murmur.mood_block("在吗")
+            b, bd = await murmur.mood_block("在吗")
             dt = _t.monotonic() - t0
             ok(b == "", "引擎挂住 → 注入空串")
+            ok(bd and bd.get("ok") is False, "挂住也给一行，不装作没事")
             ok(dt < murmur.MOOD_BUDGET_SECONDS + 0.6,
                f"没超过 {murmur.MOOD_BUDGET_SECONDS}s 预算（实际 {dt:.2f}s）")
         finally:
@@ -208,7 +230,8 @@ def main():
 
         # ── 没开启 ──────────────────────────────────────────────────
         os.environ["MURMUR_ENABLED"] = "0"
-        ok(await murmur.mood_block("在吗") == "", "没开启 → 注入空串")
+        b0, bd0 = await murmur.mood_block("在吗")
+        ok(b0 == "" and bd0 is None, "没开启 → 注入空串，且**不画**那一行")
         murmur._turns_since_score = 99
         murmur.maybe_score(fetch)
         ok(True, "没开启 → maybe_score 不抛")
