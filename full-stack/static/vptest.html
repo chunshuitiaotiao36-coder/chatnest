@@ -32,24 +32,35 @@ function draw(){
   var sab=probe.getBoundingClientRect().height;
   probe.remove();
   var fx=document.getElementById('fx').getBoundingClientRect();
+  var pwa=(navigator.standalone===true||matchMedia('(display-mode:standalone)').matches);
+  /* 🔴 判据必须分模式。Safari 里有上下工具栏，innerHeight 本来就小于 screen.height，
+     拿 screen.height 当基准会误报（09-02 我就这么坑了小朵一次）。
+     PWA(standalone) 里没有工具栏，innerHeight 本该 == screen.height，那里才有得判。 */
   var lost=screen.height-innerHeight;
+  var verdict = pwa
+    ? (lost<=1
+        ? '<b>✓ 这个 PWA 的视口是满的（innerHeight == screen.height）</b><br>'+
+          '　 ⇒ 空白页正常，那 793 是小窝页面自己造成的，去代码里找'
+        : '<span class=hi>✗ 这个 PWA 的视口比屏幕矮 '+lost+'px<br>'+
+          '　 而这一页不含小窝任何代码 ⇒ 跟小窝的 HTML/CSS 无关，<br>'+
+          '　 是 PWA 实例本身的状态，改样式永远修不好</span>')
+    : '<span class=hi>⚠ 现在是 Safari 模式（standalone=false），这一页在这儿说明不了问题。</span><br>'+
+      '　 Safari 有上下工具栏，innerHeight('+innerHeight+') 小于 screen.height('+screen.height+') 是正常的，<br>'+
+      '　 红条贴到 '+Math.round(fx.bottom)+' = innerHeight 底部，也是对的。<br><br>'+
+      '　 <b>要测就得从主屏图标打开：</b><br>'+
+      '　 分享按钮 → 添加到主屏幕 → 打开那个新图标 → 截图 → 删掉图标';
   document.getElementById('n').innerHTML=
     '<b>视口测试</b>（这一页不含小窝任何代码）<br><br>'+
-    'standalone        '+(navigator.standalone===true||matchMedia('(display-mode:standalone)').matches)+'<br>'+
+    'standalone        '+pwa+'<br>'+
     'screen.height     '+screen.height+'<br>'+
     'innerHeight       '+innerHeight+'<br>'+
     'clientHeight      '+document.documentElement.clientHeight+'<br>'+
     'visualViewport.h  '+(vv?Math.round(vv.height):'—')+'<br>'+
     'safe-area top/bot '+Math.round(sat)+' / '+Math.round(sab)+'<br>'+
-    'scrollHeight      '+document.scrollingElement.scrollHeight+'<br><br>'+
-    '<span class=hi>红条底边      '+Math.round(fx.bottom)+'</span><br>'+
-    '<span class=hi>屏幕高-红条底边 '+Math.round(screen.height-fx.bottom)+'</span><br><br>'+
-    (Math.abs(screen.height-fx.bottom)<=1
-      ? '<b>✓ 红条贴到屏幕底了（正常）</b>'
-      : '<span class=hi>✗ 红条离屏幕底还差 '+Math.round(screen.height-fx.bottom)+'px<br>'+
-        '　 也就是说 fixed;bottom:0 到不了屏幕底</span>')+
-    '<br><br>绿框 = 100dvh 画到哪<br>红条 = fixed;bottom:0 画到哪<br>'+
-    '<br>看红条下面还有没有露出一条别的颜色。';
+    'scrollHeight      '+document.scrollingElement.scrollHeight+'<br>'+
+    '<span class=hi>屏幕高-innerHeight '+lost+'</span><br>'+
+    '红条底边          '+Math.round(fx.bottom)+'<br><br>'+
+    verdict;
 }
 draw();
 addEventListener('resize',draw);
