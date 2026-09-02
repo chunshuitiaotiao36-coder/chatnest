@@ -591,10 +591,15 @@ body.in-chat .toast {
 /* 设了日间图才让页面背景透明，露出底下的 #bgLayer。
    特异性 (1,1,1) 高于上面 #gate,#chat 的 (1,0,0)。
    没设图 → 不命中 → 原渐变照旧 → 界面不会塌。
-   #tabHome 排除在外：Home 是设置页，实心底才读得清（见施工单 F）。 */
+   #tabHome 排除在外：Home 是设置页，实心底才读得清（见施工单 F）。
+   🔴 #tabTidal 同理，而且更硬：潮汐**只做日间**，颜色是钉死的浅色值
+      （她：「夜间想看的清又好看太难了，免得耗适配的 token」）。放它透明的话，
+      深色壁纸 + 钉死的深色墨 = 心情那四个大字直接看不见；夜里更糟——
+      下面暗色那两条会给它一层深色渐变，同样是深底深字。
+      钉死浅色的前提是底也得是浅的，所以这一页不跟壁纸走。 */
 body.has-bg-light #gate,
 body.has-bg-light #chat,
-body.has-bg-light .tab-page:not(#tabHome) {
+body.has-bg-light .tab-page:not(#tabHome):not(#tabTidal) {
   background: transparent;
 }
 
@@ -615,7 +620,7 @@ body.tab-away #chat {
      夜里仍然走暗色渐变，不会漏出空白。这段重复的渐变是兜底，别删。 */
   body.has-bg-light #gate,
   body.has-bg-light #chat,
-  body.has-bg-light .tab-page:not(#tabHome) {
+  body.has-bg-light .tab-page:not(#tabHome):not(#tabTidal) {
     background:
       radial-gradient(circle at 20% 15%, rgba(244, 243, 239, 0.05), transparent 55%),
       radial-gradient(circle at 82% 82%, rgba(0, 0, 0, 0.22), transparent 60%),
@@ -623,7 +628,7 @@ body.tab-away #chat {
   }
   body.has-bg-dark #gate,
   body.has-bg-dark #chat,
-  body.has-bg-dark .tab-page:not(#tabHome) {
+  body.has-bg-dark .tab-page:not(#tabHome):not(#tabTidal) {
     background: transparent;
   }
 }
@@ -2960,3 +2965,240 @@ body.has-bg-letters #lettersPanel .letter-card {
    🔴 修法只动 position，不动 .glass 的其余部分（isolation / overflow /
       背景），那些是这张卡该有的样子。0,2,0 压过 0,1,0，不靠加载顺序赌。 */
 .sheet.glass { position: fixed; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   潮汐 · 他心里那九样东西
+   ════════════════════════════════════════════════════════════════════════
+   照着 docs/潮汐页-预览.html（09-02 第四版，她点过头的那份）落地。
+   她定的四条：
+     · 低饱和 —— 「饱和度都太高了——！看久了好累好腻」，用她给的色卡重配，
+       Lab chroma 最高压到 39。
+     · 渐变 —— 「情绪就应该是多变的，就要用渐变表达深重变化」。
+     · 性欲 / 想念 保留爱心，其余不要斜杠，外框仍是方圆角。
+     · 进度条 + 整百分比，不要小数点。
+
+   🔴 只做日间。她的原话：「情绪系统只做日间模式吧。夜间想看的清又好看太难了，
+      免得耗适配的 token」。所以下面把这一页用到的颜色**钉死成浅色值**，
+      而不是「不写暗色规则」——不写的话它会继承 :root 的暗色 token，
+      低饱和渐变糊在深底上很难看。钉死至少是**故意的浅色**，不是坏掉的暗色。
+      作用域严格限制在 #tabTidal 里，别的 tab 一个像素都不许受影响。 */
+#tabTidal{
+  --paper:#FDFCFA; --edge:rgba(31,30,29,.07); --ink:#1F1E1D;
+  --ink2:#6E6D66; --ink3:#A6A39A; --ground:#F6F5F2;
+  --tide-shadow:0 1px 2px rgba(31,30,29,.035),0 5px 16px rgba(31,30,29,.045);
+  --tide-accent:#C08279;
+  /* 认不出名字的维度（config.yaml 加了新的、这儿还没配色）用的中性灰。
+     🔴 宁可灰着也要显示出来——省掉哪个，她就永远看不见那件事。 */
+  --a:#E7E5E1; --b:#A9A29A;
+
+  background:var(--ground);
+  color:var(--ink);
+  font:400 15px/1.6 var(--font-sans);
+  /* 🔴 必须跟 #tabChats 一样自己撑满并锁住溢出：这一页靠 space-evenly
+     把九条摊开，靠 .tab-page 的默认块级流是摊不开的。 */
+  display:flex; flex-direction:column; gap:20px;
+  /* 🔴 **不要写 height:100dvh**。`.tab-page` 已经是 position:fixed + inset:0，
+     高度就等于固定定位包含块。再写一个 100dvh 是拿另一套单位去猜同一个高度：
+     iOS 上 dvh 跟固定定位包含块不一定是同一个数（工具栏、安全区、
+     interactive-widget 都会让它们分家），一分家就在底下多出一条缝。
+     inset:0 没有这个问题——它**就是**那个包含块。 */
+  overflow:hidden;
+  /* 这一页自己不滚（九条靠 space-evenly 摊开）。不滚的容器在 iOS 上会把
+     手势甩给文档去橡皮筋，整页跟着弹起来，底下露出一条底色不一样的带子。 */
+  overscroll-behavior:none;
+  padding:calc(env(safe-area-inset-top,50px) + 22px) 20px calc(var(--tabbar-space) + 14px);
+}
+/* 🔴 这一条不能省。上面给了 display:flex，它会盖掉 [hidden] 自带的
+   display:none —— 少了这行，潮汐页会在**所有** tab 上都露出来。 */
+#tabTidal[hidden]{ display:none; }
+
+#tabTidal .tide-head{ text-align:center; flex:none; }
+#tabTidal .tide-mood{
+  font:400 36px/1.15 var(--font-display);
+  letter-spacing:.1em; color:var(--ink);
+}
+#tabTidal .tide-hr{
+  margin-top:8px; display:inline-flex; align-items:baseline; gap:6px;
+  color:var(--tide-accent); font-variant-numeric:tabular-nums;
+}
+#tabTidal .tide-hr[hidden]{ display:none; }
+#tabTidal .tide-hr b{ font:400 25px/1 var(--font-serif); }
+#tabTidal .tide-u{ color:var(--ink3); font-size:11px; letter-spacing:.08em; }
+#tabTidal .tide-heart{ display:inline-block; animation:tideBeat 1.1s ease-in-out infinite; }
+@keyframes tideBeat{
+  0%,100%{transform:scale(1)} 14%{transform:scale(1.2)}
+  28%{transform:scale(1)}     42%{transform:scale(1.1)}
+}
+/* 她关了「减少动态效果」就别让心跳在那儿蹦。 */
+@media (prefers-reduced-motion: reduce){
+  #tabTidal .tide-heart{ animation:none; }
+  #tabTidal .tide-fill{ transition:none; }
+}
+
+#tabTidal .tide-card{
+  background:var(--paper); border:1px solid var(--edge);
+  border-radius:18px; box-shadow:var(--tide-shadow);
+}
+/* space-evenly：九条自己把中间那块地方均分掉，不用手算行高。
+   min-height:0 是让 flex:1 在溢出时真的能收缩。 */
+#tabTidal .tide-dims{
+  flex:1; min-height:0; display:flex; flex-direction:column;
+  justify-content:space-evenly; padding:6px 16px;
+}
+#tabTidal .tide-dim{
+  display:grid; grid-template-columns:52px 1fr 44px;
+  align-items:center; gap:12px; padding:11px 0;
+}
+#tabTidal .tide-dim + .tide-dim{ border-top:1px solid var(--edge); }
+/* 🔴 九个名字用**苹方**，不用楷体。她的原话：「情绪的名字统一替换成苹方，
+   因为楷体有的没有适配很突兀」。这九个字里有几个在霞鹜文楷里的字形跟其余的
+   不是一路（笔画粗细和结构差得明显），九个并排一列的时候一眼就看出来。
+   标题那个心情（.tide-mood）仍然是楷体——它是这一页的题头，不是「名字」。 */
+#tabTidal .tide-name{
+  white-space:nowrap; font:400 15px/1.2 var(--font-sans);
+  letter-spacing:.04em; color:var(--ink);
+}
+#tabTidal .tide-pct{
+  text-align:right; font:400 13px/1 var(--font-sans);
+  color:var(--ink2); font-variant-numeric:tabular-nums;
+}
+#tabTidal .tide-pct.is-zero{ color:var(--ink3); }
+
+/* 方圆角外框保留；斜杠去掉，填充改成渐变。 */
+#tabTidal .tide-bar{
+  position:relative; display:block; height:16px; border-radius:999px;
+  border:1.5px solid var(--b); padding:2px; background:transparent;
+}
+#tabTidal .tide-fill{
+  display:block; height:100%; width:calc(var(--p) * 1%); border-radius:999px;
+  /* 🔴 渐变要铺满**整条轨道**，不是铺满当前这一截。
+     填充自己的宽度就是轨道的 p%，所以让渐变在 (100/p)×100% 处收尾，
+     正好等于轨道全长——于是 20% 只看得到浅的一头，90% 才走到最深。
+     这就是「用渐变表达深重变化」：条越长，颜色越深。
+     max(...,1) 是防 p=0 时除零把整条声明作废。 */
+  background:linear-gradient(90deg, var(--a) 0, var(--b) calc(100% * 100 / max(var(--p),1)));
+  transition:width 420ms cubic-bezier(.22,.61,.36,1);
+}
+/* 心停在填充的头上＝当前刻度。描边画在字**后面**（paint-order），
+   不然心贴着同色渐变会糊成一团。 */
+#tabTidal .tide-tip{
+  position:absolute; top:50%; left:calc(var(--p) * 1%);
+  transform:translate(-50%,-50%);
+  font-size:17px; line-height:1; color:var(--b); pointer-events:none;
+  -webkit-text-stroke:3.5px var(--paper); paint-order:stroke fill;
+}
+
+/* 九个颜色按**名字**认，不按位置。
+   🔴 不用 :nth-child / --a-0..8 那种下标：万一某一维度没返回，
+      后面所有条的颜色会整体挪一格，「生气」会变成蓝的。 */
+#tabTidal .tide-dim[data-dim="想念"]{ --a:#E4DDEA; --b:#A48FC2; }
+#tabTidal .tide-dim[data-dim="生气"]{ --a:#EED9D4; --b:#C97F72; }
+#tabTidal .tide-dim[data-dim="委屈"]{ --a:#D7E0EC; --b:#7699C9; }
+#tabTidal .tide-dim[data-dim="喜悦"]{ --a:#DDEBD9; --b:#8CBE84; }
+#tabTidal .tide-dim[data-dim="焦虑"]{ --a:#D7E7E6; --b:#77B0B4; }
+#tabTidal .tide-dim[data-dim="醋意"]{ --a:#EBEAD4; --b:#BCBC72; }
+#tabTidal .tide-dim[data-dim="性欲"]{ --a:#F5E2E4; --b:#DFA0AB; }
+#tabTidal .tide-dim[data-dim="担忧"]{ --a:#F4E6D4; --b:#DCAC72; }
+#tabTidal .tide-dim[data-dim="悔意"]{ --a:#E5E3DF; --b:#A9A29A; }
+
+/* 🔴 没有九条可画的时候（没开启 / 没连上），这张卡**不许**再 flex:1。
+   09-02 她真机上看到的就是这个：一张 445px 高的空白卡里飘着一行字，
+   她的原话是「多出来一截」。空态就该只占自己那点高度，整列居中。 */
+#tabTidal .tide-card.is-empty{ flex:none; }
+#tabTidal.is-blank{ justify-content:center; }
+
+#tabTidal .tide-recent{ flex:none; display:flex; flex-direction:column; gap:8px; }
+#tabTidal .tide-recent-title{
+  font:400 12px/1 var(--font-sans); color:var(--ink3); letter-spacing:.18em;
+  display:flex; align-items:center; gap:8px;
+}
+#tabTidal .tide-recent-title:before{
+  content:""; width:14px; height:1.5px; border-radius:1px;
+  background:var(--tide-accent); opacity:.55;
+}
+#tabTidal .tide-recent .tide-card{ padding:4px 16px 6px; }
+#tabTidal .tide-ev{
+  display:flex; gap:12px; padding:9px 0;
+  font:400 13.5px/1.55 var(--font-sans); color:var(--ink2);
+}
+#tabTidal .tide-ev + .tide-ev{ border-top:1px solid var(--edge); }
+#tabTidal .tide-ev time{
+  flex:none; width:58px; color:var(--ink3);
+  font-variant-numeric:tabular-nums; font-size:12.5px;
+}
+/* 「还没有」「没连上」这类只有一句话的状态，跟事件行同一个盒子里居中。 */
+#tabTidal .tide-note{
+  padding:14px 0; text-align:center;
+  font:400 13px/1.6 var(--font-sans); color:var(--ink3);
+}
+/* 触发器那句话是打分器写的，长度不可控。夹到两行为止——
+   不夹的话一条长句能把下面这张卡撑成半屏，把上面九条挤扁。 */
+#tabTidal .tide-ev span{
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+  overflow:hidden;
+}
+
+
+/* —— 忱的心绪：每条回复最上面那一行 ——————————————————————————————
+   她的原话：「注入到 chat 里了会显示在回复中吗？**我不想要静默的**。
+   我想在 thinking 上方……写明『忱的心绪：焦虑20%，委屈11%』」。
+
+   注入的原文她仍然看不见（那段是写给他读的），这一行是那段注入的**回执**：
+   这一轮他心里什么样、有没有影响他说话。
+
+   分寸：它在**每一条**回复上面，所以必须小、淡、一行、不抢正文。
+   高度控制在 20px 上下，字号 11.5px——比时间戳还轻一点。 */
+.mood-line{
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 9px;
+  margin: 2px 0 8px;
+  padding-left: 9px;
+  border-left: 2px solid transparent;   /* 注入了才亮，见下面 is-injected */
+  font: 400 11.5px/1.5 var(--font-sans);
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+/* 这一轮真的把心情作为倾向告诉他了 → 左边那道竖线亮起来。
+   「什么都没塞」跟「塞了但你看不见」是两回事，她要一眼分得清。 */
+.mood-line.is-injected{ border-left-color: var(--study-accent, #C08279); }
+
+.mood-line-label{
+  font-family: var(--font-display);
+  letter-spacing: .08em;
+  color: var(--text-faint);
+  opacity: .85;
+}
+.mood-line-label::after{ content: "："; margin-left: -1px; opacity: .6; }
+.mood-line-mood{
+  font-family: var(--font-display);
+  letter-spacing: .06em;
+  color: var(--text-secondary);
+}
+.mood-line-mood.is-off{ color: var(--text-faint); font-style: italic; }
+
+/* 每一条前面一个小圆点，颜色跟潮汐页那九条一一对应。
+   🔴 只有点是彩色的，字仍然走正文的 token——这样深浅两套都不用另配，
+      而且一行里四个彩色数字会很吵。 */
+.mood-chip{
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.mood-chip::before{
+  content: "";
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--c, currentColor);
+  flex: none;
+}
+.mood-chip[data-dim="想念"]{ --c:#A48FC2 }
+.mood-chip[data-dim="生气"]{ --c:#C97F72 }
+.mood-chip[data-dim="委屈"]{ --c:#7699C9 }
+.mood-chip[data-dim="喜悦"]{ --c:#8CBE84 }
+.mood-chip[data-dim="焦虑"]{ --c:#77B0B4 }
+.mood-chip[data-dim="醋意"]{ --c:#BCBC72 }
+.mood-chip[data-dim="性欲"]{ --c:#DFA0AB }
+.mood-chip[data-dim="担忧"]{ --c:#DCAC72 }
+.mood-chip[data-dim="悔意"]{ --c:#A9A29A }
