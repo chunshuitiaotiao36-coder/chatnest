@@ -331,12 +331,17 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
      793..852 这一条页面一个像素都画不进去——#tabBar / .tab-page / #bgLayer / #drawer
      全是 fixed 或 100dvh，通通止步 793。那块地方只剩 canvas 底色能盖，而 canvas
      取的就是 body 的 background（html 没有自己的 background，会往上冒泡）。
-     原来写 --claude-sidebar-bg = #F3F3F0，导航栏却是 --bg-primary = #F8F8F6，
-     差 5 个色阶 —— 这就是她量到的那条 (243,243,241) 异色带。改成跟导航栏同色。
-     ⚠ 这只是让死区读起来像导航栏的延伸，**没有**、也不可能把页面画到 852。
-     代价：抽屉拉开时那条带子不再跟侧栏(#drawer 用的还是 --claude-sidebar-bg)同色。
-     抽屉是瞬时手势态，导航栏是每个 tab 页常驻的，取后者。 */
-  body{background:var(--bg-primary)}
+     🔴 09-03 00:01 实测：**改成 --bg-primary 反而更糟，已退回，别再试第二次。**
+     三次取色：14:37 浅色 243 = --claude-sidebar-bg(#F3F3F0)；19:09 暗色 25 =
+     --claude-sidebar-bg(#191918)；两次都精确对上，所以「这条带子归本行管」是真的。
+     但改成 --bg-primary(暗色 #1F1F1D = 31) 之后，带子**不是**变成 31，而是跳到
+     (165,165,165) —— 一个小窝调色板里根本没有的、完全中性的灰，跟导航栏(33)差 132。
+     ⇒ 那 59px 不是被平涂上去的：本行只是**喂给 iOS 的输入**，中间还隔着一层系统
+       合成，输出不线性。所以「按导航栏的颜色写进去，带子就会变成导航栏的颜色」
+       这个推理是错的，交接单里的「方向 4」按原样走不通。
+     退回 --claude-sidebar-bg：暗色下 25 vs 导航栏 33 差 8，是目前实测最不扎眼的一档。
+     下一步用 /vptest.html 定「这块地方到底归不归页面管」，别再在这里瞎试色号。 */
+  body{background:var(--claude-sidebar-bg)}
   .topbar{padding-left:max(env(safe-area-inset-left, 0px),var(--topbar-side-inset));padding-right:max(env(safe-area-inset-right, 0px),var(--topbar-side-inset))}
 }
 </style>
@@ -8281,7 +8286,7 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',syncAn
    让她的手机把数据直接摆出来。
    长按导航栏任意位置 1.2 秒弹出，点一下关掉，什么都不留。
    BUILD 那一行最要紧：一眼看出手机上跑的到底是不是最新那版，还是 PWA 缓存里的旧页面。 */
-const BUILD='2026-09-02 · 死区底色对齐导航栏';
+const BUILD='2026-09-03 · 死区底色退回 + vptest 定归属';
 
 function _tbDiag(){
   tbSnap('diag');   /* 补上最后一次点击沉淀之后的状态 */

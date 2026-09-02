@@ -6,7 +6,14 @@
 <title>视口测试</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  body{background:#111;color:#eee;font:13px/1.7 ui-monospace,Menlo,monospace}
+  /* 🔴 底色故意用洋红：09-03 要定的是「屏幕最底下那 59px 到底归不归页面管」。
+     小窝里把 body 底色从 --claude-sidebar-bg 换成 --bg-primary 之后，那条带子
+     没有跟着变成新色号，而是跳到一个中性灰 (165,165,165)。用一个小窝调色板里
+     绝不会出现的颜色再问一次，肉眼就能判：
+       底下那条是洋红 → 那块归页面管，body 底色盖得到，方向 4 还有救
+       底下那条是灰   → 不归页面管，iOS 自己画的，方向 4 作废 */
+  body{background:#FF00E5;color:#eee;font:13px/1.7 ui-monospace,Menlo,monospace}
+  #n,#btns,#log{background:rgba(0,0,0,.78)}
   /* 绿框 = 100dvh 能到哪 */
   #dvh{position:absolute;left:6px;top:0;width:calc(100% - 12px);height:100dvh;
        border:3px solid #3ddc84;border-radius:4px}
@@ -78,6 +85,7 @@ function draw(){
       '　 分享按钮 → 添加到主屏幕 → 打开那个新图标 → 截图 → 删掉图标';
   document.getElementById('n').innerHTML=
     '<b>视口测试</b>（这一页不含小窝任何代码）<br><br>'+
+    '<span class=hi>⬇ 先看屏幕最底下那 59px：洋红 = 归页面管 / 灰 = 不归页面管</span><br><br>'+
     'standalone        '+pwa+'<br>'+
     'screen.height     '+screen.height+'<br>'+
     'innerHeight       '+innerHeight+'<br>'+
