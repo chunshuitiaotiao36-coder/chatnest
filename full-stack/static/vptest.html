@@ -14,12 +14,19 @@
   #fx{position:fixed;left:0;right:0;bottom:0;height:44px;background:#e5484d;
       color:#fff;display:flex;align-items:center;justify-content:center;
       font-weight:700;letter-spacing:.5px}
-  #n{position:relative;z-index:2;padding:calc(env(safe-area-inset-top,0px) + 14px) 14px 90px}
+  #n{position:relative;z-index:2;padding:calc(env(safe-area-inset-top,0px) + 14px) 14px 12px}
+  #btns{position:relative;z-index:2;padding:0 14px 120px;display:flex;flex-direction:column;gap:9px}
+  button{font:600 15px/1 ui-monospace,Menlo,monospace;padding:15px 12px;border:0;border-radius:10px;
+         background:#2c6cf6;color:#fff;text-align:left}
+  button.ok{background:#1a7f4b}
+  #log{white-space:pre-wrap;padding:0 14px;color:#ffd166;font-size:12px}
   b{color:#3ddc84}
   .hi{color:#ffd166}
 </style>
 <div id="dvh"></div>
 <div id="n"></div>
+<div id="btns"></div>
+<div id="log"></div>
 <div id="fx">fixed bottom:0 的底边</div>
 <script>
 function draw(){
@@ -62,6 +69,37 @@ function draw(){
     '红条底边          '+Math.round(fx.bottom)+'<br><br>'+
     verdict;
 }
+/* ---- 候选「踢一脚」手法。她真机上一次触摸就能让 innerHeight 归位，
+   这里把几种纯代码的等价物摆出来，哪个真管用一点就知道。 ---- */
+var KICKS=[
+  ['A  scrollTo(0,1) 再 (0,0)', function(){ scrollTo(0,1); scrollTo(0,0); }],
+  ['B  body 撑高 1px 再收回',   function(){ var b=document.body;
+      b.style.minHeight=(innerHeight+1)+'px'; void b.offsetHeight; b.style.minHeight=''; }],
+  ['C  html 强制 reflow',        function(){ var d=document.documentElement;
+      d.style.display='none'; void d.offsetHeight; d.style.display=''; }],
+  ['D  focus 一个临时输入框再收', function(){ var i=document.createElement('input');
+      i.style.cssText='position:fixed;opacity:0;left:-9999px;top:0';
+      document.body.appendChild(i); i.focus(); i.blur(); i.remove(); }],
+  ['E  window.dispatchEvent(resize)', function(){ dispatchEvent(new Event('resize')); }]
+];
+var log=document.getElementById('log'), btns=document.getElementById('btns');
+KICKS.forEach(function(k){
+  var b=document.createElement('button');
+  b.textContent=k[0];
+  b.onclick=function(){
+    var before=innerHeight;
+    try{ k[1]() }catch(e){}
+    setTimeout(function(){
+      var after=innerHeight, good=(screen.height-after)<=1;
+      if(good) b.className='ok';
+      log.textContent = k[0].slice(0,1)+': innerHeight '+before+' → '+after+
+        (good?'   ✅ 归位了！就用这个':'   ✗ 没动');
+      draw();
+    },260);
+  };
+  btns.appendChild(b);
+});
+
 draw();
 addEventListener('resize',draw);
 if(window.visualViewport)visualViewport.addEventListener('resize',draw);
