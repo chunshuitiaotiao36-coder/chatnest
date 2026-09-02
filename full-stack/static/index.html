@@ -8283,10 +8283,15 @@ function _tbDiag(){
     const shrunk=Math.round(screen.height-vh0);
     const barH=Math.round(r0.height);
     let v;
+    /* 🔴 视口塌陷要**排在导航栏几何前面**判。gap 是拿 innerHeight 当基准算的，
+       innerHeight 自己塌了的话 gap=0 只说明「贴到了布局视口的底」，不代表贴到屏幕底。
+       09-02 就栽在这儿：shrunk=59，旧阈值 >60 差 1px 没抓住，面板报了绿灯，
+       而底下真有 59px 的死区。standalone 下布局视口本该等于整块屏幕，
+       所以这里的容差只留个位数，不留刘海那么大的口子。 */
     if(cs0.position!=='fixed') v='✗ 导航栏没在 fixed 定位上（现在是 '+cs0.position+'）——样式表没落地，焊死也没跑起来';
+    else if(shrunk>8)          v='△ 布局视口比屏幕矮 '+shrunk+'px：导航栏贴的是**布局视口**底（'+Math.round(vh0)+'），不是屏幕底（'+screen.height+'）。底下那 '+shrunk+'px 页面画不到，加多少 CSS 都盖不住——先查视口为什么塌';
     else if(Math.abs(g)>1)     v='✗ 是 fixed，但离屏幕底还差 '+g+'px';
     else if(barH>140)          v='✗ 导航栏贴底了，但它自己有 '+barH+'px 高（正常约 90）——是它在长高，不是在往上窜';
-    else if(shrunk>60)         v='△ 导航栏贴底了，但布局视口比屏幕矮 '+shrunk+'px——整个页面被压小了';
     else                       v='✓ 导航栏钉在底部，视口也是满的';
     out.push(v);
     out.push('');
