@@ -326,7 +326,17 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
 @keyframes egg-in{from{opacity:0;transform:translateY(20px) scale(.7)}to{opacity:1;transform:translateY(0) scale(1)}}
 @keyframes egg-out{to{opacity:0;transform:translateY(8px) scale(.92)}}
 @media(max-width:760px){
-  body{background:var(--claude-sidebar-bg)}
+  /* 🔴 这一行决定的是**屏幕最底下那 59px 死区**的颜色，别当成「侧栏底色」去改。
+     iOS PWA 启动时布局视口塌成 793（真因见 docs/导航栏-底部59px空带-交接单.md），
+     793..852 这一条页面一个像素都画不进去——#tabBar / .tab-page / #bgLayer / #drawer
+     全是 fixed 或 100dvh，通通止步 793。那块地方只剩 canvas 底色能盖，而 canvas
+     取的就是 body 的 background（html 没有自己的 background，会往上冒泡）。
+     原来写 --claude-sidebar-bg = #F3F3F0，导航栏却是 --bg-primary = #F8F8F6，
+     差 5 个色阶 —— 这就是她量到的那条 (243,243,241) 异色带。改成跟导航栏同色。
+     ⚠ 这只是让死区读起来像导航栏的延伸，**没有**、也不可能把页面画到 852。
+     代价：抽屉拉开时那条带子不再跟侧栏(#drawer 用的还是 --claude-sidebar-bg)同色。
+     抽屉是瞬时手势态，导航栏是每个 tab 页常驻的，取后者。 */
+  body{background:var(--bg-primary)}
   .topbar{padding-left:max(env(safe-area-inset-left, 0px),var(--topbar-side-inset));padding-right:max(env(safe-area-inset-right, 0px),var(--topbar-side-inset))}
 }
 </style>
@@ -8271,7 +8281,7 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',syncAn
    让她的手机把数据直接摆出来。
    长按导航栏任意位置 1.2 秒弹出，点一下关掉，什么都不留。
    BUILD 那一行最要紧：一眼看出手机上跑的到底是不是最新那版，还是 PWA 缓存里的旧页面。 */
-const BUILD='2026-08-20 · 头像裁切收尾';
+const BUILD='2026-09-02 · 死区底色对齐导航栏';
 
 function _tbDiag(){
   tbSnap('diag');   /* 补上最后一次点击沉淀之后的状态 */

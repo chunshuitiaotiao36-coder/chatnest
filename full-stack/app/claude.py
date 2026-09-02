@@ -712,6 +712,19 @@ async def stream_chat(
         # 只加在 stream_chat：三个 summarize_* 是一次性短请求，缓存对它们没意义。
         betas=["extended-cache-ttl-2025-04-11"],
     )
+    # 🔴 resume 的值必须落到日志里。发图后复述上一句那一单（docs/发图后回复复述
+    # 上一句-交接单.md）第 2 条要比对「这一轮传入的 resume 和上一轮的 session_id
+    # 是不是同一段、有没有回退」——原来只有 actor.py 那行 cache_usage 在打点，
+    # resume 一个字都没记，复现了也照样查不了。两条都走 uvicorn.error，
+    # 按 conv 抓一下就能前后对齐。
+    cli_logger.info(
+        "turn_resume conv=%s resume=%s source=%s model=%s max_turns=%s",
+        conv_id,
+        session_id or "(none)",
+        source,
+        model,
+        option_values["max_turns"],
+    )
     if selected_effort is not None:
         option_values["effort"] = selected_effort
     options = ClaudeAgentOptions(**option_values)

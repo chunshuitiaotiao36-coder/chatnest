@@ -39,11 +39,31 @@ function draw(){
   var sab=probe.getBoundingClientRect().height;
   probe.remove();
   var fx=document.getElementById('fx').getBoundingClientRect();
+  /* —— 视口单位实测：交接单「方向 2」要的就是这一组 ——
+     塌陷期间 innerHeight=793 而 screen.height=852。哪个单位在**这时候**还给得出
+     852，哪个才能拿来给导航栏定位；全都跟着塌 = 方向 2 直接作废，别去写那行 CSS。
+     交接单只想到 dvh，lvh/svh 一起量了，反正不要钱。 */
+  var up=document.createElement('div');
+  up.style.cssText='position:absolute;left:-9999px;top:0;width:1px';
+  document.body.appendChild(up);
+  function u(unit){ up.style.height='100'+unit; return Math.round(up.getBoundingClientRect().height); }
+  var UV={vh:u('vh'),svh:u('svh'),lvh:u('lvh'),dvh:u('dvh')};
+  up.remove();
+  var gb=document.getElementById('dvh').getBoundingClientRect();
   var pwa=(navigator.standalone===true||matchMedia('(display-mode:standalone)').matches);
   /* 🔴 判据必须分模式。Safari 里有上下工具栏，innerHeight 本来就小于 screen.height，
      拿 screen.height 当基准会误报（09-02 我就这么坑了小朵一次）。
      PWA(standalone) 里没有工具栏，innerHeight 本该 == screen.height，那里才有得判。 */
   var lost=screen.height-innerHeight;
+  /* 方向 2 的判据：只在塌陷期间才有意义 */
+  var hit=Object.keys(UV).filter(function(k){return Math.abs(UV[k]-screen.height)<=1});
+  var verdict2 = (lost<=1)
+    ? '　 （视口现在是满的，这一组数说明不了问题——杀掉 app 重开、一下都别碰屏幕再看）'
+    : (hit.length
+        ? '<b>→ 塌陷期间 '+hit.map(function(k){return '100'+k}).join(' / ')+' 仍然 = '+screen.height+'，'+
+          '可以拿来定位导航栏：<br>　 #tabBar{ top:calc(100'+hit[0]+' - var(--tabbar-space)); bottom:auto }</b>'
+        : '<span class=hi>→ 四个单位全跟着塌了（都 = '+innerHeight+'）。<br>'+
+          '　 ⇒ 交接单的「方向 2」不成立，别再去写 top:calc(100dvh - …)。</span>');
   var verdict = pwa
     ? (lost<=1
         ? '<b>✓ 这个 PWA 的视口是满的（innerHeight == screen.height）</b><br>'+
@@ -67,6 +87,10 @@ function draw(){
     'scrollHeight      '+document.scrollingElement.scrollHeight+'<br>'+
     '<span class=hi>屏幕高-innerHeight '+lost+'</span><br>'+
     '红条底边          '+Math.round(fx.bottom)+'<br><br>'+
+    '绿框(100dvh)底边  '+Math.round(gb.bottom)+'<br>'+
+    '100vh / 100svh    '+UV.vh+' / '+UV.svh+'<br>'+
+    '100lvh / 100dvh   '+UV.lvh+' / '+UV.dvh+'<br>'+
+    verdict2+'<br><br>'+
     verdict;
 }
 /* ---- 候选「踢一脚」手法。她真机上一次触摸就能让 innerHeight 归位，
