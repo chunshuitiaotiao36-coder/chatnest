@@ -664,6 +664,18 @@ async def marked_js() -> FileResponse:
     )
 
 
+@app.get("/vptest.html")
+async def vptest() -> FileResponse:
+    """视口测试页。不含小窝任何代码，只回答一件事：
+    position:fixed;bottom:0 在这台机器上够不够得到屏幕底。
+    导航栏那条 59px 缝定性用，定完可以删。"""
+    return FileResponse(
+        STATIC / "vptest.html",
+        media_type="text/html",
+        headers={"Cache-Control": "no-cache"},
+    )
+
+
 @app.get("/static/design-system.css")
 async def design_system_css() -> FileResponse:
     return FileResponse(
