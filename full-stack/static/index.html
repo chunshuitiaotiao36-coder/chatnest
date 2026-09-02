@@ -334,15 +334,25 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
 <script src="/marked.min.js?v=2"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css">
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js"></script>
-<!-- 🔴 这里原来有一块「导航栏焊死」的 !important 样式（c625c26 加的），2026-08-20 删除。
-     它当年是为了修「导航栏往上窜」，而那个 bug 的真因是 --tabbar-h 正反馈把导航栏
-     **撑高**了（见 index.html 里 syncTabbarHeight() 上面那段），位置从来就没错过，
-     所以这块从头到尾没起过作用。留着反而有害：
-       transform:none!important → 掐掉 design-system.css:344 的 translateX(--drawer-x)，
-                                  导航栏不再跟着侧栏一起滑
-       z-index:81!important     → 压过 design-system.css 刻意设的 25，
-                                  让导航栏盖住本该盖住它的 #drawerOverlay(30)/.sheet(41)
-     别再加回来。位置不对时先量导航栏**自己的高度**，再怀疑定位。 -->
+<!-- 🔴 导航栏焊死块（c625c26 加，08-20 删，09-02 按她的要求复原）。
+     独立成一个 <style>、放在 head 最后、只写「钉在哪」，长相仍归主样式表管。
+
+     08-20 删它的理由是「位置从来没错过」——那个判定基于一次用错基准的测量
+     （详见 weldTabbar() 上面那段）。09-02 她的真机截图逐像素量出来：
+     导航栏 css 703..793，屏幕 852，底下空 59px。位置确实是错的。
+
+     🔴 复原时**只留定位**，当年那两条有害的没带回来：
+        transform:none!important → 会掐掉 design-system.css 的 translateX(--drawer-x)，
+                                   导航栏不再跟着侧栏一起滑
+        z-index:81!important     → 会压过刻意设的 25，让导航栏盖住 sheet / overlay
+     这两条跟贴不贴底无关，是当年顺手写进去的。
+     🔴 也**不写 bottom:0!important**：真正把它按到屏幕底的是 weldTabbar() 的
+        inline bottom（布局视口比屏幕矮 59px，bottom:0 只能贴到布局视口的底）。
+        这里写死 !important 反而会把那道补偿压掉。这块只保证 position/left/right
+        不被任何东西掀翻。 -->
+<style>
+#tabBar{position:fixed!important;left:0!important;right:0!important;top:auto!important}
+</style>
 </head>
 <body>
 <div id="bgLayer" aria-hidden="true"></div>
@@ -8225,25 +8235,58 @@ var currentTab='chat';
 function syncTabbarHeight(){
   document.documentElement.style.removeProperty('--tabbar-h');
 }
-/* ───────── 「焊死」这条路已经证伪，别再走 ─────────
-   真机诊断表（08-20 14:11）：
-     #tabBar top..bot = 422 .. 852，screen.height=852 —— 底边**就在屏幕底**。
-     vh 全程 793 = 852-59（59 是 safe-area-top），innerHeight/visualViewport 全是 852。
-   ⇒ 导航栏从来没有离开过屏幕底，布局视口也从来没有被键盘压小过。
-     旧 gap 算式拿 documentElement.clientHeight(793) 减 rect.bottom(852) = -59，
-     那 -59 是「clientHeight 不含刘海、而 rect 坐标含」的坐标系差，不是位移。
-     基准该用 innerHeight。
-   ⇒ 第 9 轮我写的 restoreViewport() 视口看门狗建立在「视口被键盘压小」这个
-     **错误**假设上，已整块删除。它的阈值是 60px，而真机实际差值就是 59px——
-     换台刘海更大的机器就会天天误伤，收她正在用的焦点、乱滚页面。
-   weldTabbar 保留函数名（好几个监听器在调），只负责把历史遗留的 inline 几何清掉，
-   让样式表说了算——尤其是 transform：design-system.css:344 用
-   translateX(var(--drawer-x)) 让导航栏跟着侧栏一起滑，
-   老版本写 transform:none!important 会把这个联动焊死。 */
+/* ───────── 焊死（09-02 按她的要求复原） ─────────
+   c625c26 加的焊死块 08-20 被我删了，理由写在 head 里那段注释：当时判定
+   「导航栏从来没离开过屏幕底」。那个判定用错了基准，同一段注释里其实已经
+   把正确答案写下来了：
+
+     真机诊断表（08-20 14:11）：
+       vh 全程 793 = 852-59（59 是 safe-area-top）
+       innerHeight / visualViewport 全是 852
+     ⇒ 旧 gap 算式拿 documentElement.clientHeight(793) 减 rect.bottom
+       **基准该用 innerHeight**。
+
+   09-02 她两张真机截图（10:41 和前一天）逐像素量下来完全一致：
+     导航栏 css 703..793（90px，= --tabbar-h 56 + safe-area-bottom 34，高度对）
+     底下 793..852 是 59px 的空带，壁纸层 #bgLayer 也停在 793。
+   ⇒ 布局视口就是 793 高，而屏幕是 852。fixed;bottom:0 只能贴到布局视口的底，
+     贴不到屏幕底，差的正好是那 59。
+
+   所以焊死这条路没有错，错的是它拿 clientHeight(793) 当基准——
+   793-793=0，它每次都认为「已经贴底了」，一次手都没动过。换成 innerHeight
+   就能算出真正的 59。
+
+   🔴 复原的时候**不带回**当年那两样有害的：
+      transform:none!important → 会掐掉 design-system.css 的 translateX(--drawer-x)，
+                                 导航栏不再跟着侧栏滑
+      z-index:81!important     → 会压过刻意设的 25，让导航栏盖住 sheet / overlay
+      这两条跟「贴不贴底」无关，是当年顺手写进去的。只焊 bottom。
+   🔴 只用 bottom，绝不用 transform——e2b2ccc 那次的 --tabbar-fix 就是加了
+      transform 把 fixed 元素踢出视口坐标系、飘到屏幕中间的。 */
 function weldTabbar(){
   const bar=$('tabBar'); if(!bar)return;
-  ['position','left','right','bottom','top','transform','z-index']
-    .forEach(k=>bar.style.removeProperty(k));
+  /* 进对话时 #tabBar 是 display:none，键盘弹起时它被 translate 主动收下去，
+     这两种情况都别去动它——量出来的位置本来就不该是贴底。 */
+  if(getComputedStyle(bar).display==='none')return;
+  if(document.body.classList.contains('keyboard-open'))return;
+  /* 🔴 基准是 innerHeight，不是 documentElement.clientHeight。
+     iPhone 上后者不含刘海那一截（她的机器上 793 vs 852），拿它当基准
+     算出来永远是 0，焊死就永远不动手——这就是它 08-20「看起来没用」的原因。 */
+  const vh = window.innerHeight;
+  if(!vh) return;
+  const cur = parseFloat(bar.style.bottom) || 0;
+  const gap = Math.round(vh - bar.getBoundingClientRect().bottom);
+  if(Math.abs(gap) <= 1){
+    /* 已经贴底。如果之前焊过而现在不需要了（换了机器、转屏、云端），
+       把 inline 值撤掉，让样式表说了算。 */
+    if(cur) bar.style.removeProperty('bottom');
+    return;
+  }
+  const next = cur - gap;
+  /* 算回 0 就把 inline 撤干净，别留一条 bottom:0!important 在那儿——
+     那会把样式表以后想改 bottom 的任何规则都挡掉。 */
+  if(Math.abs(next) < 1){ bar.style.removeProperty('bottom'); return }
+  bar.style.setProperty('bottom', next + 'px', 'important');
 }
 function syncAndWeld(){syncTabbarHeight();weldTabbar()}
 addEventListener('resize',syncAndWeld);

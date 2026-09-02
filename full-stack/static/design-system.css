@@ -3050,9 +3050,13 @@ body.has-bg-letters #lettersPanel .letter-card {
   align-items:center; gap:12px; padding:11px 0;
 }
 #tabTidal .tide-dim + .tide-dim{ border-top:1px solid var(--edge); }
+/* 🔴 九个名字用**苹方**，不用楷体。她的原话：「情绪的名字统一替换成苹方，
+   因为楷体有的没有适配很突兀」。这九个字里有几个在霞鹜文楷里的字形跟其余的
+   不是一路（笔画粗细和结构差得明显），九个并排一列的时候一眼就看出来。
+   标题那个心情（.tide-mood）仍然是楷体——它是这一页的题头，不是「名字」。 */
 #tabTidal .tide-name{
-  white-space:nowrap; font:400 15px/1 var(--font-display);
-  letter-spacing:.06em; color:var(--ink);
+  white-space:nowrap; font:400 15px/1.2 var(--font-sans);
+  letter-spacing:.04em; color:var(--ink);
 }
 #tabTidal .tide-pct{
   text-align:right; font:400 13px/1 var(--font-sans);
