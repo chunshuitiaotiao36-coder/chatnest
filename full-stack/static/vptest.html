@@ -1,0 +1,57 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover,interactive-widget=resizes-visual">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>视口测试</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#111;color:#eee;font:13px/1.7 ui-monospace,Menlo,monospace}
+  /* 绿框 = 100dvh 能到哪 */
+  #dvh{position:absolute;left:6px;top:0;width:calc(100% - 12px);height:100dvh;
+       border:3px solid #3ddc84;border-radius:4px}
+  /* 红条 = position:fixed;bottom:0 能到哪。这是关键。 */
+  #fx{position:fixed;left:0;right:0;bottom:0;height:44px;background:#e5484d;
+      color:#fff;display:flex;align-items:center;justify-content:center;
+      font-weight:700;letter-spacing:.5px}
+  #n{position:relative;z-index:2;padding:calc(env(safe-area-inset-top,0px) + 14px) 14px 90px}
+  b{color:#3ddc84}
+  .hi{color:#ffd166}
+</style>
+<div id="dvh"></div>
+<div id="n"></div>
+<div id="fx">fixed bottom:0 的底边</div>
+<script>
+function draw(){
+  var vv=window.visualViewport;
+  var probe=document.createElement('div');
+  probe.style.cssText='position:fixed;left:-9999px;bottom:0;width:1px;height:env(safe-area-inset-top,0px)';
+  document.body.appendChild(probe);
+  var sat=probe.getBoundingClientRect().height;
+  probe.style.height='env(safe-area-inset-bottom,0px)';
+  var sab=probe.getBoundingClientRect().height;
+  probe.remove();
+  var fx=document.getElementById('fx').getBoundingClientRect();
+  var lost=screen.height-innerHeight;
+  document.getElementById('n').innerHTML=
+    '<b>视口测试</b>（这一页不含小窝任何代码）<br><br>'+
+    'standalone        '+(navigator.standalone===true||matchMedia('(display-mode:standalone)').matches)+'<br>'+
+    'screen.height     '+screen.height+'<br>'+
+    'innerHeight       '+innerHeight+'<br>'+
+    'clientHeight      '+document.documentElement.clientHeight+'<br>'+
+    'visualViewport.h  '+(vv?Math.round(vv.height):'—')+'<br>'+
+    'safe-area top/bot '+Math.round(sat)+' / '+Math.round(sab)+'<br>'+
+    'scrollHeight      '+document.scrollingElement.scrollHeight+'<br><br>'+
+    '<span class=hi>红条底边      '+Math.round(fx.bottom)+'</span><br>'+
+    '<span class=hi>屏幕高-红条底边 '+Math.round(screen.height-fx.bottom)+'</span><br><br>'+
+    (Math.abs(screen.height-fx.bottom)<=1
+      ? '<b>✓ 红条贴到屏幕底了（正常）</b>'
+      : '<span class=hi>✗ 红条离屏幕底还差 '+Math.round(screen.height-fx.bottom)+'px<br>'+
+        '　 也就是说 fixed;bottom:0 到不了屏幕底</span>')+
+    '<br><br>绿框 = 100dvh 画到哪<br>红条 = fixed;bottom:0 画到哪<br>'+
+    '<br>看红条下面还有没有露出一条别的颜色。';
+}
+draw();
+addEventListener('resize',draw);
+if(window.visualViewport)visualViewport.addEventListener('resize',draw);
+</script>
