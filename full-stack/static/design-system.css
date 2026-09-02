@@ -2997,16 +2997,18 @@ body.has-bg-letters #lettersPanel .letter-card {
   /* 🔴 必须跟 #tabChats 一样自己撑满并锁住溢出：这一页靠 space-evenly
      把九条摊开，靠 .tab-page 的默认块级流是摊不开的。 */
   display:flex; flex-direction:column; gap:20px;
-  /* 🔴 **不要写 height:100dvh**。`.tab-page` 已经是 position:fixed + inset:0，
-     高度就等于固定定位包含块。再写一个 100dvh 是拿另一套单位去猜同一个高度：
-     iOS 上 dvh 跟固定定位包含块不一定是同一个数（工具栏、安全区、
-     interactive-widget 都会让它们分家），一分家就在底下多出一条缝。
-     inset:0 没有这个问题——它**就是**那个包含块。 */
   overflow:hidden;
-  /* 这一页自己不滚（九条靠 space-evenly 摊开）。不滚的容器在 iOS 上会把
-     手势甩给文档去橡皮筋，整页跟着弹起来，底下露出一条底色不一样的带子。 */
   overscroll-behavior:none;
-  padding:calc(env(safe-area-inset-top,50px) + 22px) 20px calc(var(--tabbar-space) + 14px);
+  /* 🔴 iOS 独立 PWA 的 position:fixed 包含块不一定延伸到屏幕物理底边。
+     她的 iPhone 上 clientHeight=793、innerHeight=852，差值 = safe-area-inset-top
+     (59px)。.tab-page 的 inset:0 把底边钉在 793，793..852 就是 59px 的空带。
+     聊天页看不出来——渐变底色跟 body 背景几乎一模一样；潮汐这页是纯色，
+     跟 body 的 --bg-primary 不一样（尤其有壁纸时），那条缝就暴露了。
+     修法：把这一页的 bottom 往下拉一截，让纯色背景盖住那条缝。
+     多出来的高度全补进 padding-bottom，内容区大小不变。 */
+  bottom: calc(-1 * env(safe-area-inset-top, 60px));
+  padding:calc(env(safe-area-inset-top,50px) + 22px) 20px
+         calc(var(--tabbar-space) + 14px + env(safe-area-inset-top, 60px));
 }
 /* 🔴 这一条不能省。上面给了 display:flex，它会盖掉 [hidden] 自带的
    display:none —— 少了这行，潮汐页会在**所有** tab 上都露出来。 */
