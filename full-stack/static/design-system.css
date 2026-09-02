@@ -591,10 +591,15 @@ body.in-chat .toast {
 /* 设了日间图才让页面背景透明，露出底下的 #bgLayer。
    特异性 (1,1,1) 高于上面 #gate,#chat 的 (1,0,0)。
    没设图 → 不命中 → 原渐变照旧 → 界面不会塌。
-   #tabHome 排除在外：Home 是设置页，实心底才读得清（见施工单 F）。 */
+   #tabHome 排除在外：Home 是设置页，实心底才读得清（见施工单 F）。
+   🔴 #tabTidal 同理，而且更硬：潮汐**只做日间**，颜色是钉死的浅色值
+      （她：「夜间想看的清又好看太难了，免得耗适配的 token」）。放它透明的话，
+      深色壁纸 + 钉死的深色墨 = 心情那四个大字直接看不见；夜里更糟——
+      下面暗色那两条会给它一层深色渐变，同样是深底深字。
+      钉死浅色的前提是底也得是浅的，所以这一页不跟壁纸走。 */
 body.has-bg-light #gate,
 body.has-bg-light #chat,
-body.has-bg-light .tab-page:not(#tabHome) {
+body.has-bg-light .tab-page:not(#tabHome):not(#tabTidal) {
   background: transparent;
 }
 
@@ -615,7 +620,7 @@ body.tab-away #chat {
      夜里仍然走暗色渐变，不会漏出空白。这段重复的渐变是兜底，别删。 */
   body.has-bg-light #gate,
   body.has-bg-light #chat,
-  body.has-bg-light .tab-page:not(#tabHome) {
+  body.has-bg-light .tab-page:not(#tabHome):not(#tabTidal) {
     background:
       radial-gradient(circle at 20% 15%, rgba(244, 243, 239, 0.05), transparent 55%),
       radial-gradient(circle at 82% 82%, rgba(0, 0, 0, 0.22), transparent 60%),
@@ -623,7 +628,7 @@ body.tab-away #chat {
   }
   body.has-bg-dark #gate,
   body.has-bg-dark #chat,
-  body.has-bg-dark .tab-page:not(#tabHome) {
+  body.has-bg-dark .tab-page:not(#tabHome):not(#tabTidal) {
     background: transparent;
   }
 }
@@ -2992,7 +2997,15 @@ body.has-bg-letters #lettersPanel .letter-card {
   /* 🔴 必须跟 #tabChats 一样自己撑满并锁住溢出：这一页靠 space-evenly
      把九条摊开，靠 .tab-page 的默认块级流是摊不开的。 */
   display:flex; flex-direction:column; gap:20px;
-  height:100dvh; overflow:hidden;
+  /* 🔴 **不要写 height:100dvh**。`.tab-page` 已经是 position:fixed + inset:0，
+     高度就等于固定定位包含块。再写一个 100dvh 是拿另一套单位去猜同一个高度：
+     iOS 上 dvh 跟固定定位包含块不一定是同一个数（工具栏、安全区、
+     interactive-widget 都会让它们分家），一分家就在底下多出一条缝。
+     inset:0 没有这个问题——它**就是**那个包含块。 */
+  overflow:hidden;
+  /* 这一页自己不滚（九条靠 space-evenly 摊开）。不滚的容器在 iOS 上会把
+     手势甩给文档去橡皮筋，整页跟着弹起来，底下露出一条底色不一样的带子。 */
+  overscroll-behavior:none;
   padding:calc(env(safe-area-inset-top,50px) + 22px) 20px calc(var(--tabbar-space) + 14px);
 }
 /* 🔴 这一条不能省。上面给了 display:flex，它会盖掉 [hidden] 自带的
@@ -3083,6 +3096,12 @@ body.has-bg-letters #lettersPanel .letter-card {
 #tabTidal .tide-dim[data-dim="性欲"]{ --a:#F5E2E4; --b:#DFA0AB; }
 #tabTidal .tide-dim[data-dim="担忧"]{ --a:#F4E6D4; --b:#DCAC72; }
 #tabTidal .tide-dim[data-dim="悔意"]{ --a:#E5E3DF; --b:#A9A29A; }
+
+/* 🔴 没有九条可画的时候（没开启 / 没连上），这张卡**不许**再 flex:1。
+   09-02 她真机上看到的就是这个：一张 445px 高的空白卡里飘着一行字，
+   她的原话是「多出来一截」。空态就该只占自己那点高度，整列居中。 */
+#tabTidal .tide-card.is-empty{ flex:none; }
+#tabTidal.is-blank{ justify-content:center; }
 
 #tabTidal .tide-recent{ flex:none; display:flex; flex-direction:column; gap:8px; }
 #tabTidal .tide-recent-title{

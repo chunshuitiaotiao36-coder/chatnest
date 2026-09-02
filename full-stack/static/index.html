@@ -8399,6 +8399,10 @@ function tideNote(host,text){
   const d=document.createElement('div');
   d.className='tide-note';d.textContent=text;
   host.appendChild(d);
+  /* 🔴 空态的卡不许再 flex:1 撑满。她真机上看到的就是一张 445px 高的空白卡
+     里飘着一行字——「多出来一截」。 */
+  host.classList.add('is-empty');
+  if(host.id==='tideDims')$('tabTidal').classList.add('is-blank');
 }
 
 function renderTide(d){
@@ -8421,6 +8425,8 @@ function renderTide(d){
 
   const dims=Array.isArray(d.dimensions)?d.dimensions:[];
   if(!dims.length){tideNote(dimsEl,'引擎里一个维度都没有，检查一下 config.yaml');return}
+  dimsEl.classList.remove('is-empty');
+  $('tabTidal').classList.remove('is-blank');
   dimsEl.innerHTML='';
   dims.forEach(x=>{
     const name=String(x&&x.name||'');
@@ -8471,6 +8477,7 @@ function renderTideHistory(d){
     tideNote(host,'还没有起落。现在他的心只会自己慢慢平复，还不会因为你说了什么而动。');
     return;
   }
+  host.classList.remove('is-empty');
   host.innerHTML='';
   evs.forEach(e=>{
     const row=document.createElement('div');row.className='tide-ev';
