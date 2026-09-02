@@ -249,10 +249,27 @@ class ConvActor:
                             elif isinstance(block, _ToolResultBlock):
                                 content = block.content
                                 if isinstance(content, list):
-                                    content = "".join(
-                                        c.get("text", "") if isinstance(c, dict) else str(c)
-                                        for c in content
-                                    )
+                                    # 🔴 Read 读图片时，content 是
+                                    #    [{"type":"image","source":{...base64...}}]，
+                                    #    没有 "text" 字段。老写法一律 .get("text","")，
+                                    #    于是整条拼成空串，前端画出「（无输出）」——
+                                    #    看上去像图没读到，其实读到了，只是没法用文字显示。
+                                    #    09-02 她发照片那次就是被这个误导的。
+                                    #    这里不塞 base64（几百 KB，且对她没意义），
+                                    #    只报「读到了什么、多大」，让工具详情能自证。
+                                    parts = []
+                                    for c in content:
+                                        if not isinstance(c, dict):
+                                            parts.append(str(c))
+                                            continue
+                                        if c.get("type") == "image":
+                                            src = c.get("source") or {}
+                                            mt = src.get("media_type") or "image"
+                                            kb = len(src.get("data") or "") * 3 // 4096
+                                            parts.append(f"[已读取图片 {mt}，约 {kb}KB]")
+                                        else:
+                                            parts.append(c.get("text", ""))
+                                    content = "".join(parts)
                                 await request.outbox.put({
                                     "event": "tool_result",
                                     "tool_use_id": block.tool_use_id,
