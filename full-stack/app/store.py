@@ -73,6 +73,11 @@ def initialize_store() -> None:
                 --    是流式过程中挂的，重新渲染历史时无处可取。她原话：
                 --    「这个语音条怎么还是阅后即焚样式的」。
                 voice_say TEXT NOT NULL DEFAULT '',
+                -- 🔴 这一轮他心里是什么样。跟 voice_say 一个道理：不存这一列，
+                --    退出对话再进来，那行「忱的心绪」就没了——DOM 上那一份是
+                --    流式过程中挂的，重新渲染历史时无处可取。
+                --    存的是取自引擎的原始快照 JSON，显示成什么样是前端的事。
+                mood_json TEXT NOT NULL DEFAULT '',
                 edited INTEGER NOT NULL DEFAULT 0,
                 timestamp TEXT NOT NULL
             );
@@ -265,6 +270,13 @@ def initialize_store() -> None:
                 """
                 ALTER TABLE messages
                 ADD COLUMN voice_say TEXT NOT NULL DEFAULT ''
+                """
+            )
+        if "mood_json" not in message_columns:
+            db.execute(
+                """
+                ALTER TABLE messages
+                ADD COLUMN mood_json TEXT NOT NULL DEFAULT ''
                 """
             )
         if "edited" not in message_columns:
@@ -568,6 +580,11 @@ def _message_from_row(row: sqlite3.Row) -> dict[str, Any]:
         item["traces"] = json.loads(item.pop("traces_json"))
     except (json.JSONDecodeError, TypeError):
         item["traces"] = []
+    raw_mood = item.pop("mood_json", "") or ""
+    try:
+        item["mood"] = json.loads(raw_mood) if raw_mood else None
+    except (json.JSONDecodeError, TypeError):
+        item["mood"] = None
     item["edited"] = bool(item.get("edited", 0))
     item["branch_count"] = int(item.get("branch_count", 0) or 0)
     return item
@@ -646,6 +663,7 @@ def complete_turn(
     thinking: str,
     traces: list | None = None,
     voice_say: str = "",
+    mood_json: str = "",
 ) -> int:
     now = _now()
     with _connect() as db:
@@ -675,11 +693,11 @@ def complete_turn(
             """
             INSERT INTO messages(
                 conv_id, role, text, thinking, attachments_json, traces_json,
-                voice_say, timestamp
+                voice_say, mood_json, timestamp
             )
-            VALUES (?, 'assistant', ?, ?, '[]', ?, ?, ?)
+            VALUES (?, 'assistant', ?, ?, '[]', ?, ?, ?, ?)
             """,
-            (conv_id, text, thinking, traces_str, voice_say, now),
+            (conv_id, text, thinking, traces_str, voice_say, mood_json, now),
         )
         return int(cursor.lastrowid)
 
@@ -692,7 +710,7 @@ def _select_context_messages(
     rows = db.execute(
         """
         SELECT m.id, m.source_id, m.role, m.text, m.thinking, m.attachments_json,
-               m.traces_json, m.voice_say, m.edited, m.timestamp,
+               m.traces_json, m.voice_say, m.mood_json, m.edited, m.timestamp,
                (
                    SELECT COUNT(*)
                    FROM message_branches b
@@ -727,7 +745,7 @@ def prepare_edit_turn(
         row = db.execute(
             """
             SELECT id, source_id, role, text, thinking, attachments_json,
-                   traces_json, voice_say, edited, timestamp
+                   traces_json, voice_say, mood_json, edited, timestamp
             FROM messages
             WHERE conv_id = ? AND id = ?
             """,
@@ -740,7 +758,7 @@ def prepare_edit_turn(
         tail_rows = db.execute(
             """
             SELECT id, source_id, role, text, thinking, attachments_json,
-                   traces_json, voice_say, edited, timestamp, 0 AS branch_count
+                   traces_json, voice_say, mood_json, edited, timestamp, 0 AS branch_count
             FROM messages
             WHERE conv_id = ? AND id >= ?
             ORDER BY id
@@ -828,7 +846,7 @@ def prepare_retry_turn(
         user_row = db.execute(
             """
             SELECT id, source_id, role, text, thinking, attachments_json,
-                   traces_json, voice_say, edited, timestamp
+                   traces_json, voice_say, mood_json, edited, timestamp
             FROM messages
             WHERE conv_id = ? AND id < ? AND role = 'user'
             ORDER BY id DESC
@@ -841,7 +859,7 @@ def prepare_retry_turn(
         tail_rows = db.execute(
             """
             SELECT id, source_id, role, text, thinking, attachments_json,
-                   traces_json, voice_say, edited, timestamp, 0 AS branch_count
+                   traces_json, voice_say, mood_json, edited, timestamp, 0 AS branch_count
             FROM messages
             WHERE conv_id = ? AND id >= ?
             ORDER BY id
@@ -924,13 +942,21 @@ def restore_branch(branch_id: int | None) -> None:
             (branch["conv_id"], first_id),
         )
         for item in tail:
+            # 🔴 列名、占位符、值三者必须**一起**改。09-01 那次给 messages 加
+            #    voice_say，只往列名里补了一个词，占位符和值都没动——这条
+            #    INSERT 于是变成「11 列 10 个值」，restore_branch 每次必抛
+            #    OperationalError。而它抛在 /api/chat 的 except 分支里（那正是
+            #    「这一轮出错了，把她原来那几条放回去」的路），异常顺着生成器
+            #    冒出去，最后一帧发不出，前端的锁就永远不解——
+            #    「上一条消息仍在回复」。再加列的时候把这三处一起数一遍。
             db.execute(
                 """
                 INSERT OR REPLACE INTO messages(
                     id, conv_id, source_id, role, text, thinking,
-                    attachments_json, traces_json, voice_say, edited, timestamp
+                    attachments_json, traces_json, voice_say, mood_json,
+                    edited, timestamp
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     int(item["id"]),
@@ -941,6 +967,8 @@ def restore_branch(branch_id: int | None) -> None:
                     item.get("thinking", ""),
                     json.dumps(item.get("attachments", []), ensure_ascii=False),
                     json.dumps(item.get("traces", []), ensure_ascii=False),
+                    item.get("voice_say", "") or "",
+                    json.dumps(item["mood"], ensure_ascii=False) if item.get("mood") else "",
                     int(bool(item.get("edited", False))),
                     item.get("timestamp") or now,
                 ),
@@ -975,7 +1003,7 @@ def conversation_messages(
             rows = db.execute(
                 f"""
                 SELECT m.id, m.role, m.text, m.thinking, m.attachments_json,
-                       m.traces_json, m.voice_say, m.edited, m.timestamp,
+                       m.traces_json, m.voice_say, m.mood_json, m.edited, m.timestamp,
                        (
                            SELECT COUNT(*)
                            FROM message_branches b
@@ -997,7 +1025,7 @@ def conversation_messages(
             rows = db.execute(
                 """
                 SELECT m.id, m.role, m.text, m.thinking, m.attachments_json,
-                       m.traces_json, m.voice_say, m.edited, m.timestamp,
+                       m.traces_json, m.voice_say, m.mood_json, m.edited, m.timestamp,
                        (
                            SELECT COUNT(*)
                            FROM message_branches b
