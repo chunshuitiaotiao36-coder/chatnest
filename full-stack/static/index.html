@@ -1692,7 +1692,11 @@ async function recStart(e){
   _rec=new MediaRecorder(_recStream);
   _rec.ondataavailable=ev=>{ if(ev.data&&ev.data.size)_recChunks.push(ev.data) };
   _rec.onstop=recFinish;
-  _rec.start();
+  /* 🔴 必须给 timeslice。不传的话只在 stop() 时补一次 dataavailable，
+     而 iOS 上那一次有时排在 onstop **后面**，recFinish 拿到的 chunks
+     就是空的 → 走静默 return，她按了半天什么都没发生（09-02 的报障）。
+     每 500ms 落一块，stop 时手里一定已经有数据。 */
+  _rec.start(500);
   const _bar=$('voiceBar');
   if(_bar){_bar.classList.add('is-recording');_bar.textContent='松开 结束'}
   _recHint(true,false);
@@ -1718,14 +1722,21 @@ async function recFinish(){
   const chunks=_recChunks, cancelled=_recCancel;
   _recChunks=[]; _rec=null; _recCancel=false;
   if(_recStream){_recStream.getTracks().forEach(t=>t.stop());_recStream=null}
-  if(cancelled||!chunks.length)return;
-  const blob=new Blob(chunks,{type:chunks[0].type||'audio/webm'});
-  if(blob.size<1200)return;            /* 手滑点了一下，不值得花一次转写 */
+  if(cancelled)return;                 /* 上滑取消是她自己的意思，不用出声 */
+  /* 🔴 以下失败都要**出声**。原来这两条是静默 return，录不到音跟没按过
+     长得一模一样，她只会觉得「按住说话是坏的」，也没法告诉我卡在哪。 */
+  if(!chunks.length){ toast('没录到声音（麦克风没出数据）'); return }
+  const mime=chunks[0].type||'audio/webm';
+  const blob=new Blob(chunks,{type:mime});
+  if(blob.size<1200){ toast('太短了，没听清'); return }
 
   const mic=$('voiceBar')||$('micButton'); mic.classList.add('is-working');
   try{
     const fd=new FormData();
-    fd.append('file',blob,'voice.webm');
+    /* 🔴 名字要跟真实格式对上。iOS 的 MediaRecorder 录出来是 audio/mp4，
+       硬写 .webm 会让上游按错格式解码。 */
+    const ext=/mp4|m4a|aac/.test(mime)?'m4a':/ogg/.test(mime)?'ogg':/wav/.test(mime)?'wav':'webm';
+    fd.append('file',blob,'voice.'+ext);
     const r=await api('/api/listen',{method:'POST',body:fd});
     if(!r.ok){ let why=''; try{ why=(await r.json()).detail||'' }catch{}; throw new Error(why||('听不到 '+r.status)) }
     const d=await r.json();
