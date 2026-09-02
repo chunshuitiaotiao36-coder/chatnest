@@ -66,6 +66,7 @@ from app.store import (
     create_letter,
     dream_event_exists,
     complete_turn,
+    conversation_messages,
     get_letter,
     list_letters,
     mark_letter_read,
@@ -950,6 +951,14 @@ async def chat(body: ChatBody) -> StreamingResponse:
             tone = listen.tone_block(body.voice)
             if tone:
                 prompt += f"\n\n{tone}"
+            # 潮汐：他此刻的心情，翻成「想怎么说话」的倾向。
+            # 🔴 跟上面语气那段、跟 body.piano 一个规矩：**只进用户消息侧，
+            #    绝不进 system prompt**。情绪每轮都在变，进稳定前缀就是每轮
+            #    打穿一次前缀缓存——症状是账单，不是报错。
+            # mood_block() 自己吞掉所有异常，引擎挂了只会返回空串。
+            mood = await murmur.mood_block(body.message or "")
+            if mood:
+                prompt += f"\n\n{mood}"
             chat_args = (prompt, conv_id, resume_id, body.model,
                          body.effort, body.extended, log_timing)
             if body.model == "codex":
@@ -1094,6 +1103,13 @@ async def chat(body: ChatBody) -> StreamingResponse:
                     )
                     if body.piano:
                         _capture_piano_impression(body.piano, response_traces)
+                    # 潮汐：攒够 N 轮在后台打一次分，看这几轮怎么动了他的心。
+                    # 🔴 传的是回调不是列表——不到批次就不查库。
+                    #    maybe_score 自己吞掉所有异常：她的字这时候已经落库了，
+                    #    这儿抛一下只会让最后一帧发不出去。
+                    murmur.maybe_score(
+                        lambda: conversation_messages(conv_id, limit=10)[0]
+                    )
                     chunk["conversation_id"] = conv_id
                     chunk["assistant_message_id"] = assistant_message_id
                     branch_committed = True
