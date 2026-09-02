@@ -438,6 +438,51 @@ body:not(.chat-ready) .tab-page {
   display: none !important;
 }
 
+/* ============================================================
+   iOS 独立 PWA：布局视口比屏幕矮一个 safe-area-inset-top
+   ============================================================
+   09-02 她的真机截图（iPhone 15 Pro Max，1179x2556，CSS 393x852）逐像素量：
+     CSS   0..703  潮汐页背景 (245,244,242)
+     CSS 703..793  导航栏     (252,252,252)   高 90px = 56 + 34  ← 高度是对的
+     CSS 793..852  **(243,243,241) —— 59px 的空带**
+
+   59 = safe-area-inset-top（这台机器的灵动岛高度）。
+   成因是 apple-mobile-web-app-status-bar-style=black-translucent：
+   独立模式下 iOS 把布局视口做成「屏幕高 − 状态栏高」，内容却从 y=0 开始画。
+   于是**所有** position:fixed 的 bottom:0 都停在 793，够不到 852。
+   导航栏、.tab-page、#chat 全中招。
+
+   🔴 之前两次都修错了，记下来别再犯：
+      · 08-20 那次：拿 documentElement.clientHeight(793) 当基准去量「离屏底几 px」，
+        793−793=0，永远认为已经贴底，一次手都没动过。
+      · 09-02 上午那次（我）：把潮汐页背景往下延伸盖缝。缝里颜色从
+        (243,243,241) 换成 (245,244,242)，肉眼几乎没区别——**缝在导航栏下面，
+        染色不解决问题，得把导航栏本身挪下去。**
+
+   修法：在独立模式下把导航栏和 tab 页整体下拉 safe-area-inset-top。
+     #tabBar   平移（top/bottom 都没写死，height 固定）→ 底边落到 852，
+               图标位置跟着走，高度不变
+     .tab-page top:0 不动、bottom 下拉 → 拉伸到 852，背景铺满，
+               它的 padding-bottom(--tabbar-space) 正好贴上导航栏的新顶边
+   🔴 只在 (display-mode: standalone) 里生效。Safari 里 safe-area-inset-top
+      同样是 59px，但布局视口**没**被截短，无条件补偿会把导航栏推出屏幕外。
+   🔴 #tabChats / #chat 自己写了 height:100dvh，会跟 top+bottom 打架
+      （over-constrained 时 CSS 忽略 bottom）。在这儿把它们改回 auto，
+      让上面那套定位说了算。 */
+@media (display-mode: standalone) {
+  #tabBar {
+    bottom: calc(-1 * env(safe-area-inset-top, 0px));
+  }
+  .tab-page,
+  #chat {
+    bottom: calc(-1 * env(safe-area-inset-top, 0px));
+  }
+  #tabChats,
+  #chat {
+    height: auto;
+  }
+}
+
 @media (prefers-color-scheme: dark) {
   .tab-page {
     background:
@@ -2998,17 +3043,10 @@ body.has-bg-letters #lettersPanel .letter-card {
      把九条摊开，靠 .tab-page 的默认块级流是摊不开的。 */
   display:flex; flex-direction:column; gap:20px;
   overflow:hidden;
+  /* 这一页自己不滚（九条靠 space-evenly 摊开）。不滚的容器在 iOS 上会把
+     手势甩给文档去橡皮筋，整页跟着弹起来，底下露出一条底色不一样的带子。 */
   overscroll-behavior:none;
-  /* 🔴 iOS 独立 PWA 的 position:fixed 包含块不一定延伸到屏幕物理底边。
-     她的 iPhone 上 clientHeight=793、innerHeight=852，差值 = safe-area-inset-top
-     (59px)。.tab-page 的 inset:0 把底边钉在 793，793..852 就是 59px 的空带。
-     聊天页看不出来——渐变底色跟 body 背景几乎一模一样；潮汐这页是纯色，
-     跟 body 的 --bg-primary 不一样（尤其有壁纸时），那条缝就暴露了。
-     修法：把这一页的 bottom 往下拉一截，让纯色背景盖住那条缝。
-     多出来的高度全补进 padding-bottom，内容区大小不变。 */
-  bottom: calc(-1 * env(safe-area-inset-top, 60px));
-  padding:calc(env(safe-area-inset-top,50px) + 22px) 20px
-         calc(var(--tabbar-space) + 14px + env(safe-area-inset-top, 60px));
+  padding:calc(env(safe-area-inset-top,50px) + 22px) 20px calc(var(--tabbar-space) + 14px);
 }
 /* 🔴 这一条不能省。上面给了 display:flex，它会盖掉 [hidden] 自带的
    display:none —— 少了这行，潮汐页会在**所有** tab 上都露出来。 */
