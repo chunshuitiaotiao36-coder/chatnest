@@ -2939,3 +2939,24 @@ body.has-bg-letters #lettersPanel .letter-card {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
+
+/* —— 🔴 导航栏能被划到屏幕中间：#modelSheet 把整个文档撑高了一倍 ——
+   09-02 她的原话：「为什么导航栏可以被我划到屏幕中间😱（不是上次的跳动，
+   能点动但是…我可以把它划走）」。
+
+   机制：
+     .sheet  { position: fixed }   ← 写在 index.html 的内联 <style> 里
+     .glass  { position: relative } ← 写在本文件 147 行
+   两个都是单类选择器（0,1,0），而**本文件加载在内联样式之后**，所以后者赢。
+   `#modelSheet` 的 class 是 "sheet glass" → 它变成 relative → 一个
+   height:95dvh（809px）的块留在正常流里、再被 translateY(100%) 推下去，
+   于是 html.scrollHeight = 1619px，而视口只有 852。
+
+   为什么在云端看不出来：Chromium 里 position:fixed 钉在**视觉视口**上，
+   文档滚了它也不动，量出来永远是「离屏底 0px」。iOS Safari 是钉在
+   **布局视口**上——布局视口一比视觉视口高，一滑，导航栏就跟着走。
+   AGENTS.md 第 2 条那句「云端只能用来验证我没把别的弄坏」，说的就是这个。
+
+   🔴 修法只动 position，不动 .glass 的其余部分（isolation / overflow /
+      背景），那些是这张卡该有的样子。0,2,0 压过 0,1,0，不靠加载顺序赌。 */
+.sheet.glass { position: fixed; }
