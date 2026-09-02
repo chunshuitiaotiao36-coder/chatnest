@@ -875,11 +875,21 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
 
 </section>
 
+<!-- 潮汐：他心里那九样东西现在各是多少。样式全在 design-system.css 末尾，
+     标记跟 docs/潮汐页-预览.html 一一对应（那份是她看过点头的稿子）。
+     🔴 九条不写死在这儿，由 /api/mood 按她定的顺序返回后 renderTide() 铺——
+        写死的话哪天配置里加了维度，页面上就永远看不见那件事。 -->
 <section id="tabTidal" class="tab-page" hidden>
-  <div class="tab-placeholder">
-    <span class="tab-placeholder-icon">🌊</span>
-    <span class="tab-placeholder-title">潮汐</span>
-    <span class="tab-placeholder-sub">即将到来</span>
+  <div class="tide-head">
+    <div class="tide-mood" id="tideMood">…</div>
+    <div class="tide-hr" id="tideHr" hidden>
+      <span class="tide-heart">&#9829;</span><b id="tideBpm">—</b><span class="tide-u">BPM</span>
+    </div>
+  </div>
+  <div class="tide-card tide-dims" id="tideDims"></div>
+  <div class="tide-recent">
+    <div class="tide-recent-title">他心里最近</div>
+    <div class="tide-card" id="tideRecent"></div>
   </div>
 </section>
 <!-- 皮肤类挂在 .piano-room 上，**不进 :root** —— 别的 tab 一个像素都不许变。 -->
@@ -8375,6 +8385,132 @@ function tbSnap(tag){
   if(log.length>60) log.shift();
 }
 function tabPages(){return{chats:$('tabChats'),tidal:$('tabTidal'),music:$('tabMusic'),reading:$('tabReading'),home:$('tabHome')}}
+/* ---- 潮汐：他心里那九样东西 --------------------------------------------
+   数据来自 /api/mood（app/murmur.py 把 Murmur 引擎那几条合成一条）。
+   🔴 顺序**由后端给**，前端不排序也不重排——她定的顺序是「打乱一下，
+      免得放眼望去全是负面情绪」，不是按数值降序。按数值排的话条目每次
+      都在跳，而且最难受的那个永远顶在最上面。
+   🔴 认不出名字的维度也要画出来（CSS 里有中性灰兜底）。省掉哪个，
+      她在这一页上就永远看不见那件事。 */
+const TIDE_HEART=new Set(['性欲','想念']);   /* 只有这两条带爱心，她指定的 */
+
+function tideNote(host,text){
+  host.innerHTML='';
+  const d=document.createElement('div');
+  d.className='tide-note';d.textContent=text;
+  host.appendChild(d);
+}
+
+function renderTide(d){
+  const moodEl=$('tideMood'),hrEl=$('tideHr'),bpmEl=$('tideBpm'),dimsEl=$('tideDims');
+  if(!moodEl||!dimsEl)return;
+  if(!d||!d.enabled){
+    moodEl.textContent='还没开启';hrEl.hidden=true;
+    tideNote(dimsEl,'潮汐还没开启（MURMUR_ENABLED=1 之后重新部署）');
+    return;
+  }
+  if(!d.ok){
+    moodEl.textContent='没连上';hrEl.hidden=true;
+    tideNote(dimsEl,d.error||'潮汐引擎没连上，聊天不受影响');
+    return;
+  }
+  moodEl.textContent=d.mood||'…';
+  const hr=Number(d.heartrate);
+  if(Number.isFinite(hr)){bpmEl.textContent=Math.round(hr);hrEl.hidden=false}
+  else hrEl.hidden=true;
+
+  const dims=Array.isArray(d.dimensions)?d.dimensions:[];
+  if(!dims.length){tideNote(dimsEl,'引擎里一个维度都没有，检查一下 config.yaml');return}
+  dimsEl.innerHTML='';
+  dims.forEach(x=>{
+    const name=String(x&&x.name||'');
+    let pct=Number(x&&x.pct);
+    if(!Number.isFinite(pct))pct=0;
+    pct=Math.max(0,Math.min(100,Math.round(pct)));
+    const row=document.createElement('div');
+    row.className='tide-dim';
+    row.dataset.dim=name;
+    row.style.setProperty('--p',pct);
+    const n=document.createElement('span');n.className='tide-name';n.textContent=name;
+    const bar=document.createElement('span');bar.className='tide-bar';
+    const fill=document.createElement('span');fill.className='tide-fill';
+    bar.appendChild(fill);
+    if(TIDE_HEART.has(name)){
+      const tip=document.createElement('span');
+      tip.className='tide-tip';tip.textContent='♥';
+      bar.appendChild(tip);
+    }
+    const pc=document.createElement('span');
+    pc.className='tide-pct'+(pct===0?' is-zero':'');
+    pc.textContent=pct+'%';
+    row.append(n,bar,pc);
+    dimsEl.appendChild(row);
+  });
+}
+
+function tideTime(ts){
+  const t=Number(ts);
+  if(!Number.isFinite(t)||t<=0)return '';
+  const dt=new Date(t*1000);
+  return String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0');
+}
+
+function renderTideHistory(d){
+  const host=$('tideRecent');
+  if(!host)return;
+  if(!d||!d.enabled){tideNote(host,'开启之后，这儿会记下他心里的起落');return}
+  if(!d.ok){tideNote(host,'取不到记录');return}
+  /* 🔴 只取 3 条。她看过点头的那版稿子（docs/潮汐页-预览.html）就是 3 条——
+     这一页的占比是按 iPhone 15 排过的（她原话：「你可以再合理安排一下占比」），
+     多铺几条会把上面九条挤扁，那正是她说「下面留那么大的空起什么作用」时
+     在意的东西，只是方向相反。 */
+  const evs=(Array.isArray(d.events)?d.events:[]).slice(0,3);
+  if(!evs.length){
+    /* 🔴 打分器还没做，所以现在这儿多半是空的。要说人话，不能空一块白，
+       也不能假装有内容——她看见空白只会以为是坏了。 */
+    tideNote(host,'还没有起落。现在他的心只会自己慢慢平复，还不会因为你说了什么而动。');
+    return;
+  }
+  host.innerHTML='';
+  evs.forEach(e=>{
+    const row=document.createElement('div');row.className='tide-ev';
+    const t=document.createElement('time');t.textContent=tideTime(e&&e.ts);
+    const sp=document.createElement('span');
+    const parts=[];
+    const trig=String(e&&e.trigger||'').trim();
+    if(trig)parts.push(trig);
+    if(e&&e.dim){
+      const a=Number(e.from),b=Number(e.to);
+      if(Number.isFinite(a)&&Number.isFinite(b)&&a!==b)
+        parts.push(`${e.dim}从 ${a}% ${b>a?'涨':'降'}到 ${b}%`);
+      else if(Number.isFinite(b))parts.push(`${e.dim} ${b}%`);
+    }
+    sp.textContent=parts.join('。')+(parts.length?'。':'—');
+    row.append(t,sp);
+    host.appendChild(row);
+  });
+}
+
+/* 进 tab 拉一次就够，**不轮询**：引擎自己 5 分钟才 tick 一次，
+   她也是点开看一眼就走。多起一条定时器只会在后台白打请求。
+   🔴 两条都不许把异常往外抛——潮汐拉不到，别的 tab 该照常切。 */
+async function loadTide(){
+  try{
+    const r=await api('/api/mood');
+    renderTide(await r.json());
+  }catch(e){
+    console.warn('潮汐',e);
+    renderTide({enabled:true,ok:false,error:'潮汐没连上'});
+  }
+  try{
+    const r=await api('/api/mood/history?n=20');
+    renderTideHistory(await r.json());
+  }catch(e){
+    console.warn('潮汐·记录',e);
+    renderTideHistory({enabled:true,ok:false});
+  }
+}
+
 function switchTab(name){
   /* 🔴 探针在两个 early-return **之前**。连点同一个 tab 时下面第二行会直接
      return，只留下一条没有配对 '>' 的 '<' 行。要是导航栏在这种空操作上
@@ -8430,6 +8566,8 @@ function switchTab(name){
      某个面板加载失败不该让导航栏从此失灵。 */
   try{ if(name!=='chat')closeDrawer() }catch(e){ console.warn('closeDrawer',e) }
   try{ if(name==='chats')loadChatsPage() }catch(e){ console.warn('loadChatsPage',e) }
+  /* 潮汐：进来才拉。loadTide() 自己吞掉所有错，这儿的 try 是双保险。 */
+  try{ if(name==='tidal')loadTide() }catch(e){ console.warn('loadTide',e) }
   try{ syncAndWeld() }catch(e){ console.warn('syncAndWeld',e) }
   try{ if(name==='home')openHomeProfile().catch(()=>toast('Profile 加载失败')) }catch(e){ console.warn('openHomeProfile',e) }
   /* 琴房：进来才拉歌单，别在开屏时白打一次。音频元素挂在 tab 里，

@@ -12,3 +12,8 @@ full-stack/anno/server/node_modules/
 
 # hervoice 的数据（录音日志、可选的音频）绝不进仓库
 full-stack/hervoice/data/
+
+# 潮汐（Murmur）的情绪状态绝不进仓库。上游原话：那是一个人的内心。
+# 真机上这个路径是指向 /data/murmur 的软链（docker-entrypoint.sh 建的）。
+full-stack/murmur/data/
+full-stack/murmur/data

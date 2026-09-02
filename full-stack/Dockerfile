@@ -43,6 +43,16 @@ RUN pip install --no-cache-dir pymupdf ebooklib
 COPY anno/server/package.json anno/server/package-lock.json ./anno/server/
 RUN cd anno/server && npm install --omit=dev
 
+# 🔴 潮汐（Murmur）要的 pyyaml。**单独一层，而且必须排在这儿**——
+#    照上面 pymupdf 那条的规矩：并进 requirements.txt 会把第 19 行那层
+#    （anthropic / claude-agent-sdk / librosa / matplotlib…）的缓存整个打掉，
+#    连带下面 ffmpeg、pymupdf、npm install 全部重跑。08-31 就是这么把她的
+#    部署拖进一小时超时的，不能再来第二次。
+#    放在 `COPY . .` 正上方 = 只有它自己这一层是新的，下面本来每次推代码都要重跑。
+#    （uvicorn[standard] 的 extra 里其实带着 PyYAML，但那是传递依赖——
+#      跟 httpx 一个道理，我们自己 import 的东西要自己写出来。）
+RUN pip install --no-cache-dir pyyaml
+
 # ── 代码 ─────────────────────────────────────────────────────────────
 COPY . .
 RUN chmod +x *.sh
@@ -67,7 +77,9 @@ ENV AGENT_APP_ROOT=/data \
     VOICE_CACHE_DIR=/data/voice \
     HERVOICE_ORIGIN=http://127.0.0.1:8010 \
     HERVOICE_DATA=/data/hervoice \
-    TELEMOOD_STATE_DIR=/data/telemood
+    TELEMOOD_STATE_DIR=/data/telemood \
+    MURMUR_ORIGIN=http://127.0.0.1:8020 \
+    MURMUR_DATA=/data/murmur
 
 RUN mkdir -p /data
 

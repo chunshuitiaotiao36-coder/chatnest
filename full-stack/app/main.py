@@ -28,7 +28,7 @@ from starlette.formparsers import MultiPartParser
 
 MultiPartParser.max_part_size = 60 * 1024 * 1024  # 与 uploads.py 的 MAX_FILE_BYTES 对齐
 
-from app import anno, appicon, auth, backgrounds, faces, keepalive, listen, lorebook, moments, nightguard, peek, piano, piano_analysis, push, relays, starmap, store, telegram, voice
+from app import anno, appicon, auth, backgrounds, faces, keepalive, listen, lorebook, moments, murmur, nightguard, peek, piano, piano_analysis, push, relays, starmap, store, telegram, voice
 from app.actor import ActorBusyError, _mem_kv
 from app.chatlock import CHAT_LOCK_WAIT_SECONDS, chat_lock
 from app.claude import (
@@ -140,6 +140,7 @@ async def lifespan(app: FastAPI):
         mo_task.cancel()
         ka_task.cancel()
         await piano.aclose()
+        await murmur.aclose()
         await telegram.stop(tg_task)
         await registry.stop()
 
@@ -456,6 +457,9 @@ app.include_router(anno.router)
 app.include_router(voice.router)
 # 听她说话（hervoice）。跟上面正好反过来：那个是我说给她听，这个是她说给我听。
 app.include_router(listen.router)
+# 潮汐（Murmur 情绪引擎）。只读，见 app/murmur.py 开头那段——
+# 它挂了只是潮汐那一页显示没连上，聊天一切照旧。
+app.include_router(murmur.router)
 
 
 @app.get("/")

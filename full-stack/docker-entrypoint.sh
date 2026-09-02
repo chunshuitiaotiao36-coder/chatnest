@@ -89,5 +89,34 @@ else
   echo "[entrypoint] hervoice 未开启（HERVOICE_ENABLED=0），麦克风键会提示没开"
 fi
 
+# ── 潮汐（Murmur 情绪引擎）────────────────────────────────────────────
+# 🔴 Murmur 把数据目录写死成 `BASE / "data"`（engine.py 第 19 行），
+#    也就是 /app/murmur/data——那是**镜像层**，容器一重建，梁忱的心就清零。
+#    没有环境变量可以覆盖它，所以只能软链出去。跟 anno 那个
+#    /opt/marginalia 是同一个坑，处理方式也照抄那边的 link_opt()：
+#    ln -sfn A B 在 B 已经是**真目录**时，会在 B **里面**建一个嵌套软链
+#    而不是替换它，后果是服务继续读老目录、她的数据看起来「消失」，
+#    而且一个字的报错都没有。
+if [ "${MURMUR_ENABLED:-0}" = "1" ]; then
+  MURMUR_DATA="${MURMUR_DATA:-/data/murmur}"
+  mkdir -p "$MURMUR_DATA/snapshots"
+  if [ -L murmur/data ] || [ ! -e murmur/data ]; then
+    ln -sfn "$MURMUR_DATA" murmur/data
+  elif [ -d murmur/data ] && [ -z "$(ls -A murmur/data 2>/dev/null)" ]; then
+    rmdir murmur/data && ln -sfn "$MURMUR_DATA" murmur/data
+  else
+    echo "[entrypoint] ⚠️ murmur/data 是个非空真目录，不是软链——" \
+         "情绪状态会写进镜像层，重部署就没了。手动检查一下。"
+  fi
+  echo "[entrypoint] 起 murmur（潮汐）…"
+  ( cd murmur && exec python3 -m uvicorn api:app --host 127.0.0.1 --port "${MURMUR_PORT:-8020}" ) &
+  MM_PID=$!
+  # 跟 anno / hervoice 一个规矩：它挂了不拖垮容器，只是潮汐那一页看不了。
+  ( while kill -0 "$MM_PID" 2>/dev/null; do sleep 30; done
+    echo "[entrypoint] ⚠️ murmur 退出了，潮汐那一页会打不开；其余功能不受影响" ) &
+else
+  echo "[entrypoint] murmur 未开启（MURMUR_ENABLED=0），潮汐那一页会说没开启"
+fi
+
 echo "[entrypoint] 起小窝…"
 exec python3 -m uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8787}"
