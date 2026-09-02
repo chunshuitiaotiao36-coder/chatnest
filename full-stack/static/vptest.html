@@ -6,103 +6,146 @@
 <title>视口测试</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  /* 🔴 底色故意用洋红：09-03 要定的是「屏幕最底下那 59px 到底归不归页面管」。
+  /* 🔴 底色故意用洋红：要定的是「屏幕最底下那 59px 到底归不归页面管」。
      小窝里把 body 底色从 --claude-sidebar-bg 换成 --bg-primary 之后，那条带子
      没有跟着变成新色号，而是跳到一个中性灰 (165,165,165)。用一个小窝调色板里
      绝不会出现的颜色再问一次，肉眼就能判：
-       底下那条是洋红 → 那块归页面管，body 底色盖得到，方向 4 还有救
-       底下那条是灰   → 不归页面管，iOS 自己画的，方向 4 作废 */
+       底下那条是洋红 → 那块归页面管，body 底色盖得到
+       底下那条是灰   → 不归页面管，iOS 自己画的 */
   body{background:#FF00E5;color:#eee;font:13px/1.7 ui-monospace,Menlo,monospace}
-  #n,#btns,#log{background:rgba(0,0,0,.78)}
+  #n,#btns,#log{background:rgba(0,0,0,.82)}
   /* 绿框 = 100dvh 能到哪 */
   #dvh{position:absolute;left:6px;top:0;width:calc(100% - 12px);height:100dvh;
        border:3px solid #3ddc84;border-radius:4px}
-  /* 红条 = position:fixed;bottom:0 能到哪。这是关键。 */
-  #fx{position:fixed;left:0;right:0;bottom:0;height:44px;background:#e5484d;
-      color:#fff;display:flex;align-items:center;justify-content:center;
-      font-weight:700;letter-spacing:.5px}
+  /* 两根条各占半屏，互不遮挡，一眼看出谁到得了 852。z-index 抬到 3：
+     别再被 #btns 的黑罩子压暗——09-03 第一张图上红条被压成 (46,18,18)，
+     取色的人会以为那是别的东西。 */
+  .bar{position:fixed;height:44px;z-index:3;color:#fff;display:flex;
+       align-items:center;justify-content:center;font-weight:700;font-size:12px}
+  /* 红 = position:fixed;bottom:0 能到哪。塌陷时它会停在 793。 */
+  #fx{left:0;width:50%;bottom:0;background:#e5484d}
+  /* 🔵 青 = top:calc(100lvh - 44px) 能到哪。**09-03 新加，这根才是关键。**
+     lvh 是「大视口」，按规范是「可收起的浏览器 UI 全部收起时」的视口高；
+     PWA 里根本没有那种 UI，所以它有可能在塌陷期间仍然 = 852。
+
+     顺便证伪交接单里一个并错的推理：「诊断面板 fixed;inset:0 只画到 792.7」
+     被当成了「页面画不到 793 以下」。但 inset:0 的面板**本来就只有 793 高**，
+     那是它的尺寸，不是被裁掉了。「元素只有 793 高」和「超出 793 画不出来」
+     是两回事，从来没测过。这根青条就是特意伸到 ICB 外面去的那个测试。
+
+     若青条画到了 852 而红条停在 793 ⇒ 导航栏改成
+       #tabBar{ top:calc(100lvh - var(--tabbar-space)); bottom:auto }
+     就修好了。 */
+  #lv{right:0;width:50%;top:calc(100lvh - 44px);background:#0aa2c0}
   #n{position:relative;z-index:2;padding:calc(env(safe-area-inset-top,0px) + 14px) 14px 12px}
-  #btns{position:relative;z-index:2;padding:0 14px 120px;display:flex;flex-direction:column;gap:9px}
+  #btns{position:relative;z-index:2;padding:0 14px 16px;display:flex;flex-direction:column;gap:9px}
   button{font:600 15px/1 ui-monospace,Menlo,monospace;padding:15px 12px;border:0;border-radius:10px;
          background:#2c6cf6;color:#fff;text-align:left}
   button.ok{background:#1a7f4b}
   #log{white-space:pre-wrap;padding:0 14px;color:#ffd166;font-size:12px}
   b{color:#3ddc84}
   .hi{color:#ffd166}
+  .frz{color:#8ab4ff}
 </style>
 <div id="dvh"></div>
 <div id="n"></div>
 <div id="btns"></div>
 <div id="log"></div>
-<div id="fx">fixed bottom:0 的底边</div>
+<div class="bar" id="fx">红 fixed;bottom:0</div>
+<div class="bar" id="lv">青 100lvh-44</div>
 <script>
+/* 一次量全套。可以在任意时刻调，用来做「启动那一刻」的快照。 */
+function probe(){
+  var pr=document.createElement('div');
+  pr.style.cssText='position:absolute;left:-9999px;top:0;width:1px';
+  document.body.appendChild(pr);
+  function u(unit){ pr.style.height='100'+unit; return Math.round(pr.getBoundingClientRect().height); }
+  var r={ih:innerHeight, ch:document.documentElement.clientHeight,
+         vh:u('vh'), svh:u('svh'), lvh:u('lvh'), dvh:u('dvh')};
+  pr.remove();
+  r.fx=Math.round(document.getElementById('fx').getBoundingClientRect().bottom);
+  r.lv=Math.round(document.getElementById('lv').getBoundingClientRect().bottom);
+  r.gb=Math.round(document.getElementById('dvh').getBoundingClientRect().bottom);
+  return r;
+}
+/* 🔴 启动那一刻的快照，冻住不再更新。
+   09-03 01:21 那一张废掉就是因为拍到的是「归位后」：塌陷只在冷启动那一下，
+   碰一下屏幕就没了，而人要打开页面总得碰点什么。所以现在**先把启动值存下来**，
+   哪怕后来手滑碰了屏幕，这一栏照样是启动时的真值。 */
+var SNAP=[];
+function snap(tag){ try{ SNAP.push([tag,probe()]) }catch(e){} redraw(); }
+function fmtSnap(){
+  if(!SNAP.length) return '';
+  var s='<span class=frz>—— 启动那一刻（冻住，碰了屏幕也不会变）——</span><br>';
+  SNAP.forEach(function(p){
+    var t=p[0], r=p[1];
+    s+='<span class=frz>'+t+' ih='+r.ih+' ch='+r.ch+' vh/svh/lvh/dvh='+
+       r.vh+'/'+r.svh+'/'+r.lvh+'/'+r.dvh+' 红='+r.fx+' 青='+r.lv+'</span><br>';
+  });
+  return s+'<br>';
+}
+function redraw(){ try{ draw() }catch(e){} }
+
 function draw(){
   var vv=window.visualViewport;
-  var probe=document.createElement('div');
-  probe.style.cssText='position:fixed;left:-9999px;bottom:0;width:1px;height:env(safe-area-inset-top,0px)';
-  document.body.appendChild(probe);
-  var sat=probe.getBoundingClientRect().height;
-  probe.style.height='env(safe-area-inset-bottom,0px)';
-  var sab=probe.getBoundingClientRect().height;
-  probe.remove();
-  var fx=document.getElementById('fx').getBoundingClientRect();
-  /* —— 视口单位实测：交接单「方向 2」要的就是这一组 ——
-     塌陷期间 innerHeight=793 而 screen.height=852。哪个单位在**这时候**还给得出
-     852，哪个才能拿来给导航栏定位；全都跟着塌 = 方向 2 直接作废，别去写那行 CSS。
-     交接单只想到 dvh，lvh/svh 一起量了，反正不要钱。 */
-  var up=document.createElement('div');
-  up.style.cssText='position:absolute;left:-9999px;top:0;width:1px';
-  document.body.appendChild(up);
-  function u(unit){ up.style.height='100'+unit; return Math.round(up.getBoundingClientRect().height); }
-  var UV={vh:u('vh'),svh:u('svh'),lvh:u('lvh'),dvh:u('dvh')};
-  up.remove();
-  var gb=document.getElementById('dvh').getBoundingClientRect();
+  var pe=document.createElement('div');
+  pe.style.cssText='position:fixed;left:-9999px;bottom:0;width:1px;height:env(safe-area-inset-top,0px)';
+  document.body.appendChild(pe);
+  var sat=pe.getBoundingClientRect().height;
+  pe.style.height='env(safe-area-inset-bottom,0px)';
+  var sab=pe.getBoundingClientRect().height;
+  pe.remove();
+  var r=probe();
   var pwa=(navigator.standalone===true||matchMedia('(display-mode:standalone)').matches);
   /* 🔴 判据必须分模式。Safari 里有上下工具栏，innerHeight 本来就小于 screen.height，
      拿 screen.height 当基准会误报（09-02 我就这么坑了小朵一次）。
      PWA(standalone) 里没有工具栏，innerHeight 本该 == screen.height，那里才有得判。 */
   var lost=screen.height-innerHeight;
-  /* 方向 2 的判据：只在塌陷期间才有意义 */
-  var hit=Object.keys(UV).filter(function(k){return Math.abs(UV[k]-screen.height)<=1});
-  var verdict2 = (lost<=1)
-    ? '　 （视口现在是满的，这一组数说明不了问题——杀掉 app 重开、一下都别碰屏幕再看）'
-    : (hit.length
-        ? '<b>→ 塌陷期间 '+hit.map(function(k){return '100'+k}).join(' / ')+' 仍然 = '+screen.height+'，'+
-          '可以拿来定位导航栏：<br>　 #tabBar{ top:calc(100'+hit[0]+' - var(--tabbar-space)); bottom:auto }</b>'
-        : '<span class=hi>→ 四个单位全跟着塌了（都 = '+innerHeight+'）。<br>'+
-          '　 ⇒ 交接单的「方向 2」不成立，别再去写 top:calc(100dvh - …)。</span>');
-  var verdict = pwa
-    ? (lost<=1
-        ? '<b>✓ 这个 PWA 的视口是满的（innerHeight == screen.height）</b><br>'+
-          '　 ⇒ 空白页正常，那 793 是小窝页面自己造成的，去代码里找'
-        : '<span class=hi>✗ 这个 PWA 的视口比屏幕矮 '+lost+'px<br>'+
-          '　 而这一页不含小窝任何代码 ⇒ 跟小窝的 HTML/CSS 无关，<br>'+
-          '　 是 PWA 实例本身的状态，改样式永远修不好</span>')
-    : '<span class=hi>⚠ 现在是 Safari 模式（standalone=false），这一页在这儿说明不了问题。</span><br>'+
-      '　 Safari 有上下工具栏，innerHeight('+innerHeight+') 小于 screen.height('+screen.height+') 是正常的，<br>'+
-      '　 红条贴到 '+Math.round(fx.bottom)+' = innerHeight 底部，也是对的。<br><br>'+
-      '　 <b>要测就得从主屏图标打开：</b><br>'+
-      '　 分享按钮 → 添加到主屏幕 → 打开那个新图标 → 截图 → 删掉图标';
+  /* 判据一律拿**启动快照**算，不拿「现在」算——现在这一份多半已经归位了。 */
+  var s0=SNAP.length?SNAP[0][1]:r;
+  var collapsed=(screen.height-s0.ih)>1;
+  var hit=['vh','svh','lvh','dvh'].filter(function(k){return Math.abs(s0[k]-screen.height)<=1});
+  var verdict2 = !collapsed
+    ? '　 <span class=hi>（启动那一刻视口就是满的，这一组说明不了问题——</span><br>'+
+      '　 <span class=hi>　多任务上划把这一页彻底杀掉，再点图标进来，别碰屏幕直接截图）</span>'
+    : (s0.lv>=screen.height-1
+        ? '<b>→ 青条画到了 '+s0.lv+'，红条停在 '+s0.fx+'。<br>'+
+          '　 ⇒ 页面画得到 793 以下！导航栏改成：<br>'+
+          '　 #tabBar{ top:calc(100lvh - var(--tabbar-space)); bottom:auto }</b>'
+        : '<span class=hi>→ 青条也只到 '+s0.lv+'（塌陷期间还等于 852 的单位：'+
+          (hit.join(' / ')||'一个都没有')+'）。<br>'+
+          '　 ⇒ 拿视口单位定位这条路作废，别再试。</span>');
   document.getElementById('n').innerHTML=
     '<b>视口测试</b>（这一页不含小窝任何代码）<br><br>'+
-    '<span class=hi>⬇ 先看屏幕最底下那 59px：洋红 = 归页面管 / 灰 = 不归页面管</span><br><br>'+
+    '<span class=hi>⬇ 屏幕最底下那一条：洋红 = 归页面管 / 灰 = 不归页面管</span><br>'+
+    '<span class=hi>⬇ 左红右青，谁的下沿到了 '+screen.height+' 谁就是答案</span><br><br>'+
+    fmtSnap()+
+    '—— 现在 ——<br>'+
     'standalone        '+pwa+'<br>'+
     'screen.height     '+screen.height+'<br>'+
-    'innerHeight       '+innerHeight+'<br>'+
-    'clientHeight      '+document.documentElement.clientHeight+'<br>'+
+    'innerHeight       '+r.ih+'<br>'+
+    'clientHeight      '+r.ch+'<br>'+
     'visualViewport.h  '+(vv?Math.round(vv.height):'—')+'<br>'+
     'safe-area top/bot '+Math.round(sat)+' / '+Math.round(sab)+'<br>'+
     'scrollHeight      '+document.scrollingElement.scrollHeight+'<br>'+
     '<span class=hi>屏幕高-innerHeight '+lost+'</span><br>'+
-    '红条底边          '+Math.round(fx.bottom)+'<br><br>'+
-    '绿框(100dvh)底边  '+Math.round(gb.bottom)+'<br>'+
-    '100vh / 100svh    '+UV.vh+' / '+UV.svh+'<br>'+
-    '100lvh / 100dvh   '+UV.lvh+' / '+UV.dvh+'<br>'+
+    '红条底边          '+r.fx+'<br>'+
+    '青条底边(100lvh)  '+r.lv+'<br>'+
+    '绿框底边(100dvh)  '+r.gb+'<br>'+
+    '100vh / 100svh    '+r.vh+' / '+r.svh+'<br>'+
+    '100lvh / 100dvh   '+r.lvh+' / '+r.dvh+'<br><br>'+
     verdict2+'<br><br>'+
-    verdict;
+    (pwa
+      ? (lost<=1
+          ? '<b>✓ 现在视口是满的（innerHeight == screen.height）</b>'
+          : '<span class=hi>✗ 现在视口比屏幕矮 '+lost+'px，而这一页不含小窝任何代码<br>'+
+            '　 ⇒ 跟小窝的 HTML/CSS 无关，是 PWA 实例本身的状态</span>')
+      : '<span class=hi>⚠ 现在是 Safari 模式（standalone=false），这一页在这儿说明不了问题。</span><br>'+
+        '　 <b>要测就得从主屏图标打开：</b>分享 → 添加到主屏幕 → 开那个新图标 → 截图 → 删图标');
 }
 /* ---- 候选「踢一脚」手法。她真机上一次触摸就能让 innerHeight 归位，
-   这里把几种纯代码的等价物摆出来，哪个真管用一点就知道。 ---- */
+   这里把几种纯代码的等价物摆出来，哪个真管用一点就知道。
+   09-02 真机实测：A~E 一个都没让 innerHeight 动过。 ---- */
 var KICKS=[
   ['A  scrollTo(0,1) 再 (0,0)', function(){ scrollTo(0,1); scrollTo(0,0); }],
   ['B  body 撑高 1px 再收回',   function(){ var b=document.body;
@@ -126,13 +169,17 @@ KICKS.forEach(function(k){
       if(good) b.className='ok';
       log.textContent = k[0].slice(0,1)+': innerHeight '+before+' → '+after+
         (good?'   ✅ 归位了！就用这个':'   ✗ 没动');
-      draw();
+      redraw();
     },260);
   };
   btns.appendChild(b);
 });
 
-draw();
-addEventListener('resize',draw);
-if(window.visualViewport)visualViewport.addEventListener('resize',draw);
+/* 越早越好：第一帧、以及之后几个时刻各存一份，看得出它是什么时候归位的 */
+snap('t=0   ');
+requestAnimationFrame(function(){ snap('第1帧 ') });
+setTimeout(function(){ snap('300ms ') },300);
+setTimeout(function(){ snap('1200ms') },1200);
+addEventListener('resize',redraw);
+if(window.visualViewport)visualViewport.addEventListener('resize',redraw);
 </script>
