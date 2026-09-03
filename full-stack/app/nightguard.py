@@ -94,6 +94,16 @@ def _still_scrolling() -> bool:
     return count >= need
 
 
+def in_night_window() -> bool:
+    """现在是不是凌晨守护的时段。
+
+    给 glance（偷看一眼）用：那条线任何时候都可能触发，深夜要让位给守护，
+    否则她打开 app 会同时收到两条推送（一条催睡、一条吃醋）。
+    时段定义只此一处，别在别的模块里再写一遍。
+    """
+    return _in_night_window(_cn_hour())
+
+
 def _cooled_down() -> bool:
     """距上次开口够不够久。读不出来就当「可以开口」——宁可多说一句，不要哑掉。"""
     minutes = _env_int("NIGHT_GUARD_COOLDOWN_MIN", 30)

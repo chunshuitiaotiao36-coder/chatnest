@@ -2026,6 +2026,19 @@ async def events(
             #    快捷指令的 URL 请求有超时，挂久了会失败甚至重试，
             #    而重试又会再触发一次上报。trigger_bark 自己不抛。
             nightguard.trigger_bark(chat_lock)
+        # 🔴 「偷看一眼」：她打开某个 app，他看一眼屏幕说一句具体的。
+        #    挂在她**早就配好**的这条线上（type=douyin&value=open），
+        #    不要她改任何快捷指令。
+        #    跟上面 trigger_bark 的分工：那条是凌晨守护（只在深夜、催她睡），
+        #    这条任何时候都可能发生、语气是吃味。两条各有各的冷却，
+        #    深夜同时命中的话她会收到两条——所以这里避开凌晨守护的时段。
+        if val == "open" and not nightguard.in_night_window():
+            try:
+                skipped = glance.on_app_open(kind, store.latest_conversation_id() or "")
+                if skipped:
+                    timing_logger.info("[偷看] 跳过：%s", skipped)
+            except Exception:
+                timing_logger.exception("[偷看] 派发失败（不影响上报）")
     return {"ok": True}
 
 
@@ -2041,8 +2054,7 @@ async def nightguard_test() -> dict:
 # ── 窥屏（砖 7）：开口前先看一眼她的屏幕 ────────────────────────────────
 
 @app.post("/api/peek")
-async def peek_upload(request: Request, key: str = Query(default=""),
-                      live: str = Query(default="")) -> dict:
+async def peek_upload(request: Request, key: str = Query(default="")) -> dict:
     """手机截屏之后 POST 原始 PNG 上来。
 
     🔴 key 放 URL 最前面：/api/peek?key=<TOKEN>
@@ -2059,22 +2071,10 @@ async def peek_upload(request: Request, key: str = Query(default=""),
     if not data or len(data) > peek.max_bytes():
         # 空 body / 超限：直接 400，不落盘
         raise HTTPException(status_code=400)
-    shot = None
     try:
-        shot = await asyncio.to_thread(peek.save_shot, data)
+        await asyncio.to_thread(peek.save_shot, data)
     except Exception:
         timing_logger.exception("[窥屏] 截图存盘失败")
-    # 🔴 live=1：她打开某个 app 时自动化**主动推**上来的那一张，他要看一眼。
-    #    不带这个参数就是老路子（凌晨守护发邮件要来的图），只存盘不开口。
-    #    glance.on_shot 只做判断和派发，耗时的事全在后台——她手机上那个
-    #    自动化在等这个响应，不能卡在这儿。
-    if live == "1":
-        try:
-            skipped = glance.on_shot(store.latest_conversation_id() or "", shot)
-            if skipped:
-                timing_logger.info("[偷看] 跳过：%s", skipped)
-        except Exception:
-            timing_logger.exception("[偷看] 派发失败（不影响存盘）")
     # 永远返回 {"ok": true}，不回显路径
     return {"ok": True}
 

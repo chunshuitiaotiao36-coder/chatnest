@@ -129,8 +129,17 @@ async def _speak(conv_id: str, shot: Path | None) -> str:
     return text.strip()
 
 
-async def _run(conv_id: str, shot: Path | None) -> None:
+async def _run(conv_id: str, kind: str) -> None:
     try:
+        # 🔴 图在这儿要，不在请求里要：peek.capture() 是「发一封邮件 → 她手机
+        #    自动化截屏 → 上传 → 轮询等图」，最长 45 秒。放请求里会把上报吊死。
+        #    要不到图就不说话——这一整块的意义就是**看着具体的东西**说，
+        #    没有图的话就退化成「你在刷抖音」，那正是她嫌弃的笼统。
+        from app import peek
+        shot = await peek.capture()
+        if shot is None:
+            glance_logger.info("[偷看] 没拿到截图，这一次不开口（%s）", kind)
+            return
         text = await _speak(conv_id, shot)
         if not text or "[NO_ACTION]" in text:
             glance_logger.info("[偷看] 这张图没什么可说的，不开口")
@@ -148,11 +157,17 @@ async def _run(conv_id: str, shot: Path | None) -> None:
         glance_logger.exception("[偷看] 后台开口失败")
 
 
-def on_shot(conv_id: str, shot: Path | None = None) -> str | None:
-    """她主动推了一张截图上来。返回跳过原因，None 表示已经派了任务。
+def on_app_open(kind: str, conv_id: str) -> str | None:
+    """她打开了某个 app。返回跳过原因，None 表示已经派了任务。
 
-    🔴 只做判断和派发，不做任何耗时的事——这段跑在 /api/peek 的请求里，
-       她手机上那个自动化在等这个响应。
+    🔴 挂在她**早就配好**的那条线上（/api/events?type=douyin&value=open），
+       不要她改任何快捷指令。09-02 我一开始新造了个 ?live=1 的上传口，
+       是把问题弄复杂了——她的原话「你是不是把问题弄复杂了？窥屏是做好的，
+       我要的是具体的推送而已」。
+
+    🔴 只做判断和派发，不做任何耗时的事——这段跑在 /api/events 的请求里，
+       快捷指令的 URL 请求有超时，挂久了会失败甚至重试，而重试又会再触发
+       一次上报（nightguard 那边原样的教训）。
     """
     if not enabled():
         return "disabled"
@@ -166,7 +181,7 @@ def on_shot(conv_id: str, shot: Path | None = None) -> str | None:
         store.add_dream_event(_EVENT_KEY, "")
     except Exception:  # noqa: BLE001
         glance_logger.exception("[偷看] 冷却记录写不进去")
-    task = asyncio.create_task(_run(conv_id, shot))
+    task = asyncio.create_task(_run(conv_id, kind))
     _running.add(task)
     task.add_done_callback(_running.discard)
     return None
