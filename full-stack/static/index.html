@@ -3544,7 +3544,23 @@ function initSheetDrag(el,closeSelector,onClose){
 }
 initSheetDrag($('thoughtSheet'),'#closeThought',()=>{delete $('thoughtSheet').dataset.live});
 initSheetDrag($('modelSheet'),'#closeModel',()=>{_modelPage='main'});
-async function recoverAfterBreak(msg,convId,failText,isActive=()=>true){if(!msg)return;if(!convId){if(isActive())msg.fail(failText);return}await new Promise(r=>setTimeout(r,1500));if(!isActive())return;try{const r=await api(`/api/sessions/${encodeURIComponent(convId)}/messages`);if(!r.ok)throw 0;const data=await r.json();if(!isActive())return;const list=data.messages||[];const last=[...list].reverse().find(m=>m.role==='assistant');if(!last||!(last.text||'').trim())throw 0;if(last.thinking)msg.thinking(last.thinking);msg.text(last.text);msg.finish()}catch{if(isActive())msg.fail(failText)}}
+/* 断线之后去库里把这一轮真正落库的回复捞回来。
+
+   🔴 09-03 修：原来是 `[...list].reverse().find(m=>m.role==='assistant')` ——
+      捞的是**整个会话最后一条**助手消息，一个字都不检查它是不是这一轮的。
+      于是这一轮但凡没落库（/api/chat 报错、流当场断），它就把**上一轮的回复
+      原样画进新气泡**，还 msg.finish() 装成正常收尾。
+
+      这就是「发图后回复复述上一句」的真凶，模型从头到尾没复述过。对得上：
+        · 她 09-02「与上一轮回复逐字相同」——逐字相同是前端拷贝，不是模型重说
+        · 「退出对话再切进来就没有这两条了」——因为压根没落库
+      那份交接单往 stop_reason / resume / base64 体积上追了一整天，方向错了。
+
+   🔴 新判据：只认**比这一轮的用户消息更新**的那条。
+      userMsgId 由 `conversation` 帧写在 userRow.dataset.msgId 上；
+      连它都没有 = 这一轮连用户消息都没落库 = 没什么可捞的，老老实实报错。
+      真·网络中断但后端已经写完的那种情况不受影响：那时 id 一定更大。 */
+async function recoverAfterBreak(msg,convId,failText,isActive=()=>true,userMsgId=''){if(!msg)return;if(!convId){if(isActive())msg.fail(failText);return}await new Promise(r=>setTimeout(r,1500));if(!isActive())return;try{const uid=Number(userMsgId||0);if(!uid)throw 0;const r=await api(`/api/sessions/${encodeURIComponent(convId)}/messages`);if(!r.ok)throw 0;const data=await r.json();if(!isActive())return;const list=data.messages||[];const last=[...list].reverse().find(m=>m.role==='assistant'&&Number(m.id||0)>uid);if(!last||!(last.text||'').trim())throw 0;if(last.thinking)msg.thinking(last.thinking);msg.text(last.text);msg.finish()}catch{if(isActive())msg.fail(failText)}}
 
 function showQueuedNote(msg,d){
   const row=msg&&msg.row; if(!row)return;
@@ -3669,7 +3685,7 @@ async function sendMessage(text,showUser=true,files=[],existingAttachments=[],op
     if(_lastVoiceTone){body.voice=_lastVoiceTone;_lastVoiceTone=null;}
     const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${state.token}`},body:JSON.stringify(body),signal:controller.signal});
     if(runId!==_chatRunId)return;
-    if(r.status===401){showGate();throw Error('登录已失效')}if(!r.ok||!r.body){const detail=await r.json().catch(()=>({}));throw Error(detail.detail||'请求失败')}
+    if(r.status===401){showGate();throw Error('登录已失效')}if(!r.ok||!r.body){const detail=await r.json().catch(()=>({}));/* 🔴 带上状态码：原来只有一句「请求失败」，她截图给我也定位不了是 4xx 还是 5xx。 */throw Error((detail.detail||'请求失败')+'（HTTP '+r.status+'）')}
     const reader=r.body.getReader(),decoder=new TextDecoder();let buffer='',finished=false,_replyAcc='';
     /* queued：后端在排队等 chat_lock。她的重发几乎都发生在 abort 之后那一瞬间，
        后端会等几秒再决定——这几秒里必须告诉她「在等上一条收尾」，否则又是一个
@@ -3681,8 +3697,8 @@ async function sendMessage(text,showUser=true,files=[],existingAttachments=[],op
       if(options.onDone){try{options.onDone(_replyAcc)}catch(err){console.warn('onDone failed',err)}}}if(event==='error'){msg.fail(d.message);finished=true}};
     while(true){if(runId!==_chatRunId)return;const{value,done}=await reader.read();buffer+=decoder.decode(value||new Uint8Array(),{stream:!done});const parts=buffer.split(/\r?\n\r?\n/);buffer=parts.pop()||'';parts.forEach(frame);if(done)break}
     if(runId!==_chatRunId)return;
-    if(buffer.trim())frame(buffer);if(!finished)await recoverAfterBreak(msg,state.convId,'连接意外结束，请重试。',()=>runId===_chatRunId)
-  }catch(e){if(runId!==_chatRunId)return;if(e.name==='AbortError'){if(msg&&msg.row?.classList.contains('streaming'))msg.finish()}else if(msg)await recoverAfterBreak(msg,state.convId,e.message||'连接失败，请稍后重试。',()=>runId===_chatRunId);else toast(e.message||'文件上传失败')}
+    if(buffer.trim())frame(buffer);if(!finished)await recoverAfterBreak(msg,state.convId,'连接意外结束，请重试。',()=>runId===_chatRunId,userRow?.dataset?.msgId||'')
+  }catch(e){if(runId!==_chatRunId)return;if(e.name==='AbortError'){if(msg&&msg.row?.classList.contains('streaming'))msg.finish()}else if(msg)await recoverAfterBreak(msg,state.convId,e.message||'连接失败，请稍后重试。',()=>runId===_chatRunId,userRow?.dataset?.msgId||'');else toast(e.message||'文件上传失败')}
   finally{if(runId===_chatRunId){_chatAbort=null;_activeMsg=null;state.busy=false;updateSendButton()}}
 }
 /* --- Web Push 订阅（砖 1）---
@@ -8389,7 +8405,7 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',syncAn
    让她的手机把数据直接摆出来。
    长按导航栏任意位置 1.2 秒弹出，点一下关掉，什么都不留。
    BUILD 那一行最要紧：一眼看出手机上跑的到底是不是最新那版，还是 PWA 缓存里的旧页面。 */
-const BUILD='2026-09-03 · 视口解卡（外壳松一下）';
+const BUILD='2026-09-03 · 视口解卡 + 断线不再冒充上一条回复';
 
 function _tbDiag(){
   tbSnap('diag');   /* 补上最后一次点击沉淀之后的状态 */
