@@ -182,6 +182,17 @@ def _parse_response(text: str) -> tuple[str, str, str, str]:
     if m:
         content = m.group(1).strip()
 
+    # 🔴 CONTENT 是 `(.+)` 贪到结尾的，模型只要在后面再跟一个
+    #    <<ACT>>{...}<<>>（claude.py 现在确实教了他这套标记），整块就会被
+    #    一起吞进动态/信的正文里。09-03 她截图：朋友圈那条动态下面原样跟着
+    #    一行 <<ACT>>{"type":"moment",...}<<>>。标记是给机器看的，
+    #    **一个字都不该出现在她眼前**，落库之前先剥掉。
+    #    延迟 import：keepalive 是背景循环，调用很稀，顺便躲开循环 import。
+    from app.piano import strip_acts
+    title = strip_acts(title)
+    content = strip_acts(content)
+    thoughts = strip_acts(thoughts)
+
     if not any(k in text for k in ("THOUGHTS:", "ACTION:", "CONTENT:")):
         logger.warning("[唤醒] 响应解析失败，当 none: %s", text[:200])
 

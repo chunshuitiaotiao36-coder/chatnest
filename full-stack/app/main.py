@@ -746,7 +746,6 @@ async def auth_cookie(request: Request, authorization: str = Header(default=""))
     return _set_auth_cookie(JSONResponse({"ok": True}), token, request)
 
 
-@app.post("/api/chat", dependencies=[Depends(require_auth)])
 def _run_life_act(act: dict, conv_id: str) -> dict | None:
     """他在聊天途中自己决定发一条动态 / 写一封信。
 
@@ -793,6 +792,7 @@ def _run_life_act(act: dict, conv_id: str) -> dict | None:
         return None
 
 
+@app.post("/api/chat", dependencies=[Depends(require_auth)])
 async def chat(body: ChatBody) -> StreamingResponse:
     request_id = uuid4().hex[:12]
     request_started = perf_counter()

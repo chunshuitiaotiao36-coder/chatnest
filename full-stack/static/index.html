@@ -3685,7 +3685,7 @@ async function sendMessage(text,showUser=true,files=[],existingAttachments=[],op
     if(_lastVoiceTone){body.voice=_lastVoiceTone;_lastVoiceTone=null;}
     const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${state.token}`},body:JSON.stringify(body),signal:controller.signal});
     if(runId!==_chatRunId)return;
-    if(r.status===401){showGate();throw Error('登录已失效')}if(!r.ok||!r.body){const detail=await r.json().catch(()=>({}));/* 🔴 带上状态码：原来只有一句「请求失败」，她截图给我也定位不了是 4xx 还是 5xx。 */throw Error((detail.detail||'请求失败')+'（HTTP '+r.status+'）')}
+    if(r.status===401){showGate();throw Error('登录已失效')}if(!r.ok||!r.body){const payload=await r.json().catch(()=>({}));const d=payload.detail;/* 🔴 带上状态码 + 把 detail 摊平。原来直接拼 detail.detail，遇上 FastAPI 的 422   （detail 是一个数组，每项 {loc,msg,type}）会拼成「[object Object]」——   09-03 她截图就是这样，白丢一轮。数组/对象一律转成人能读的一行。 */const say=typeof d==='string'?d:(Array.isArray(d)?d.map(x=>((x&&x.loc||[]).join('.')+' '+(x&&x.msg||''))).join('；'):(d?JSON.stringify(d):''));throw Error((say||'请求失败').slice(0,300)+'（HTTP '+r.status+'）')}
     const reader=r.body.getReader(),decoder=new TextDecoder();let buffer='',finished=false,_replyAcc='';
     /* queued：后端在排队等 chat_lock。她的重发几乎都发生在 abort 之后那一瞬间，
        后端会等几秒再决定——这几秒里必须告诉她「在等上一条收尾」，否则又是一个
@@ -8405,7 +8405,7 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',syncAn
    让她的手机把数据直接摆出来。
    长按导航栏任意位置 1.2 秒弹出，点一下关掉，什么都不留。
    BUILD 那一行最要紧：一眼看出手机上跑的到底是不是最新那版，还是 PWA 缓存里的旧页面。 */
-const BUILD='2026-09-03 · 视口解卡 + 断线不再冒充上一条回复';
+const BUILD='2026-09-03 · 修好 /api/chat 路由（422）';
 
 function _tbDiag(){
   tbSnap('diag');   /* 补上最后一次点击沉淀之后的状态 */
