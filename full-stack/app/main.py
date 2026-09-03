@@ -28,7 +28,7 @@ from starlette.formparsers import MultiPartParser
 
 MultiPartParser.max_part_size = 60 * 1024 * 1024  # 与 uploads.py 的 MAX_FILE_BYTES 对齐
 
-from app import anno, appicon, auth, backgrounds, faces, keepalive, listen, lorebook, moments, murmur, nightguard, peek, piano, piano_analysis, push, relays, starmap, store, telegram, voice
+from app import anno, appicon, auth, backgrounds, faces, glance, keepalive, listen, lorebook, moments, murmur, nightguard, peek, piano, piano_analysis, push, relays, starmap, store, telegram, voice
 from app.actor import ActorBusyError, _mem_kv
 from app.chatlock import CHAT_LOCK_WAIT_SECONDS, chat_lock
 from app.claude import (
@@ -2041,7 +2041,8 @@ async def nightguard_test() -> dict:
 # ── 窥屏（砖 7）：开口前先看一眼她的屏幕 ────────────────────────────────
 
 @app.post("/api/peek")
-async def peek_upload(request: Request, key: str = Query(default="")) -> dict:
+async def peek_upload(request: Request, key: str = Query(default=""),
+                      live: str = Query(default="")) -> dict:
     """手机截屏之后 POST 原始 PNG 上来。
 
     🔴 key 放 URL 最前面：/api/peek?key=<TOKEN>
@@ -2058,10 +2059,22 @@ async def peek_upload(request: Request, key: str = Query(default="")) -> dict:
     if not data or len(data) > peek.max_bytes():
         # 空 body / 超限：直接 400，不落盘
         raise HTTPException(status_code=400)
+    shot = None
     try:
-        await asyncio.to_thread(peek.save_shot, data)
+        shot = await asyncio.to_thread(peek.save_shot, data)
     except Exception:
         timing_logger.exception("[窥屏] 截图存盘失败")
+    # 🔴 live=1：她打开某个 app 时自动化**主动推**上来的那一张，他要看一眼。
+    #    不带这个参数就是老路子（凌晨守护发邮件要来的图），只存盘不开口。
+    #    glance.on_shot 只做判断和派发，耗时的事全在后台——她手机上那个
+    #    自动化在等这个响应，不能卡在这儿。
+    if live == "1":
+        try:
+            skipped = glance.on_shot(store.latest_conversation_id() or "", shot)
+            if skipped:
+                timing_logger.info("[偷看] 跳过：%s", skipped)
+        except Exception:
+            timing_logger.exception("[偷看] 派发失败（不影响存盘）")
     # 永远返回 {"ok": true}，不回显路径
     return {"ok": True}
 
