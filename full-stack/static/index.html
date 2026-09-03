@@ -8389,7 +8389,7 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',syncAn
    让她的手机把数据直接摆出来。
    长按导航栏任意位置 1.2 秒弹出，点一下关掉，什么都不留。
    BUILD 那一行最要紧：一眼看出手机上跑的到底是不是最新那版，还是 PWA 缓存里的旧页面。 */
-const BUILD='2026-09-03 · 死区底色退回 + vptest 定归属';
+const BUILD='2026-09-03 · 视口解卡（外壳松一下）';
 
 function _tbDiag(){
   tbSnap('diag');   /* 补上最后一次点击沉淀之后的状态 */
@@ -8471,6 +8471,7 @@ function _tbDiag(){
      少掉一大截 = 键盘把视口压小了还没还回来；焦点那行会指出是谁占着不放。 */
   const _lost=Math.round(screen.height-document.documentElement.clientHeight);
   out.push('屏幕高-布局视口高      '+_lost+'   ← 接近 0 才正常，几百 = 被键盘吃了');
+  out.push('视口解卡            '+(window.__unstick||'（还没跑）'));
   const _ae=document.activeElement;
   out.push('当前焦点             '+(_ae?(_ae.id||_ae.tagName):'(无)')+
            (_ae&&_ae!==document.body?'   visibility='+getComputedStyle(_ae).visibility:'')+
@@ -8791,6 +8792,60 @@ function switchTab(name){
 /* 点完把焦点从 <button> 上摘掉：iOS 上点击会给 button 焦点，
    留着它既可能触发 scrollIntoView（施工单 4.3），也让下一次判断变脏。 */
 document.querySelectorAll('#tabBar .tab-item').forEach(t=>{t.addEventListener('click',()=>{switchTab(t.dataset.tab);t.blur()})});
+
+/* ───────── iOS PWA 冷启动：视口塌 59px 的根因解卡 ─────────
+   🔴 09-03 19:54 真机实测（vptest 套上小窝这层外壳跑的，冻住的数，
+      全过程没碰屏幕。见 docs/导航栏-底部59px空带-交接单.md）：
+
+     第一段 · 小窝外壳 html,body{height:100%} + body{height:100dvh;overflow:hidden}
+       t=0 / 第1帧 / 300ms / 800ms / 1400ms   innerHeight 全是 793，红条底边全是 793
+       ⇒ 文档不能滚的时候，innerHeight **永远不归位**
+     第二段 · 1500ms 当场放开滚动（scrollHeight 793→1011）
+       放开+300ms   innerHeight=852，红条底边 852
+       ⇒ 一让文档可滚，300ms 内它自己就回来了
+
+   所以交接单第一节那句「只有真实触摸能让它归位、改代码永远修不好」是错的：
+   拦住归位的是小窝自己这层 overflow:hidden 外壳。空白页会自愈，就因为它能滚。
+   这里在启动那一下先把外壳松开，等 innerHeight 追上 screen.height 再合回去。
+
+   守卫三层，任何一层不满足就一个字节都不动：
+     1. 只在 standalone（PWA）里跑——Safari / iPad / 电脑上都没这毛病（她 09-03 确认）
+     2. 只在**确实塌了、而且塌的量就是刘海那一档**（1 < 差 <= 80）时跑。
+        iPad 分屏那种 innerHeight 天然小几百的情况不会命中。
+     3. 2.5 秒兜底：无论回没回来都把外壳合上，绝不把 app 永久留在可滚状态。
+   合上之后再看一眼会不会又塌回去，结果记在 window.__unstick，
+   长按导航栏的诊断面板有一行「视口解卡」直接显示，别再靠猜。 */
+(function unstickViewport(){
+  var pwa = (navigator.standalone===true) || matchMedia('(display-mode:standalone)').matches;
+  if(!pwa){ window.__unstick='跳过（不是 PWA）'; return; }
+  var lost = screen.height - innerHeight;
+  if(lost<=1){ window.__unstick='跳过（启动时视口就是满的）'; return; }
+  if(lost>80){ window.__unstick='跳过（矮了 '+lost+'px，不是刘海那一档）'; return; }
+  var de=document.documentElement, b=document.body;
+  var save={deH:de.style.height, bH:b.style.height, bMin:b.style.minHeight, bOv:b.style.overflow};
+  /* 🔴 撑高的这块必须比视口高出一大截：小窝的子元素几乎全是 position:fixed，
+     不在正常流里，body 自己的内容高度约等于 0。只给 min-height:100dvh 的话
+     scrollHeight 恰好等于视口高，文档照样不可滚，这一整段就白做了。 */
+  var pad=document.createElement('div');
+  pad.style.cssText='height:1200px;visibility:hidden;pointer-events:none';
+  de.style.height='auto'; b.style.height='auto';
+  b.style.minHeight='100dvh'; b.style.overflow='visible';
+  b.appendChild(pad);
+  var t0=Date.now();
+  (function wait(){
+    var back=(screen.height-innerHeight)<=1;
+    if(!back && Date.now()-t0<2500){ requestAnimationFrame(wait); return; }
+    pad.remove();
+    de.style.height=save.deH; b.style.height=save.bH;
+    b.style.minHeight=save.bMin; b.style.overflow=save.bOv;
+    var ms=Date.now()-t0;
+    requestAnimationFrame(function(){
+      var after=screen.height-innerHeight;
+      window.__unstick=(back?'已解卡':'超时未解卡')+' '+ms+'ms  塌陷 '+lost+'→'+after+
+        (after<=1?'  ✓':'  ✗ 合上外壳又塌回去了');
+    });
+  })();
+})();
 </script>
 </body>
 </html>
