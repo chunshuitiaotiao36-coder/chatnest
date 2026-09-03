@@ -3780,6 +3780,15 @@ function moodAttach(row,badge){
       m.className='mood-line-mood';m.textContent=badge.mood;
       line.append(m);
     }
+    /* 心率：她要求这一行也显示。取不到就不画这一格，不编假数字。
+       ♥ 用跟潮汐页同一个符号和同一套 tabular-nums，两处对得上。 */
+    const hr=Number(badge.heartrate);
+    if(Number.isFinite(hr)&&hr>0){
+      const h=document.createElement('span');
+      h.className='mood-hr';
+      h.innerHTML='<span class="mood-hr-heart">&#9829;</span>'+Math.round(hr)+'<span class="mood-hr-u">BPM</span>';
+      line.append(h);
+    }
     (Array.isArray(badge.dims)?badge.dims:[]).forEach(d=>{
       const name=String(d&&d.name||'');
       let pct=Number(d&&d.pct);

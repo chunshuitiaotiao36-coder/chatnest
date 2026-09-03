@@ -3181,6 +3181,19 @@ body.has-bg-letters #lettersPanel .letter-card {
 /* 每一条前面一个小圆点，颜色跟潮汐页那九条一一对应。
    🔴 只有点是彩色的，字仍然走正文的 token——这样深浅两套都不用另配，
       而且一行里四个彩色数字会很吵。 */
+/* 心绪那行里的心率。跟潮汐页的 .tide-hr 同一套符号和数字样式，
+   但压到这一行的尺度上——它在每条回复上面，必须小、淡、不抢正文。 */
+.mood-hr{
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--study-accent, #C08279);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.mood-hr-heart{ font-size: 9px; line-height: 1; }
+.mood-hr-u{ font-size: 9px; letter-spacing: .06em; opacity: .7; margin-left: 1px; }
+
 .mood-chip{
   display: inline-flex;
   align-items: center;

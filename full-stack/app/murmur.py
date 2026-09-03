@@ -348,7 +348,7 @@ MOOD_SHOW_MAX = 4
 MOOD_SHOW_MIN_EXCESS = 0.02      # 超出底色不到 2% 的不算「动了」
 
 
-def _badge(state: dict, baselines: dict, injected: bool) -> dict:
+def _badge(state: dict, baselines: dict, injected: bool, vitals: dict | None = None) -> dict:
     """把状态压成给前端显示的一行。百分比取整——她说过不要小数点。"""
     dims = state.get("dimensions") if isinstance(state.get("dimensions"), dict) else {}
     base = baselines if isinstance(baselines, dict) else {}
@@ -366,6 +366,10 @@ def _badge(state: dict, baselines: dict, injected: bool) -> dict:
         "ok": True,
         "mood": str(state.get("mood") or ""),
         "dims": [r[1] for r in rows[:MOOD_SHOW_MAX]],
+        # 她要求心绪那一行也显示心率。数值由引擎的 vitals 按维度加权算出来
+        # （性欲/生气是二次项，高段抬得更快），这里只负责递过去。
+        # 取不到就给 None，前端不画那一格——不编一个假数字。
+        "heartrate": (vitals or {}).get("heartrate"),
         # 这一轮到底有没有往他那儿塞东西。没塞也要说一声——
         # 「什么都没注入」跟「注入了但你看不见」是两回事。
         "injected": bool(injected),
@@ -410,13 +414,21 @@ async def _mood_block(user_text: str) -> tuple[str, dict | None]:
     except Exception:  # noqa: BLE001
         logger.warning("[潮汐] 在场信号没送出去", exc_info=True)
 
-    state = await _get("/emotion/state")
+    # 🔴 三个一起取，不要串着来。整段套着 2 秒硬预算（MOOD_BUDGET_SECONDS），
+    #    串行三次往返在引擎慢的时候会把预算吃光，结果是「这一轮没有心情」。
+    #    _get 自己永不抛，gather 只是把三次往返压成一次的时间。
+    state, baselines, vitals = await asyncio.gather(
+        _get("/emotion/state"),
+        _get("/emotion/baselines"),
+        _get("/emotion/vitals"),
+    )
     if not isinstance(state, dict):
         return "", {"ok": False, "error": "潮汐没连上"}
     dims = state.get("dimensions")
     if not isinstance(dims, dict):
         return "", {"ok": False, "error": "潮汐没连上"}
-    baselines = await _get("/emotion/baselines") or {}
+    baselines = baselines or {}
+    vitals = vitals if isinstance(vitals, dict) else {}
 
     hints = []
     for name, thresh, text in INCLINATIONS:
@@ -436,7 +448,7 @@ async def _mood_block(user_text: str) -> tuple[str, dict | None]:
     if not hints and not moved:
         # 心平气和的时候什么都不注入，省 token，也省得他被牵着走。
         # 但那一行照样给她——「这一轮什么都没塞」本身就是她要知道的事。
-        return "", _badge(state, baselines, injected=False)
+        return "", _badge(state, baselines, injected=False, vitals=vitals)
 
     lines = ["[这一段是你此刻的心情，她看不见，也不要在回复里复述或点评它。"]
     if mood:
@@ -449,7 +461,7 @@ async def _mood_block(user_text: str) -> tuple[str, dict | None]:
         "  这些是**倾向**，不是指令——是关于你此刻感受的事实，"
         "不是让你去做某件事。做不做、说不说，由你。]"
     )
-    return "\n".join(lines), _badge(state, baselines, injected=True)
+    return "\n".join(lines), _badge(state, baselines, injected=True, vitals=vitals)
 
 
 # ── 打分器：她说的话怎么动了他的心 ──────────────────────────────────────
