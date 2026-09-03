@@ -817,7 +817,7 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
       <div class="profile-title" id="loreEditTitle">条目</div>
       <button class="profile-save-button" id="loreSave" aria-label="保存">✓</button>
     </header>
-    <section class="profile-section">
+    <section class="profile-section" id="loreHeadSection">
       <div class="profile-card">
         <div id="loreNameRow"><label class="profile-name-row"><span class="profile-name-label">名称</span><input class="profile-name-input" id="loreName" autocomplete="off" placeholder="这条叫什么"></label>
         <div class="profile-divider"></div></div>
@@ -825,7 +825,7 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
       </div>
     </section>
     <section class="profile-section">
-      <div class="profile-section-title">内容</div>
+      <div class="profile-section-title" id="loreContentTitle">内容</div>
       <div class="profile-card"><textarea class="profile-memory-textarea" id="loreContent" placeholder="要常驻注入的规矩或设定"></textarea></div>
     </section>
     <section class="profile-section" id="loreTriggerSection">
@@ -4722,7 +4722,6 @@ function openLoreEdit(entry){
     always_on:_loreTab==='tone',keywords:[],use_regex:false,case_sensitive:false,
     scan_depth:5,position:'system_before',role:'user',priority:100
   };
-  $('loreEditTitle').textContent=entry?'编辑条目':(_loreTab==='tone'?'新的调性':'新的世界书条目');
   $('loreName').value=_loreEditing.name||'';
   $('loreContent').value=_loreEditing.content||'';
   $('loreKeywords').value=(_loreEditing.keywords||[]).join('，');
@@ -4742,6 +4741,14 @@ function openLoreEdit(entry){
   $('loreNameRow').hidden=simple;
   $('loreEnabledRow').hidden=simple;
   $('loreMetaSection').hidden=simple;
+  /* 🔴 「名称」和「启用」是同一张 .profile-card 里仅有的两样东西，调性下两个都藏了，
+     只藏它们会在页顶留下一张**空的灰卡片**。要藏就连外面那一节一起藏。 */
+  $('loreHeadSection').hidden=simple;
+  /* 调性这一页从头到尾只有一个框，措辞也别再说「内容 / 常驻注入的规矩」——
+     那是世界书的说法，会让人以为还有别的档要填。 */
+  $('loreContentTitle').textContent=simple?'语气偏好':'内容';
+  $('loreContent').placeholder=simple?'写一条语气偏好，一句话就够……':'要常驻注入的规矩或设定';
+  $('loreEditTitle').textContent=simple?'语气偏好':(entry?'编辑条目':'新的世界书条目');
   $('loreDelete').hidden=!entry;
   if(!simple)renderLorePositions();
   showProfilePage('loreEditPage');
@@ -8426,7 +8433,7 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',syncAn
    让她的手机把数据直接摆出来。
    长按导航栏任意位置 1.2 秒弹出，点一下关掉，什么都不留。
    BUILD 那一行最要紧：一眼看出手机上跑的到底是不是最新那版，还是 PWA 缓存里的旧页面。 */
-const BUILD='2026-09-03 · Home可滚/潮汐不重叠/心绪两行/调性虚线框';
+const BUILD='2026-09-03 · 调性只剩一个框';
 
 function _tbDiag(){
   tbSnap('diag');   /* 补上最后一次点击沉淀之后的状态 */
