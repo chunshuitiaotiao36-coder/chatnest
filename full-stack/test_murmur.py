@@ -142,8 +142,15 @@ def main():
         st = await murmur._get("/emotion/state")
         flat = [d for d in ("想念", "喜悦", "性欲")
                 if abs(st["dimensions"][d] - base[d]) < 0.001]
-        ok(all(f not in names for f in flat),
-           f"停在底色上的没被列出来（{flat} vs {names}）")
+        # 🔴 09-02 改了设计：停在底色上的**也要列出来**。她原话「不要一次只有
+        #    两个情绪在随着对话涨，情绪不应该这么单线吧」——她要看的是他心里
+        #    现在有什么，不是「今天新增了什么」。区分靠 moved 标记，不靠隐藏。
+        flat_rows = [d for d in badge["dims"] if d["name"] in flat]
+        ok(flat_rows and all(d["moved"] is False for d in flat_rows),
+           f"停在底色上的照样列出来，但 moved=False 不点亮（{[(d['name'], d['moved']) for d in flat_rows]}）")
+        moved_rows = [d for d in badge["dims"] if d["moved"]]
+        ok(any(d["name"] == "担忧" for d in moved_rows),
+           f"推高过的那一维 moved=True（{[d['name'] for d in moved_rows]}）")
         ok(sorted(badge["dims"], key=lambda d: -d["pct"])[0]["name"] == names[0]
            or True, "按超出底色排序")
 
@@ -165,8 +172,9 @@ def main():
             blk, bdg = await murmur.mood_block("你在干嘛")
             ok("做不做、说不说，由你" not in blk,
                "底色抬到与现值齐平 → 一条倾向都不命中（不是恒真）")
-            ok(bdg and not bdg.get("dims"),
-               f"badge 也按超出底色算，没有条目（实到 {bdg.get('dims') if bdg else None}）")
+            rows = (bdg or {}).get("dims") or []
+            ok(rows and all(d["moved"] is False for d in rows),
+               f"底色齐平：维度照列，但一条都不点亮（{[(d['name'], d['moved']) for d in rows]}）")
         finally:
             murmur._get = _real_get
 

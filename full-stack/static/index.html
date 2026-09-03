@@ -3795,8 +3795,13 @@ function moodAttach(row,badge){
       if(!name||!Number.isFinite(pct))return;
       pct=Math.max(0,Math.min(100,Math.round(pct)));
       const chip=document.createElement('span');
-      chip.className='mood-chip';chip.dataset.dim=name;
+      /* moved = 这一维现在**高出他的底色**，也就是今天真发生了什么。
+         停在底色上的照样列出来（她要看的是他心里有什么，不是只看新增），
+         但点亮的只有动了的那几条——两种信息一起给。 */
+      chip.className='mood-chip'+(d&&d.moved?' is-moved':'');
+      chip.dataset.dim=name;
       chip.textContent=`${name} ${pct}%`;
+      if(d&&d.moved)chip.title='这一维现在高出他平时的底色——今天真的动了';
       line.append(chip);
     });
     /* 这一轮到底有没有影响他说话。有的话左边那道竖线亮起来——

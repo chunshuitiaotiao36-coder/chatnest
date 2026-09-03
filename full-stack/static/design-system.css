@@ -3206,6 +3206,11 @@ body.has-bg-letters #lettersPanel .letter-card {
   background: var(--c, currentColor);
   flex: none;
 }
+/* 停在底色上的那几条淡一点，今天真动了的正常显示并加粗数字。
+   不用颜色区分——一行里已经有九种色点了，再加一套会很吵。 */
+.mood-chip{ opacity: .55; }
+.mood-chip.is-moved{ opacity: 1; font-weight: 500; }
+
 .mood-chip[data-dim="想念"]{ --c:#A48FC2 }
 .mood-chip[data-dim="生气"]{ --c:#C97F72 }
 .mood-chip[data-dim="委屈"]{ --c:#7699C9 }

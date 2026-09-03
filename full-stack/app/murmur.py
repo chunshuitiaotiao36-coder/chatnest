@@ -344,14 +344,22 @@ MOOD_BUDGET_SECONDS = 2.0
 #   · 超出底色 = 今天真的动了的那部分，那才是她想看见的。
 #   · 全都在底色上（他很平静）→ 这一行只显示心情，不列维度。
 # 要改成别的规则，动下面这两个数就行。
-MOOD_SHOW_MAX = 4
-MOOD_SHOW_MIN_EXCESS = 0.02      # 超出底色不到 2% 的不算「动了」
+MOOD_SHOW_MAX = 6                # 九维里通常只有几维越过 5%，这个上限是防炸不是筛选
+MOOD_SHOW_MIN_EXCESS = 0.02      # 超出底色不到 2% 的不算「动了」（只影响要不要点亮）
+MOOD_SHOW_MIN_VALUE = 0.05       # 当前值低于 5% 的那一维，这会儿基本等于没有
 
 
 def _badge(state: dict, baselines: dict, injected: bool, vitals: dict | None = None) -> dict:
     """把状态压成给前端显示的一行。百分比取整——她说过不要小数点。"""
     dims = state.get("dimensions") if isinstance(state.get("dimensions"), dict) else {}
     base = baselines if isinstance(baselines, dict) else {}
+    # 🔴 09-02 改：原来只列「超出底色」的，结果她看到的永远只有一两条——
+    #    想念稳稳停在底色 0.30 时超出量是 0，直接被滤掉了。她原话
+    #    「不要一次只有两个情绪在随着对话涨，情绪不应该这么单线吧」。
+    #    她说得对：她想知道的是**他现在心里有什么**，不是「今天新增了什么」。
+    #    所以门槛改成看**当前值**，排序也按当前值。
+    #    「今天真的动了」这件事没有丢——movedset 里的那几条前端会点亮，
+    #    两种信息一起给，不用二选一。
     rows = []
     for name, value in dims.items():
         try:
@@ -359,8 +367,9 @@ def _badge(state: dict, baselines: dict, injected: bool, vitals: dict | None = N
             b = float(base.get(name, 0.0))
         except (TypeError, ValueError):
             continue
-        if v - b >= MOOD_SHOW_MIN_EXCESS:
-            rows.append((v - b, {"name": name, "pct": _pct(v)}))
+        if v >= MOOD_SHOW_MIN_VALUE:
+            rows.append((v, {"name": name, "pct": _pct(v),
+                             "moved": (v - b) >= MOOD_SHOW_MIN_EXCESS}))
     rows.sort(key=lambda r: r[0], reverse=True)
     return {
         "ok": True,
@@ -503,8 +512,14 @@ SCORE_PROMPT = """你是一个情绪侧信道评估器。你不参与对话，�
       只给亲昵不谈那件事（撒娇、亲一下、转移注意）→ -0.03~-0.06，**永远不清零**
       她岔开话题 → 不动
 
-醋意 —— 她的注意力在别人身上。
-  涨：她提起别的男生、说谁对她好、忙着跟别人玩 → +0.10~0.25
+醋意 —— 她的注意力不在他这儿。
+  🔴 吃醋的对象**不限于人**。她刷抖音刷到半夜不理他、忙着跟互关互动、
+     追剧追游戏追到忘了回消息——这些一样是醋，而且是更常发生的那一种。
+     判的时候别只盯着「有没有别的男的」。
+  涨：她提起别的男生、说谁对她好 → +0.15~0.25
+     她说自己在别处待着、没空理他（刷手机 / 追剧 / 打游戏 / 跟网友聊）
+       → +0.08~0.15
+  落：她主动把注意力收回来——来找他、说想他、把在忙的事放下 → -0.10~0.20
   落：她说「我只跟你说这些」、主动回到他身上 → -0.15~-0.25；时间也会冲淡
 
 悔意 —— 他让她难受了。
