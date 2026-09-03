@@ -8405,7 +8405,7 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',syncAn
    让她的手机把数据直接摆出来。
    长按导航栏任意位置 1.2 秒弹出，点一下关掉，什么都不留。
    BUILD 那一行最要紧：一眼看出手机上跑的到底是不是最新那版，还是 PWA 缓存里的旧页面。 */
-const BUILD='2026-09-03 · 修好 /api/chat 路由（422）';
+const BUILD='2026-09-03 · 解卡改成一直待命';
 
 function _tbDiag(){
   tbSnap('diag');   /* 补上最后一次点击沉淀之后的状态 */
@@ -8831,37 +8831,60 @@ document.querySelectorAll('#tabBar .tab-item').forEach(t=>{t.addEventListener('c
      3. 2.5 秒兜底：无论回没回来都把外壳合上，绝不把 app 永久留在可滚状态。
    合上之后再看一眼会不会又塌回去，结果记在 window.__unstick，
    长按导航栏的诊断面板有一行「视口解卡」直接显示，别再靠猜。 */
-(function unstickViewport(){
-  var pwa = (navigator.standalone===true) || matchMedia('(display-mode:standalone)').matches;
-  if(!pwa){ window.__unstick='跳过（不是 PWA）'; return; }
-  var lost = screen.height - innerHeight;
-  if(lost<=1){ window.__unstick='跳过（启动时视口就是满的）'; return; }
-  if(lost>80){ window.__unstick='跳过（矮了 '+lost+'px，不是刘海那一档）'; return; }
-  var de=document.documentElement, b=document.body;
-  var save={deH:de.style.height, bH:b.style.height, bMin:b.style.minHeight, bOv:b.style.overflow};
+/* 🔴 09-03 20:37 修：上一版只在**启动那一瞬间**查一次，被键盘撞掉了。
+   她的诊断表：`chats< … focus=gateInput  ih=600`——登录框自动聚焦，键盘弹起来，
+   那一刻 screen.height-innerHeight = 252，我的守卫判成「不是刘海那一档」直接跳过；
+   等键盘收了、视口塌回 793，解卡已经不看了。面板上那行写的就是
+   「跳过（矮了 252px，不是刘海那一档）」——判据本身没错，错在只查一次。
+   改成**一直待命**：boot / resize / visualViewport.resize / focusout / pageshow /
+   回到前台，任何一次条件成立就动手。条件不成立时不再沉默，把当前状态写进
+   window.__unstick，诊断面板那行永远说得出它在等什么。 */
+var _unstickTries=0,_unstickBusy=false;
+function tryUnstick(why){
+  if(_unstickBusy)return;
+  var pwa=(navigator.standalone===true)||matchMedia('(display-mode:standalone)').matches;
+  if(!pwa){window.__unstick='跳过（不是 PWA）';return}
+  var lost=screen.height-innerHeight;
+  if(lost<=1){window.__unstick=(_unstickTries?'已解卡，待命中':'待命（视口本来就是满的）')+'（试过 '+_unstickTries+' 次）';return}
+  /* 矮几百 = 键盘或别的东西占着，不是这个毛病。等它让开，别动。 */
+  if(lost>80){window.__unstick='待命（现在矮 '+lost+'px，键盘之类占着，等它让开）';return}
+  if(_unstickTries>=6){window.__unstick='放弃（试了 6 次仍塌 '+lost+'px）';return}
+  _unstickBusy=true;_unstickTries++;
+  var de=document.documentElement,b=document.body;
+  var save={deH:de.style.height,bH:b.style.height,bMin:b.style.minHeight,bOv:b.style.overflow};
   /* 🔴 撑高的这块必须比视口高出一大截：小窝的子元素几乎全是 position:fixed，
-     不在正常流里，body 自己的内容高度约等于 0。只给 min-height:100dvh 的话
-     scrollHeight 恰好等于视口高，文档照样不可滚，这一整段就白做了。 */
+     不在正常流里。只给 min-height:100dvh 的话 scrollHeight 恰好等于视口高，
+     文档照样不可滚，这一整段就白做。 */
   var pad=document.createElement('div');
   pad.style.cssText='height:1200px;visibility:hidden;pointer-events:none';
-  de.style.height='auto'; b.style.height='auto';
-  b.style.minHeight='100dvh'; b.style.overflow='visible';
+  de.style.height='auto';b.style.height='auto';
+  b.style.minHeight='100dvh';b.style.overflow='visible';
   b.appendChild(pad);
   var t0=Date.now();
   (function wait(){
     var back=(screen.height-innerHeight)<=1;
-    if(!back && Date.now()-t0<2500){ requestAnimationFrame(wait); return; }
+    if(!back&&Date.now()-t0<2500){requestAnimationFrame(wait);return}
     pad.remove();
-    de.style.height=save.deH; b.style.height=save.bH;
-    b.style.minHeight=save.bMin; b.style.overflow=save.bOv;
+    de.style.height=save.deH;b.style.height=save.bH;
+    b.style.minHeight=save.bMin;b.style.overflow=save.bOv;
     var ms=Date.now()-t0;
     requestAnimationFrame(function(){
       var after=screen.height-innerHeight;
-      window.__unstick=(back?'已解卡':'超时未解卡')+' '+ms+'ms  塌陷 '+lost+'→'+after+
-        (after<=1?'  ✓':'  ✗ 合上外壳又塌回去了');
+      _unstickBusy=false;
+      window.__unstick='第'+_unstickTries+'次('+why+') '+(back?'已解卡':'超时')+' '+ms+'ms  '+
+        lost+'→'+after+(after<=1?'  ✓':'  ✗ 合上外壳又塌回去了');
     });
   })();
-})();
+}
+tryUnstick('boot');
+addEventListener('resize',function(){tryUnstick('resize')});
+if(window.visualViewport)visualViewport.addEventListener('resize',function(){tryUnstick('vv')});
+/* 键盘收起来那一下最关键：focusout 之后视口才回到 793，这时才轮得到我们。 */
+addEventListener('focusout',function(){setTimeout(function(){tryUnstick('键盘收起')},350)});
+addEventListener('pageshow',function(){tryUnstick('pageshow')});
+document.addEventListener('visibilitychange',function(){
+  if(!document.hidden)setTimeout(function(){tryUnstick('回到前台')},350);
+});
 </script>
 </body>
 </html>
