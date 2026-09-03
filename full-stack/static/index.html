@@ -3870,29 +3870,36 @@ function moodAttach(row,badge){
   row.querySelector(':scope > .mood-line')?.remove();   /* 幂等：重复挂不叠 */
   const line=document.createElement('div');
   line.className='mood-line';
+  /* 🔴 09-03 她定的排法：第一行「♥BPM · 忱的心绪 还好」，百分比**整体换到第二行**。
+     原来九样东西全塞在同一个 flex-wrap 里，宽度一变就断在随机位置，一大排很乱。
+     拆成两个容器，断行的位置就固定了；顺序也按她说的来——心率在最前面。 */
+  const top=document.createElement('div');top.className='mood-line-top';
+  const dims=document.createElement('div');dims.className='mood-line-dims';
+  line.append(top,dims);
+
+  /* 心率排在最前。取不到就不画这一格，不编假数字。
+     ♥ 用跟潮汐页同一个符号和同一套 tabular-nums，两处对得上。 */
+  const hr=Number(badge.heartrate);
+  if(badge.ok!==false&&Number.isFinite(hr)&&hr>0){
+    const h=document.createElement('span');
+    h.className='mood-hr';
+    h.innerHTML='<span class="mood-hr-heart">&#9829;</span>'+Math.round(hr)+'<span class="mood-hr-u">BPM</span>';
+    top.append(h);
+  }
   const label=document.createElement('span');
   label.className='mood-line-label';label.textContent='忱的心绪';
-  line.append(label);
+  top.append(label);
 
   if(badge.ok===false){
     const e=document.createElement('span');
     e.className='mood-line-mood is-off';
     e.textContent=badge.error||'没连上';
-    line.append(e);
+    top.append(e);
   }else{
     if(badge.mood){
       const m=document.createElement('span');
       m.className='mood-line-mood';m.textContent=badge.mood;
-      line.append(m);
-    }
-    /* 心率：她要求这一行也显示。取不到就不画这一格，不编假数字。
-       ♥ 用跟潮汐页同一个符号和同一套 tabular-nums，两处对得上。 */
-    const hr=Number(badge.heartrate);
-    if(Number.isFinite(hr)&&hr>0){
-      const h=document.createElement('span');
-      h.className='mood-hr';
-      h.innerHTML='<span class="mood-hr-heart">&#9829;</span>'+Math.round(hr)+'<span class="mood-hr-u">BPM</span>';
-      line.append(h);
+      top.append(m);
     }
     (Array.isArray(badge.dims)?badge.dims:[]).forEach(d=>{
       const name=String(d&&d.name||'');
@@ -3907,7 +3914,7 @@ function moodAttach(row,badge){
       chip.dataset.dim=name;
       chip.textContent=`${name} ${pct}%`;
       if(d&&d.moved)chip.title='这一维现在高出他平时的底色——今天真的动了';
-      line.append(chip);
+      dims.append(chip);
     });
     /* 这一轮到底有没有影响他说话。有的话左边那道竖线亮起来——
        「什么都没塞」跟「塞了但你看不见」是两回事，她要分得清。 */
@@ -4639,7 +4646,20 @@ function renderLoreList(){
   $('loreTabHint').textContent = tone
     ? `${items.length} 条 · 自动编入提示词`
     : `${items.length} 条 · 强制注入`;
-  if(!items.length){list.innerHTML='<div class="profile-empty">'+(tone?'还没有语气偏好':'还没有条目')+'</div>';return}
+  /* 调性照 Polaris：添加入口是接在列表末尾的一个虚线框，不是页面底下那颗黑按钮。
+     空的时候也只留那个框——「还没有语气偏好」再说一遍是废话，框本身就说明了。 */
+  $('loreAdd').hidden=tone;
+  $('loreImportOpen').classList.toggle('is-quiet',tone);
+  const toneAdd=()=>{
+    const b=document.createElement('button');
+    b.type='button';b.className='tone-add';b.textContent='添加语气偏好…';
+    b.onclick=()=>openLoreEdit(null);
+    list.append(b);
+  };
+  if(!items.length){
+    if(tone){toneAdd();return}
+    list.innerHTML='<div class="profile-empty">还没有条目</div>';return;
+  }
   items.forEach(e=>{
     const row=document.createElement('div');
     row.className=(tone?'tone-card':'profile-memory-card lore-card')+(e.enabled?'':' is-off');
@@ -4665,6 +4685,7 @@ function renderLoreList(){
     }
     list.append(row);
   });
+  if(tone)toneAdd();
 }
 async function deleteLoreEntry(id){
   try{
@@ -8405,7 +8426,7 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',syncAn
    让她的手机把数据直接摆出来。
    长按导航栏任意位置 1.2 秒弹出，点一下关掉，什么都不留。
    BUILD 那一行最要紧：一眼看出手机上跑的到底是不是最新那版，还是 PWA 缓存里的旧页面。 */
-const BUILD='2026-09-03 · 导航栏底部留白收到 12px';
+const BUILD='2026-09-03 · Home可滚/潮汐不重叠/心绪两行/调性虚线框';
 
 function _tbDiag(){
   tbSnap('diag');   /* 补上最后一次点击沉淀之后的状态 */

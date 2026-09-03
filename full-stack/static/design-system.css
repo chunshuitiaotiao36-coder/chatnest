@@ -490,6 +490,15 @@ body:not(.chat-ready) .tab-page {
   padding-bottom: 0;
   overflow: hidden;
 }
+/* 🔴 Home 里滚动的是里层的 .profile-page（#tabHome 自己 overflow:hidden，
+   它的子面板都是 position:absolute;inset:0）。而 .profile-page 的底部内边距是
+   `env(safe-area-inset-bottom,34px) + 24px` = 58px —— 那是**没有导航栏**时代的数，
+   比现在的导航栏（--tabbar-space）还矮，于是最后一行永远压在导航栏底下，
+   能滚的距离几乎是 0，用起来就是「钉死了下不去」（她 09-03 的原话）。
+   只给 Home 这一支加够余量；#memoryPanel 独立浮层那种用法不受影响。 */
+#tabHome .profile-page {
+  padding-bottom: calc(var(--tabbar-space) + 24px);
+}
 #tabHome #memoryPanel,
 #tabHome #diaryPanel {
   position: absolute;
@@ -1543,6 +1552,30 @@ body.tab-away #chat {
   cursor: pointer;
 }
 .tone-card.is-off { opacity: .5 }
+/* 「添加语气偏好…」——照 Polaris 的样子做成一个虚线框，接在卡片列表末尾，
+   不是页面底下那颗黑色实心按钮。
+   🔴 分寸：调性只是一条随手写下的语气偏好，不是「新建条目」那种填表动作。
+      实心黑按钮把它说得太郑重了；虚线框读起来就是「这儿还能再添一条」。 */
+.tone-add {
+  display: block;
+  width: 100%;
+  padding: var(--space-4);
+  border: 1.5px dashed var(--border-strong);
+  border-radius: 20px;
+  background: transparent;
+  color: var(--text-faint);
+  font: 400 var(--text-base)/1.55 var(--font-sans);
+  text-align: left;
+  cursor: pointer;
+}
+.tone-add:active { background: var(--bg-sunken); }
+/* 调性这一页不该有第二颗黑按钮抢戏，一键导入退成一行淡字。 */
+.lore-import-btn.is-quiet {
+  background: transparent;
+  color: var(--text-faint);
+  font: 400 var(--text-sm)/1.4 var(--font-sans);
+  padding: var(--space-3);
+}
 .tone-card-text {
   flex: 1;
   min-width: 0;
@@ -3014,10 +3047,15 @@ body.has-bg-letters #lettersPanel .letter-card {
      iOS 上 dvh 跟固定定位包含块不一定是同一个数（工具栏、安全区、
      interactive-widget 都会让它们分家），一分家就在底下多出一条缝。
      inset:0 没有这个问题——它**就是**那个包含块。 */
-  overflow:hidden;
-  /* 这一页自己不滚（九条靠 space-evenly 摊开）。不滚的容器在 iOS 上会把
-     手势甩给文档去橡皮筋，整页跟着弹起来，底下露出一条底色不一样的带子。 */
-  overscroll-behavior:none;
+  /* 🔴 09-03 改成可滚。原来写死 overflow:hidden，理由是「不滚的容器在 iOS 上会把
+     手势甩给文档去橡皮筋，整页跟着弹起来，底下露出一条底色不一样的带子」——
+     **那条 59px 的带子当天已经修掉了**（视口解卡，见 docs/导航栏-底部59px空带-交接单.md），
+     这个顾虑连同它一起退休。而不滚的代价是实打实的：她 09-03 截图里第 9 条「悔意」
+     整条溢出卡片、压在「他心里最近」那行字上。
+     overscroll-behavior:contain 保留：只吃掉链给文档的那一段，本页照常滚。 */
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
   padding:calc(env(safe-area-inset-top,50px) + 22px) 20px calc(var(--tabbar-space) + 14px);
 }
 /* 🔴 这一条不能省。上面给了 display:flex，它会盖掉 [hidden] 自带的
@@ -3054,7 +3092,12 @@ body.has-bg-letters #lettersPanel .letter-card {
 /* space-evenly：九条自己把中间那块地方均分掉，不用手算行高。
    min-height:0 是让 flex:1 在溢出时真的能收缩。 */
 #tabTidal .tide-dims{
-  flex:1; min-height:0; display:flex; flex-direction:column;
+  /* 🔴 min-height 不能是 0。flex:1 + min-height:0 允许这张卡被压得比它的内容还矮，
+     九条又不会跟着缩，于是最后一条直接溢出卡片、盖在下一节标题上（她 09-03 的截图）。
+     改成 min-content：地方够就照旧 space-evenly 摊开，地方不够就老实撑高，
+     由上面那层 overflow-y:auto 去滚。 */
+  flex:1 1 auto; min-height:min-content;
+  display:flex; flex-direction:column;
   justify-content:space-evenly; padding:6px 16px;
 }
 #tabTidal .tide-dim{
@@ -3181,10 +3224,12 @@ body.has-bg-letters #lettersPanel .letter-card {
    分寸：它在**每一条**回复上面，所以必须小、淡、一行、不抢正文。
    高度控制在 20px 上下，字号 11.5px——比时间戳还轻一点。 */
 .mood-line{
+  /* 🔴 09-03 改成两行：上一行「♥BPM · 忱的心绪 还好」，下一行才是百分比。
+     原来九样东西共用一个 flex-wrap，屏幕一窄就断在随机位置，糊成一大排。 */
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 9px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
   margin: 2px 0 8px;
   padding-left: 9px;
   border-left: 2px solid transparent;   /* 注入了才亮，见下面 is-injected */
@@ -3195,6 +3240,21 @@ body.has-bg-letters #lettersPanel .letter-card {
 /* 这一轮真的把心情作为倾向告诉他了 → 左边那道竖线亮起来。
    「什么都没塞」跟「塞了但你看不见」是两回事，她要一眼分得清。 */
 .mood-line.is-injected{ border-left-color: var(--study-accent, #C08279); }
+
+.mood-line-top{
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+}
+.mood-line-dims{
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px 9px;
+}
+/* 一条维度都没有时别留下一道空行 */
+.mood-line-dims:empty{ display: none; }
 
 .mood-line-label{
   font-family: var(--font-display);
