@@ -321,7 +321,19 @@
 
 :root {
   --tabbar-h: 56px;                       /* 导航栏内容高度，不含 safe-area */
-  --tabbar-space: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 34px));
+  /* 🔴 底部只让出 safe-area 减 22px，不是整份 34px。
+     09-03 20:51 视口解卡之后导航栏终于坐到 762..852，她说「下来一些了但还没完全
+     贴底」。量出来：图标+文字在 774..807，**下面空了 45px**（内容盒剩 11 + 整份
+     safe-area 34），上面只有 12 —— 整排看着被顶上去了。
+     34px 是给 home indicator 的余量，而 indicator 本身只是底部约 8px 高的一小条，
+     整份让出来底下就空一大截。这个道理 .composer-wrap 那边早就按
+     `calc(env(safe-area-inset-bottom,34px) - 22px)` 处理过了（见下面 body.in-chat
+     那段注释），导航栏一直漏着。公式跟它对齐，别让同一件事在两处有两个答案。
+     🔴 --tabbar-space 和 #tabBar 的 padding-bottom 必须用同一个变量：
+        前者还被 .tab-page 的 padding-bottom 和兜底 B 的 top:calc(100lvh - …) 用着，
+        两边不同步的话导航栏高度和它自己占的位置就对不上了。 */
+  --tabbar-safe: max(8px, calc(env(safe-area-inset-bottom, 34px) - 22px));
+  --tabbar-space: calc(var(--tabbar-h) + var(--tabbar-safe));
 }
 
 /* —— 底部导航栏 ——
@@ -338,7 +350,7 @@
   display: flex;
   align-items: stretch;
   height: var(--tabbar-space);
-  padding-bottom: env(safe-area-inset-bottom, 34px);
+  padding-bottom: var(--tabbar-safe);
   background: var(--bg-primary);
   border-top: 1px solid var(--border);
   transform: translateX(var(--drawer-x, 0px));

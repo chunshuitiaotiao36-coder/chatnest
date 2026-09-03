@@ -170,7 +170,7 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}textar
    高度由基线撑出来，内容一变高度就跳。
    「点一下导航栏就往上窜一截」是这个塌陷布局加上它当时还是 static 一起造成的。
    现在把它当成一个真正的组件来写：五等分、固定高度、玻璃底、激活态。 */
-#tabBar{position:fixed;left:0;right:0;bottom:0;z-index:81;display:flex;align-items:stretch;background:var(--bg-primary);border-top:1px solid var(--border);padding-bottom:env(safe-area-inset-bottom,34px)}
+#tabBar{position:fixed;left:0;right:0;bottom:0;z-index:81;display:flex;align-items:stretch;background:var(--bg-primary);border-top:1px solid var(--border);padding-bottom:var(--tabbar-safe,max(8px,calc(env(safe-area-inset-bottom,34px) - 22px)))}
 body.has-bg-light #tabBar,body.has-bg-dark #tabBar{background:var(--glass-panel-strong);border-top-color:var(--glass-line)}
 /* flex:1 1 0 —— 宽度跟文字内容彻底脱钩，「潮汐」和「Home」占一样宽；
    height 写死，红点显不显示、字体加载没加载，都不会让整条栏变高。 */
@@ -8405,7 +8405,7 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',syncAn
    让她的手机把数据直接摆出来。
    长按导航栏任意位置 1.2 秒弹出，点一下关掉，什么都不留。
    BUILD 那一行最要紧：一眼看出手机上跑的到底是不是最新那版，还是 PWA 缓存里的旧页面。 */
-const BUILD='2026-09-03 · 解卡待命 + 兜底B(lvh)';
+const BUILD='2026-09-03 · 导航栏底部留白收到 12px';
 
 function _tbDiag(){
   tbSnap('diag');   /* 补上最后一次点击沉淀之后的状态 */
