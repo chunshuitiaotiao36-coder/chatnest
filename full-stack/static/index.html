@@ -1650,10 +1650,47 @@ function attachmentCard(attachment,{pending=false,index=-1}={}){
 function renderPendingFiles(){const root=$('attachmentPreview');root.innerHTML='';state.pendingFiles.forEach((item,index)=>root.append(attachmentCard(item,{pending:true,index})));root.classList.toggle('hidden',!state.pendingFiles.length);updateSendButton()}
 function removePendingFile(index){const [removed]=state.pendingFiles.splice(index,1);if(removed?.preview)URL.revokeObjectURL(removed.preview);renderPendingFiles()}
 function clearPendingFiles(){state.pendingFiles.forEach(item=>item.preview&&URL.revokeObjectURL(item.preview));state.pendingFiles=[];renderPendingFiles();$('fileInput').value=''}
-function addSelectedFiles(files){
-  for(const file of files){
-    if(file.size>20*1024*1024){toast(`${file.name} 超过 20MB`);continue}
+/* 图片在**上传前**缩一次。
+   🔴 09-02 她报「一发图片就转半天，显示上一条在回复」。查下来图是原图直传
+      （前端零压缩、后端上限 60MB）：一张 iPhone 原图 3~5MB，上传慢、
+      模型 Read 慢、base64 进上下文更大，那一轮就长时间占着聊天锁，
+      她再发一条就撞上「上一条还在回」。
+   🔴 缩到 1600 不是随手定的：模型侧本来就会把图缩到 1568px 上下再看，
+      比这更大的像素一个都用不上，纯粹是白花的时间和钱。
+   🔴 缩不动就原样发（HEIC 之类 canvas 解不了的），绝不能因为压缩失败
+      让她发不出图。 */
+const IMG_MAX_EDGE=1600, IMG_QUALITY=0.85;
+function shrinkImage(file){
+  return new Promise(resolve=>{
+    if(!file.type.startsWith('image/')||file.type==='image/gif')return resolve(file);
+    const url=URL.createObjectURL(file);
+    const img=new Image();
+    img.onload=()=>{
+      try{
+        const {width:w,height:h}=img;
+        const scale=Math.min(1,IMG_MAX_EDGE/Math.max(w,h));
+        if(scale>=1&&file.size<=1024*1024){URL.revokeObjectURL(url);return resolve(file)}
+        const cv=document.createElement('canvas');
+        cv.width=Math.round(w*scale);cv.height=Math.round(h*scale);
+        cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+        cv.toBlob(blob=>{
+          URL.revokeObjectURL(url);
+          /* 压完反而更大就用原图——小图重编码经常这样 */
+          if(!blob||blob.size>=file.size)return resolve(file);
+          const name=file.name.replace(/\.(heic|heif|png|webp)$/i,'.jpg');
+          resolve(new File([blob],name,{type:'image/jpeg',lastModified:Date.now()}));
+        },'image/jpeg',IMG_QUALITY);
+      }catch(e){URL.revokeObjectURL(url);resolve(file)}
+    };
+    img.onerror=()=>{URL.revokeObjectURL(url);resolve(file)};
+    img.src=url;
+  });
+}
+async function addSelectedFiles(files){
+  for(const raw of files){
+    if(raw.size>20*1024*1024){toast(`${raw.name} 超过 20MB`);continue}
     if(state.pendingFiles.length>=10){toast('一次最多选择 10 个文件');break}
+    const file=await shrinkImage(raw);
     state.pendingFiles.push({file,name:file.name,size:file.size,mime:file.type,is_image:file.type.startsWith('image/'),preview:file.type.startsWith('image/')?URL.createObjectURL(file):''});
   }
   renderPendingFiles();
