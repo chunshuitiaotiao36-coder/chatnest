@@ -3624,7 +3624,31 @@ async function sendMessage(text,showUser=true,files=[],existingAttachments=[],op
   _chatAbort=controller;_activeMsg=null;
   try{
     const branchMode=!!(options.editMessageId||options.retryMessageId);
-    const attachments=branchMode?(existingAttachments||[]):(existingAttachments.length?existingAttachments:await uploadPendingFiles(files));
+    /* 🔴 上传期间把发送键切成「不可点」。根治上面那个竞态的另一半：
+       检查提前只是让作废时不留下假消息，这里是**先别让它作废**。
+       带图那一轮要等几秒上传，她看不到任何动静就会再点一次。 */
+    const _uploading=!branchMode&&!existingAttachments.length&&files&&files.length;
+    if(_uploading){send.disabled=true;send.setAttribute('aria-label','上传中')}
+    let attachments;
+    try{
+      attachments=branchMode?(existingAttachments||[]):(existingAttachments.length?existingAttachments:await uploadPendingFiles(files));
+    }finally{
+      if(_uploading){send.disabled=false;updateSendButton()}
+    }
+    /* 🔴 这道检查必须在 addUser **之前**。
+       _chatRunId 每次发送、每次「停止回复」都会 ++，让上一轮作废。
+       而带图那一轮要先 await uploadPendingFiles（几秒），她在这几秒里
+       再发一条或者点一下停止，这一轮就作废了——原来的顺序是先 addUser
+       画好 DOM、再检查、再静默 return，于是「消息明明在屏幕上，却从来
+       没离开过浏览器」。她 09-02 的原话：「好像压根就没发出去，因为我退出
+       对话再切进来就没有这两条了」。
+       连带的下游症状是「他复述上一句」：她那条带图的没送到，模型只收到
+       后面那句没有指代对象的话，不知道在说什么就把自己上一句重复了。
+       🔴 作废时把待发文件放回去，别让她重选一遍。 */
+    if(runId!==_chatRunId){
+      if(!branchMode&&files&&files.length)state.pendingFiles=files.slice();
+      return;
+    }
     if(showUser){
       await dismissEmpty();userRow=addUser(text,'',attachments);
       if(state.currentTitle==='新对话'){state.currentTitle=(text||attachments[0]?.name||'附件').slice(0,40);updateSessionHeader()}
