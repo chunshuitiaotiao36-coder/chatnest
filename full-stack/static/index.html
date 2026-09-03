@@ -8405,7 +8405,7 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',syncAn
    让她的手机把数据直接摆出来。
    长按导航栏任意位置 1.2 秒弹出，点一下关掉，什么都不留。
    BUILD 那一行最要紧：一眼看出手机上跑的到底是不是最新那版，还是 PWA 缓存里的旧页面。 */
-const BUILD='2026-09-03 · 解卡改成一直待命';
+const BUILD='2026-09-03 · 解卡待命 + 兜底B(lvh)';
 
 function _tbDiag(){
   tbSnap('diag');   /* 补上最后一次点击沉淀之后的状态 */
@@ -8871,8 +8871,13 @@ function tryUnstick(why){
     requestAnimationFrame(function(){
       var after=screen.height-innerHeight;
       _unstickBusy=false;
+      /* 🔴 兜底 B：解卡试过还是塌着，就把导航栏改成用 lvh 定位（CSS 在
+         design-system.css 末尾，@supports 守着）。09-03 19:54 实测：塌陷 300ms 之后
+         lvh 会自己修正成 852，而 innerHeight 还卡在 793——那时青条底边真的是 852。
+         解卡成功就把这个类摘掉，一切照旧，两条路不会互相打架。 */
+      document.body.classList.toggle('vp-stuck',after>1);
       window.__unstick='第'+_unstickTries+'次('+why+') '+(back?'已解卡':'超时')+' '+ms+'ms  '+
-        lost+'→'+after+(after<=1?'  ✓':'  ✗ 合上外壳又塌回去了');
+        lost+'→'+after+(after<=1?'  ✓':'  ✗ 仍塌，已切兜底 B(lvh 定位导航栏)');
     });
   })();
 }

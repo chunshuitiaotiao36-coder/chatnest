@@ -3240,3 +3240,25 @@ body.has-bg-letters #lettersPanel .letter-card {
 .mood-chip[data-dim="性欲"]{ --c:#DFA0AB }
 .mood-chip[data-dim="担忧"]{ --c:#DCAC72 }
 .mood-chip[data-dim="悔意"]{ --c:#A9A29A }
+
+
+/* ── 兜底 B：视口解不了卡时，用 lvh 把导航栏钉到真·屏幕底 ──────────────
+   只在 JS 确认「松开外壳也救不回来」时才挂 body.vp-stuck，解卡成功会摘掉。
+   见 index.html 的 tryUnstick() 和 docs/导航栏-底部59px空带-交接单.md。
+
+   为什么是 lvh：09-03 19:54 真机实测，塌陷 300ms 之后
+   `vh/svh/lvh/dvh = 852/793/852/793` —— dvh 跟着 innerHeight 塌在 793，
+   **lvh 自己修正回 852**，用 lvh 定位的那根测试条底边量出来就是 852。
+
+   🔴 必须用 @supports 守着。lvh 不支持时 calc() 整条声明作废，
+      配上 bottom:auto 会让这个 fixed 元素掉回静态位置——导航栏直接飘到屏幕中间
+      （e2b2ccc 那次 --tabbar-fix 就是这么翻的车）。
+   🔴 特异度 (1,1,1) 高于上面 #tabBar 的 (1,0,0)，不靠「谁写在后面」赌赢。
+   🔴 只改 top/bottom，不碰 transform —— translateX(--drawer-x) 是侧栏联动，
+      body.keyboard-open 的 translate 收起也照常生效（两者都是独立属性）。 */
+@supports (height: 100lvh) {
+  body.vp-stuck #tabBar {
+    top: calc(100lvh - var(--tabbar-space));
+    bottom: auto;
+  }
+}
