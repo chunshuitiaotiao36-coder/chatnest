@@ -747,6 +747,52 @@ async def auth_cookie(request: Request, authorization: str = Header(default=""))
 
 
 @app.post("/api/chat", dependencies=[Depends(require_auth)])
+def _run_life_act(act: dict, conv_id: str) -> dict | None:
+    """他在聊天途中自己决定发一条动态 / 写一封信。
+
+    她 09-02 的原话：「你不知道自己在哪，有哪些事可以做，那我做的寄相思和
+    朋友圈就都变成了让你表演给我看的作秀。」——这个函数就是那句话的答案：
+    路一直在（keepalive.py 早就以 author="elian" 写过），只是聊天途中的他
+    够不着。现在够得着了。
+
+    🔴 分寸沿用 keepalive.py 定好的那套，一个字都不改：
+       **都不推送。** 动态是她路过朋友圈才看见，信是她自己去书房开邮箱
+       才看见。推了就变成他追上去说「我发了」，这个功能的意思就没了。
+
+    🔴 绝不抛。这是他回话途中顺手做的一件事，写失败了也不能把她那条
+       回复打断——跟潮汐注入一个规矩。
+
+    返回给她的回执（前端画一行小字），失败或空内容返回 None。
+    """
+    kind = act.get("type")
+    content = str(act.get("content") or "").strip()
+    if not content:
+        logger.warning("[生活] %s 但 content 为空，跳过", kind)
+        return None
+    title = str(act.get("title") or "").strip()
+    try:
+        if kind == "letter":
+            new_id = store.create_letter(
+                author="elian", content=content, title=title,
+                cover_text="", locked=False,
+            )
+            logger.info("[生活] 他写了封信 id=%d conv=%s：%s", new_id, conv_id, content[:60])
+            return {"kind": "letter", "id": new_id, "title": title}
+        # moment
+        # reply_status="none"：他自己发的动态不需要他自己回。
+        # title 当 context_note 用——她看不见，是留给以后的他的线索，
+        # 跟 keepalive 那边一致。
+        new_id = store.create_moment(
+            author="elian", content=content,
+            context_note=title, reply_status="none",
+        )
+        logger.info("[生活] 他发了条动态 id=%d conv=%s：%s", new_id, conv_id, content[:60])
+        return {"kind": "moment", "id": new_id}
+    except Exception:  # noqa: BLE001
+        logger.exception("[生活] %s 写入失败，这一轮当没发生", kind)
+        return None
+
+
 async def chat(body: ChatBody) -> StreamingResponse:
     request_id = uuid4().hex[:12]
     request_started = perf_counter()
@@ -1021,6 +1067,17 @@ async def chat(body: ChatBody) -> StreamingResponse:
                     # 所以下面 tool_use 的 text_offset 和落库的都是干净的。
                     clean, acts = act_stripper.feed(chunk.get("text", ""))
                     for act in acts:
+                        # 🔴 「他自己的生活」那两件（发动态 / 写信）在**后端**落库，
+                        #    不往前端转：前端没有它们要做的事，而且这两件写的是
+                        #    她的库，必须由服务端来写。
+                        #    分寸沿用 keepalive.py 已经定好的那套：都不推送——
+                        #    动态是她路过朋友圈才看见，信是她自己开邮箱才看见。
+                        #    推了就变成他追上去说「我发了」，这个功能就没意义了。
+                        if isinstance(act, dict) and act.get("type") in ("moment", "letter"):
+                            done = _run_life_act(act, conv_id)
+                            if done:
+                                yield f"event: life_act\ndata: {json.dumps(done, ensure_ascii=False)}\n\n"
+                            continue
                         logger.info("[琴房] DJ 动作 conv=%s act=%s", conv_id, act)
                         # 语音那条顺手留一份给落库。一轮里他要是说了两句，
                         # 以最后一句为准——前端也是这么处理的（_voiceSay 直接覆盖）。

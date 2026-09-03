@@ -3614,7 +3614,7 @@ async function sendMessage(text,showUser=true,files=[],existingAttachments=[],op
        后端会等几秒再决定——这几秒里必须告诉她「在等上一条收尾」，否则又是一个
        不动的圈，跟卡死长得一模一样。除 queued 外的任何一帧到达 = 拿到锁了，
        统一在这里把那句提示撤掉，不用每个分支各写一遍。 */
-    const frame=f=>{if(runId!==_chatRunId)return;let event='',data='';f.split('\n').forEach(line=>{if(line.startsWith('event:'))event=line.slice(6).trim();if(line.startsWith('data:'))data+=line.slice(5).trim()});if(!event||!data)return;const d=JSON.parse(data);if(event==='queued'){showQueuedNote(msg,d);return}clearQueuedNote(msg);if(event==='conversation'){state.convId=d.conversation_id;state.legacySessionId=null;localStorage.setItem('chat_conversation',state.convId);localStorage.removeItem('chat_session');if(d.user_message_id&&userRow)userRow.dataset.msgId=d.user_message_id}if(event==='model')setActualModel(d.id);if(event==='thinking')msg.thinking(d.text||'');if(event==='delta'){_replyAcc+=d.text||'';msg.text(d.text||'')}if(event==='split'){_replyAcc+=SPLIT_MARK;msg.split()}if(event==='tool_use')msg.toolUse(d);if(event==='tool_result')msg.toolResult(d);if(event==='trace_summary')msg.traceSummary(d.text||'');if(event==='mood')moodAttach(msg&&msg.row,d);if(event==='piano_act'){if(d&&d.type==='voice'){_voiceSay=String(d.say||'')}else{pianoRunAct(d)}}if(event==='done'){state.convId=d.conversation_id||state.convId;localStorage.setItem('chat_conversation',state.convId);msg.finish();if(_voiceSay){const say=_voiceSay;_voiceSay='';voiceAttach(msg&&msg.row,say,{autoplay:true,transcript:true})}if(d.assistant_message_id&&msg?.row)msg.row.dataset.msgId=d.assistant_message_id;finished=true;
+    const frame=f=>{if(runId!==_chatRunId)return;let event='',data='';f.split('\n').forEach(line=>{if(line.startsWith('event:'))event=line.slice(6).trim();if(line.startsWith('data:'))data+=line.slice(5).trim()});if(!event||!data)return;const d=JSON.parse(data);if(event==='queued'){showQueuedNote(msg,d);return}clearQueuedNote(msg);if(event==='conversation'){state.convId=d.conversation_id;state.legacySessionId=null;localStorage.setItem('chat_conversation',state.convId);localStorage.removeItem('chat_session');if(d.user_message_id&&userRow)userRow.dataset.msgId=d.user_message_id}if(event==='model')setActualModel(d.id);if(event==='thinking')msg.thinking(d.text||'');if(event==='delta'){_replyAcc+=d.text||'';msg.text(d.text||'')}if(event==='split'){_replyAcc+=SPLIT_MARK;msg.split()}if(event==='tool_use')msg.toolUse(d);if(event==='tool_result')msg.toolResult(d);if(event==='trace_summary')msg.traceSummary(d.text||'');if(event==='mood')moodAttach(msg&&msg.row,d);if(event==='life_act')lifeAttach(msg&&msg.row,d);if(event==='piano_act'){if(d&&d.type==='voice'){_voiceSay=String(d.say||'')}else{pianoRunAct(d)}}if(event==='done'){state.convId=d.conversation_id||state.convId;localStorage.setItem('chat_conversation',state.convId);msg.finish();if(_voiceSay){const say=_voiceSay;_voiceSay='';voiceAttach(msg&&msg.row,say,{autoplay:true,transcript:true})}if(d.assistant_message_id&&msg?.row)msg.row.dataset.msgId=d.assistant_message_id;finished=true;
       /* 回完之后的钩子。琴房用它把这一轮记进这首歌的档案；
          🔴 绝不能让它抛出来打断这条流。 */
       if(options.onDone){try{options.onDone(_replyAcc)}catch(err){console.warn('onDone failed',err)}}}if(event==='error'){msg.fail(d.message);finished=true}};
@@ -3760,6 +3760,34 @@ function _voiceBubble(){
    两条渲染路径都要挂——流式那次由 SSE 的 mood 帧驱动，翻历史那次由
    store 里的 mood_json 驱动。只挂流式那一次的话，退出对话再进来这一行
    就没了（语音条踩过这个坑，她原话「怎么还是阅后即焚样式的」）。 */
+/* ---- 他自己做的事：发了条动态 / 写了封信 ------------------------------
+   🔴 这是**回执**，不是通知。她原话要的是「你知道自己可以发朋友圈」，
+      而 keepalive 那边早就定死了「动态和信都不推送」——推了就变成他
+      追上去说「我发了」。所以这里只在他这条回复底下留一行小字，
+      她看见就看见，点一下能过去，不看也不打扰。 */
+function lifeAttach(row,d){
+  if(!row||!d)return;
+  const kind=d.kind==='letter'?'letter':'moment';
+  const line=document.createElement('div');
+  line.className='life-note is-'+kind;
+  const icon=document.createElement('span');
+  icon.className='life-note-icon';
+  icon.innerHTML=kind==='letter'?'&#9993;':'&#9829;';
+  const txt=document.createElement('span');
+  txt.textContent=kind==='letter'
+    ? (d.title?`他写了封信 · ${d.title}`:'他写了封信')
+    : '他发了条动态';
+  line.append(icon,txt);
+  /* 🔴 直接点那两个入口按钮，不另写一套打开逻辑：它们的 onclick 上挂着
+     副作用（开寄相思会把「门口的信」标成已取、开朋友圈会先 loadFaces），
+     绕过去就会漏掉。 */
+  line.addEventListener('click',()=>{
+    const btn=$(kind==='letter'?'openLettersPanel':'openMomentsPanel');
+    if(btn)btn.click();
+  });
+  row.appendChild(line);
+  return line;
+}
 function moodAttach(row,badge){
   if(!row||!badge)return;
   row.querySelector(':scope > .mood-line')?.remove();   /* 幂等：重复挂不叠 */

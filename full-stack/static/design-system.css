@@ -3139,6 +3139,26 @@ body.has-bg-letters #lettersPanel .letter-card {
 }
 
 
+/* —— 他自己做的事：回执那一行 ——————————————————————————————
+   她要的是「他知道自己可以发朋友圈」，不是「他发了来通知她」。
+   所以这行必须**轻**：小、淡、在回复最底下，像一句脚注。
+   点一下能过去看，不看也不打扰。 */
+.life-note{
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 4px 10px 4px 8px;
+  border-radius: 999px;
+  background: var(--bg-chip, rgba(0,0,0,.04));
+  color: var(--text-faint);
+  font: 400 11.5px/1.5 var(--font-sans);
+  cursor: pointer;
+  transition: opacity 140ms ease;
+}
+.life-note:active{ opacity: .55; }
+.life-note-icon{ font-size: 10px; color: var(--study-accent, #C08279); }
+
 /* —— 忱的心绪：每条回复最上面那一行 ——————————————————————————————
    她的原话：「注入到 chat 里了会显示在回复中吗？**我不想要静默的**。
    我想在 thinking 上方……写明『忱的心绪：焦虑20%，委屈11%』」。
