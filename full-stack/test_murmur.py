@@ -147,6 +147,29 @@ def main():
         ok(sorted(badge["dims"], key=lambda d: -d["pct"])[0]["name"] == names[0]
            or True, "按超出底色排序")
 
+        # ── 倾向判据必须按「超出底色」算（施工单 §4.2） ──────────────
+        print("── 倾向判据：超出底色，不是绝对值 ──")
+        # 把 baselines 抬到跟当前状态一样高：超出量 = 0，一条倾向都不该命中。
+        # 用绝对值判据的话，担忧 0.3 仍然 >= 阈值，会照样注入。
+        _real_get = murmur._get
+
+        async def _fake_get(path, *a, **k):
+            if path == "/emotion/baselines":
+                st = await _real_get("/emotion/state")
+                return dict((st or {}).get("dimensions") or {})
+            return await _real_get(path, *a, **k)
+
+        murmur._get = _fake_get
+        try:
+            murmur._last_state = {}
+            blk, bdg = await murmur.mood_block("你在干嘛")
+            ok("做不做、说不说，由你" not in blk,
+               "底色抬到与现值齐平 → 一条倾向都不命中（不是恒真）")
+            ok(bdg and not bdg.get("dims"),
+               f"badge 也按超出底色算，没有条目（实到 {bdg.get('dims') if bdg else None}）")
+        finally:
+            murmur._get = _real_get
+
         # ── 晚安真的送到引擎 ────────────────────────────────────────
         print("── 晚安 → /emotion/sleep ──")
         await murmur.mood_block("我去睡了")

@@ -421,7 +421,13 @@ async def _mood_block(user_text: str) -> tuple[str, dict | None]:
     hints = []
     for name, thresh, text in INCLINATIONS:
         try:
-            if float(dims.get(name, 0)) >= thresh:
+            # 🔴 判据是「**超出底色**多少」，不是绝对值。施工单 §4.2：底色高的
+            #    维度上写 value > 阈值 会**恒真**（上游一天内踩了三次）。
+            #    现在九维底色都是 0，两种写法结果一样；但她哪天给「想念」设个
+            #    非零底色——异地本来就想——绝对值判据当场失真，而那种失真不会
+            #    报错，只会让他天天都在「想她」那一条上被牵着走。
+            #    潮汐页和 _badge() 早就按超出底色算了，这里跟它们对齐。
+            if float(dims.get(name, 0)) - float(baselines.get(name, 0) or 0) >= thresh:
                 hints.append(text)
         except (TypeError, ValueError):
             continue
