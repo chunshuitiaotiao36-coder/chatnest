@@ -194,6 +194,10 @@ def initialize_store() -> None:
                 cover_text TEXT NOT NULL DEFAULT '',
                 locked INTEGER NOT NULL DEFAULT 0,
                 lock_type TEXT NOT NULL DEFAULT 'none' CHECK(lock_type IN ('none', 'time', 'password', 'both')),
+                -- 只给写信的人自己看的备注。他给自己上锁时把明文密码记在这儿，
+                -- 否则 password_hash 是单向的，他事后想不起来自己设了什么。
+                -- 🔴 绝不进任何给她的响应，见上面迁移那段。
+                author_note TEXT NOT NULL DEFAULT '',
                 unlock_at TEXT,
                 password_hash TEXT,
                 created_at TEXT NOT NULL,
@@ -292,6 +296,19 @@ def initialize_store() -> None:
         }
         if letter_columns and "parent_id" not in letter_columns:
             db.execute("ALTER TABLE letters ADD COLUMN parent_id INTEGER")
+        # 🔴 09-03：他给自己上锁的信，密码只有他知道（她的想法：
+        #    「只有他知道密码，是他内心最私密的话，除非我软磨硬泡/他心软
+        #      就是真的锁上了不给看」）。
+        #    但 password_hash 存的是 sha256，他事后根本读不回原文——
+        #    她来磨他要密码，他想不起来，这个玩法当场就死了。
+        #    所以另存一份明文，只喂给他。
+        #    🔴 这一列**绝不能进任何给她的响应**：
+        #       list_letters / letter_detail 的 SELECT 都是列白名单，
+        #       没有它就出不去。加接口时别顺手 SELECT *。
+        if letter_columns and "author_note" not in letter_columns:
+            db.execute(
+                "ALTER TABLE letters ADD COLUMN author_note TEXT NOT NULL DEFAULT ''"
+            )
 
         # 08-19 红点漏了两类，补两列。原来只数「他发的动态」，于是他给她的
         # 动态留了评论、或者在评论链里回了她，外面一个红点都不亮——
@@ -1562,6 +1579,34 @@ def get_letter(letter_id: int) -> dict[str, Any] | None:
     return dict(row)
 
 
+def his_locked_letters(limit: int = 3) -> list[dict[str, Any]]:
+    """他自己上了密码锁、她还没打开的那几封——**连密码原文一起给他**。
+
+    🔴 为什么必须有：password_hash 是 sha256，单向的。她来磨他要密码时，
+       他读不回自己设的是什么，这个玩法当场就死了。author_note 存的就是
+       那份明文，只喂给他。
+
+    🔴 只取「他写的 + 带密码锁 + 还没被读过」这三样都成立的。
+       她一旦打开，这封就不再注入——不然会永远占着他的上下文。
+       时间锁不在此列：那种到点自己开，不需要他记着什么。
+    """
+    with _connect() as db:
+        rows = db.execute(
+            """
+            SELECT id, title, cover_text, author_note
+              FROM letters
+             WHERE author = 'elian'
+               AND locked = 1
+               AND lock_type IN ('password', 'both')
+               AND read_at IS NULL
+               AND author_note != ''
+             ORDER BY created_at DESC LIMIT ?
+            """,
+            (max(1, min(limit, 10)),),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
 def create_letter(
     author: str,
     content: str,
@@ -1572,14 +1617,18 @@ def create_letter(
     unlock_at: str | None = None,
     password_hash: str | None = None,
     parent_id: int | None = None,
+    author_note: str = "",
 ) -> int:
     """Create a letter. Returns the new letter id."""
     now = _now()
     with _connect() as db:
         cursor = db.execute(
-            """INSERT INTO letters(author, title, content, cover_text, locked, lock_type, unlock_at, password_hash, created_at, parent_id)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (author, title[:200], content, cover_text[:200], int(locked), lock_type, unlock_at, password_hash, now, parent_id),
+            """INSERT INTO letters(author, title, content, cover_text, locked, lock_type, unlock_at, password_hash, created_at, parent_id, author_note)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            # 🔴 列名 / 占位符 / 值**三处**都要数对。restore_branch 就是只改了
+            #    列名，变成「11 列 10 个值」，每次调用必抛（见 test_branch_restore.py）。
+            (author, title[:200], content, cover_text[:200], int(locked), lock_type,
+             unlock_at, password_hash, now, parent_id, (author_note or "")[:500]),
         )
         return int(cursor.lastrowid)
 

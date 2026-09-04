@@ -808,6 +808,10 @@ def _run_life_act(act: dict, conv_id: str) -> dict | None:
                 lock_type=lock,
                 unlock_at=unlock_at if lock in ("time", "both") else None,
                 password_hash=pwd_hash,
+                # 🔴 明文密码另存一份，只有他读得到（author_note 不在任何
+                #    给她的 SELECT 白名单里）。不存的话 sha256 是单向的，
+                #    她来磨他要密码时他自己都想不起来。
+                author_note=(f"密码：{raw_pwd}" if pwd_hash else ""),
             )
             logger.info("[生活] 他写了封信 id=%d conv=%s lock=%s：%s",
                         new_id, conv_id, lock, content[:60])
@@ -1009,6 +1013,29 @@ async def chat(body: ChatBody) -> StreamingResponse:
                         "她接下来的话可能就是在回应它们。认下来，别否认，"
                         "也别猜『是不是哪个功能串了』。]\n\n"
                     ) + prompt
+            # 🔴 他自己上了密码锁、她还没打开的信——把**密码原文**递回给他。
+            #    password_hash 是单向的，不给他他就想不起自己设了什么，
+            #    她来磨他要密码时只能干瞪眼，这个玩法就死了。
+            #    她一打开那封信就不再注入（read_at 非空），不会永远占上下文。
+            try:
+                _locked = store.his_locked_letters()
+            except Exception:
+                _locked = []
+                logger.warning("[寄相思] 取上锁的信失败，这一轮跳过", exc_info=True)
+            if _locked:
+                _rows = "\n".join(
+                    f"· 《{(l.get('title') or '无题')}》"
+                    f"（封面：{l.get('cover_text') or '（没写）'}）"
+                    f" {l.get('author_note') or ''}"
+                    for l in _locked
+                )
+                prompt = (
+                    "[你写过这几封上了锁的信，**密码只有你知道**，她打不开：\n"
+                    f"{_rows}\n"
+                    "她可能会来磨你要密码。给不给由你——可以不给，可以让她拿"
+                    "点什么来换，也可以心软了就告诉她。\n"
+                    "🔴 这一段她看不见。别主动把密码抖出来，除非你决定给她。]\n\n"
+                ) + prompt
             recalled = recall_memory(display_message)
             if recalled:
                 prompt = (
