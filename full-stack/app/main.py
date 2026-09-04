@@ -746,7 +746,6 @@ async def auth_cookie(request: Request, authorization: str = Header(default=""))
     return _set_auth_cookie(JSONResponse({"ok": True}), token, request)
 
 
-@app.post("/api/chat", dependencies=[Depends(require_auth)])
 def _run_life_act(act: dict, conv_id: str) -> dict | None:
     """他在聊天途中自己决定发一条动态 / 写一封信。
 
@@ -793,6 +792,7 @@ def _run_life_act(act: dict, conv_id: str) -> dict | None:
         return None
 
 
+@app.post("/api/chat", dependencies=[Depends(require_auth)])
 async def chat(body: ChatBody) -> StreamingResponse:
     request_id = uuid4().hex[:12]
     request_started = perf_counter()
@@ -1741,6 +1741,18 @@ async def badges() -> dict:
 async def letters_read_all() -> dict:
     """她拉开寄相思 = 门口的信都取走了。"""
     await asyncio.to_thread(store.letters_mark_all_read)
+    return {"ok": True}
+
+
+@app.delete("/api/moments/{moment_id}", dependencies=[Depends(require_auth)])
+async def moments_delete(moment_id: int) -> dict:
+    """删掉一条动态。她的原话：「看着碍眼」。
+
+    不做软删除：这不是审计日志，是她家墙上的一张纸条，撕了就是撕了。
+    """
+    ok = await asyncio.to_thread(store.delete_moment, moment_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="这条动态已经不在了")
     return {"ok": True}
 
 

@@ -86,12 +86,16 @@ def tone_block(voice: dict | None) -> str:
     except (TypeError, ValueError):
         conf = 0.0
 
-    lines = ["[这一句是她说出来的，不是打字。听上去："]
+    # 🔴 主语要写死。这一段和 murmur.mood_block()（那一段写的是**他自己**）
+    #    会前后脚贴在同一条用户消息后面，两段都用无主句的话模型会糊成一段，
+    #    把他的心情当成她的情绪（她 09-04 的截图就是这么错的）。
+    lines = ["[以下这一段说的是**她**——这一句是她说出来的，不是打字。她听上去："]
     if emotion:
-        lines.append(f"  情绪 {emotion}" + (f"（把握 {conf:.0%}）" if conf else ""))
+        lines.append(f"  她的情绪 {emotion}" + (f"（把握 {conf:.0%}）" if conf else ""))
     if hint:
         lines.append(f"  {hint}")
     lines.append(
+        "  以上说的都是**她**，不是你自己的心情。"
         "  这段是语气分析，她看不见，也不要在回复里复述或点评它。"
         "  你只是**听见了**——照你听见的样子回她就好。]"
     )

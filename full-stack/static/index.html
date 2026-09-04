@@ -170,7 +170,7 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}textar
    高度由基线撑出来，内容一变高度就跳。
    「点一下导航栏就往上窜一截」是这个塌陷布局加上它当时还是 static 一起造成的。
    现在把它当成一个真正的组件来写：五等分、固定高度、玻璃底、激活态。 */
-#tabBar{position:fixed;left:0;right:0;bottom:0;z-index:81;display:flex;align-items:stretch;background:var(--bg-primary);border-top:1px solid var(--border);padding-bottom:env(safe-area-inset-bottom,34px)}
+#tabBar{position:fixed;left:0;right:0;bottom:0;z-index:81;display:flex;align-items:stretch;background:var(--bg-primary);border-top:1px solid var(--border);padding-bottom:var(--tabbar-safe,max(8px,calc(env(safe-area-inset-bottom,34px) - 22px)))}
 body.has-bg-light #tabBar,body.has-bg-dark #tabBar{background:var(--glass-panel-strong);border-top-color:var(--glass-line)}
 /* flex:1 1 0 —— 宽度跟文字内容彻底脱钩，「潮汐」和「Home」占一样宽；
    height 写死，红点显不显示、字体加载没加载，都不会让整条栏变高。 */
@@ -817,7 +817,7 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
       <div class="profile-title" id="loreEditTitle">条目</div>
       <button class="profile-save-button" id="loreSave" aria-label="保存">✓</button>
     </header>
-    <section class="profile-section">
+    <section class="profile-section" id="loreHeadSection">
       <div class="profile-card">
         <div id="loreNameRow"><label class="profile-name-row"><span class="profile-name-label">名称</span><input class="profile-name-input" id="loreName" autocomplete="off" placeholder="这条叫什么"></label>
         <div class="profile-divider"></div></div>
@@ -825,7 +825,7 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
       </div>
     </section>
     <section class="profile-section">
-      <div class="profile-section-title">内容</div>
+      <div class="profile-section-title" id="loreContentTitle">内容</div>
       <div class="profile-card"><textarea class="profile-memory-textarea" id="loreContent" placeholder="要常驻注入的规矩或设定"></textarea></div>
     </section>
     <section class="profile-section" id="loreTriggerSection">
@@ -1221,7 +1221,7 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
        她要看第三块得先滚过前两块。 -->
   <div class="study-hero">
     <div class="study-hero-names">
-      <span>Elian</span><span class="study-hero-heart">♡</span><span>Seren</span>
+      <span>Elian</span><span class="study-hero-heart">♡</span><span>Cerys</span>
     </div>
     <div class="study-hero-names-cn">
       <span>忱</span><span class="study-hero-heart">♡</span><span>朵</span>
@@ -3544,7 +3544,75 @@ function initSheetDrag(el,closeSelector,onClose){
 }
 initSheetDrag($('thoughtSheet'),'#closeThought',()=>{delete $('thoughtSheet').dataset.live});
 initSheetDrag($('modelSheet'),'#closeModel',()=>{_modelPage='main'});
-async function recoverAfterBreak(msg,convId,failText,isActive=()=>true){if(!msg)return;if(!convId){if(isActive())msg.fail(failText);return}await new Promise(r=>setTimeout(r,1500));if(!isActive())return;try{const r=await api(`/api/sessions/${encodeURIComponent(convId)}/messages`);if(!r.ok)throw 0;const data=await r.json();if(!isActive())return;const list=data.messages||[];const last=[...list].reverse().find(m=>m.role==='assistant');if(!last||!(last.text||'').trim())throw 0;if(last.thinking)msg.thinking(last.thinking);msg.text(last.text);msg.finish()}catch{if(isActive())msg.fail(failText)}}
+/* 断线之后去库里把这一轮真正落库的回复捞回来。
+
+   🔴 09-03 修：原来是 `[...list].reverse().find(m=>m.role==='assistant')` ——
+      捞的是**整个会话最后一条**助手消息，一个字都不检查它是不是这一轮的。
+      于是这一轮但凡没落库（/api/chat 报错、流当场断），它就把**上一轮的回复
+      原样画进新气泡**，还 msg.finish() 装成正常收尾。
+
+      这就是「发图后回复复述上一句」的真凶，模型从头到尾没复述过。对得上：
+        · 她 09-02「与上一轮回复逐字相同」——逐字相同是前端拷贝，不是模型重说
+        · 「退出对话再切进来就没有这两条了」——因为压根没落库
+      那份交接单往 stop_reason / resume / base64 体积上追了一整天，方向错了。
+
+   🔴 新判据：只认**比这一轮的用户消息更新**的那条。
+      userMsgId 由 `conversation` 帧写在 userRow.dataset.msgId 上；
+      连它都没有 = 这一轮连用户消息都没落库 = 没什么可捞的，老老实实报错。
+      真·网络中断但后端已经写完的那种情况不受影响：那时 id 一定更大。 */
+function _recoverNote(msg,text){
+  const row=msg&&msg.row; if(!row)return;
+  let el=row.querySelector('.queued-note');
+  if(!el){el=document.createElement('div');el.className='queued-note';
+    const md=row.querySelector('.md'); if(md)md.before(el); else row.append(el);}
+  el.textContent=text;
+}
+/* 断线之后去库里把这一轮真正落库的回复捞回来。
+
+   🔴 只认**比这一轮的用户消息更新**的那条（09-03 修）。原来捞的是整个会话最后
+      一条助手消息，这一轮没落库时就把上一轮的回复原样画进新气泡还装成正常收尾
+      ——那才是「发图后回复复述上一句」的真凶，不是模型在复述。
+
+   🔴 连接断了不代表后端停了（09-04 修）。她的原话：「显示连接意外结束，但是你
+      其实是回我了但我看不见，我怎么知道的呢，因为再问一句你会回答出那一轮
+      『意外结束』的话」——后端一直在写，只是我们等了 1.5 秒查一次就放弃了。
+      改成盯着查，最长约 70 秒。
+   🔴 只有第一次查是 await 的。剩下的轮询**故意不 await**：调用它的
+      finally 要靠这次返回去把 state.busy 放掉，一直 await 下去她 70 秒发不出话。
+      松开锁之后她一旦发新消息 runId 就变，isActive() 立刻为假，轮询自己停。 */
+async function recoverAfterBreak(msg,convId,failText,isActive=()=>true,userMsgId=''){
+  if(!msg)return;
+  const uid=Number(userMsgId||0);
+  if(!convId||!uid){if(isActive())msg.fail(failText);return}
+  const tryOnce=async()=>{
+    try{
+      const r=await api(`/api/sessions/${encodeURIComponent(convId)}/messages`);
+      if(!r.ok)return false;
+      const data=await r.json();
+      if(!isActive())return true;          /* 已作废，当成「不用再查了」 */
+      const list=data.messages||[];
+      const last=[...list].reverse().find(m=>m.role==='assistant'&&Number(m.id||0)>uid);
+      if(!last||!(last.text||'').trim())return false;
+      clearQueuedNote(msg);
+      if(last.thinking)msg.thinking(last.thinking);
+      msg.text(last.text);msg.finish();
+      return true;
+    }catch{ return false }
+  };
+  await new Promise(r=>setTimeout(r,1500));
+  if(!isActive())return;
+  if(await tryOnce())return;
+  (async()=>{
+    for(const w of [2500,4000,6000,8000,12000,16000,20000]){
+      if(!isActive())return;
+      _recoverNote(msg,'连接断了，正在等他把这一轮写完…');
+      await new Promise(r=>setTimeout(r,w));
+      if(!isActive())return;
+      if(await tryOnce())return;
+    }
+    if(isActive()){clearQueuedNote(msg);msg.fail(failText)}
+  })();
+}
 
 function showQueuedNote(msg,d){
   const row=msg&&msg.row; if(!row)return;
@@ -3669,7 +3737,7 @@ async function sendMessage(text,showUser=true,files=[],existingAttachments=[],op
     if(_lastVoiceTone){body.voice=_lastVoiceTone;_lastVoiceTone=null;}
     const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${state.token}`},body:JSON.stringify(body),signal:controller.signal});
     if(runId!==_chatRunId)return;
-    if(r.status===401){showGate();throw Error('登录已失效')}if(!r.ok||!r.body){const detail=await r.json().catch(()=>({}));throw Error(detail.detail||'请求失败')}
+    if(r.status===401){showGate();throw Error('登录已失效')}if(!r.ok||!r.body){const payload=await r.json().catch(()=>({}));const d=payload.detail;/* 🔴 带上状态码 + 把 detail 摊平。原来直接拼 detail.detail，遇上 FastAPI 的 422   （detail 是一个数组，每项 {loc,msg,type}）会拼成「[object Object]」——   09-03 她截图就是这样，白丢一轮。数组/对象一律转成人能读的一行。 */const say=typeof d==='string'?d:(Array.isArray(d)?d.map(x=>((x&&x.loc||[]).join('.')+' '+(x&&x.msg||''))).join('；'):(d?JSON.stringify(d):''));throw Error((say||'请求失败').slice(0,300)+'（HTTP '+r.status+'）')}
     const reader=r.body.getReader(),decoder=new TextDecoder();let buffer='',finished=false,_replyAcc='';
     /* queued：后端在排队等 chat_lock。她的重发几乎都发生在 abort 之后那一瞬间，
        后端会等几秒再决定——这几秒里必须告诉她「在等上一条收尾」，否则又是一个
@@ -3681,8 +3749,8 @@ async function sendMessage(text,showUser=true,files=[],existingAttachments=[],op
       if(options.onDone){try{options.onDone(_replyAcc)}catch(err){console.warn('onDone failed',err)}}}if(event==='error'){msg.fail(d.message);finished=true}};
     while(true){if(runId!==_chatRunId)return;const{value,done}=await reader.read();buffer+=decoder.decode(value||new Uint8Array(),{stream:!done});const parts=buffer.split(/\r?\n\r?\n/);buffer=parts.pop()||'';parts.forEach(frame);if(done)break}
     if(runId!==_chatRunId)return;
-    if(buffer.trim())frame(buffer);if(!finished)await recoverAfterBreak(msg,state.convId,'连接意外结束，请重试。',()=>runId===_chatRunId)
-  }catch(e){if(runId!==_chatRunId)return;if(e.name==='AbortError'){if(msg&&msg.row?.classList.contains('streaming'))msg.finish()}else if(msg)await recoverAfterBreak(msg,state.convId,e.message||'连接失败，请稍后重试。',()=>runId===_chatRunId);else toast(e.message||'文件上传失败')}
+    if(buffer.trim())frame(buffer);if(!finished)await recoverAfterBreak(msg,state.convId,'连接意外结束，请重试。',()=>runId===_chatRunId,userRow?.dataset?.msgId||'')
+  }catch(e){if(runId!==_chatRunId)return;if(e.name==='AbortError'){if(msg&&msg.row?.classList.contains('streaming'))msg.finish()}else if(msg)await recoverAfterBreak(msg,state.convId,e.message||'连接失败，请稍后重试。',()=>runId===_chatRunId,userRow?.dataset?.msgId||'');else toast(e.message||'文件上传失败')}
   finally{if(runId===_chatRunId){_chatAbort=null;_activeMsg=null;state.busy=false;updateSendButton()}}
 }
 /* --- Web Push 订阅（砖 1）---
@@ -3854,29 +3922,36 @@ function moodAttach(row,badge){
   row.querySelector(':scope > .mood-line')?.remove();   /* 幂等：重复挂不叠 */
   const line=document.createElement('div');
   line.className='mood-line';
+  /* 🔴 09-03 她定的排法：第一行「♥BPM · 忱的心绪 还好」，百分比**整体换到第二行**。
+     原来九样东西全塞在同一个 flex-wrap 里，宽度一变就断在随机位置，一大排很乱。
+     拆成两个容器，断行的位置就固定了；顺序也按她说的来——心率在最前面。 */
+  const top=document.createElement('div');top.className='mood-line-top';
+  const dims=document.createElement('div');dims.className='mood-line-dims';
+  line.append(top,dims);
+
+  /* 心率排在最前。取不到就不画这一格，不编假数字。
+     ♥ 用跟潮汐页同一个符号和同一套 tabular-nums，两处对得上。 */
+  const hr=Number(badge.heartrate);
+  if(badge.ok!==false&&Number.isFinite(hr)&&hr>0){
+    const h=document.createElement('span');
+    h.className='mood-hr';
+    h.innerHTML='<span class="mood-hr-heart">&#9829;</span>'+Math.round(hr)+'<span class="mood-hr-u">BPM</span>';
+    top.append(h);
+  }
   const label=document.createElement('span');
   label.className='mood-line-label';label.textContent='忱的心绪';
-  line.append(label);
+  top.append(label);
 
   if(badge.ok===false){
     const e=document.createElement('span');
     e.className='mood-line-mood is-off';
     e.textContent=badge.error||'没连上';
-    line.append(e);
+    top.append(e);
   }else{
     if(badge.mood){
       const m=document.createElement('span');
       m.className='mood-line-mood';m.textContent=badge.mood;
-      line.append(m);
-    }
-    /* 心率：她要求这一行也显示。取不到就不画这一格，不编假数字。
-       ♥ 用跟潮汐页同一个符号和同一套 tabular-nums，两处对得上。 */
-    const hr=Number(badge.heartrate);
-    if(Number.isFinite(hr)&&hr>0){
-      const h=document.createElement('span');
-      h.className='mood-hr';
-      h.innerHTML='<span class="mood-hr-heart">&#9829;</span>'+Math.round(hr)+'<span class="mood-hr-u">BPM</span>';
-      line.append(h);
+      top.append(m);
     }
     (Array.isArray(badge.dims)?badge.dims:[]).forEach(d=>{
       const name=String(d&&d.name||'');
@@ -3891,7 +3966,7 @@ function moodAttach(row,badge){
       chip.dataset.dim=name;
       chip.textContent=`${name} ${pct}%`;
       if(d&&d.moved)chip.title='这一维现在高出他平时的底色——今天真的动了';
-      line.append(chip);
+      dims.append(chip);
     });
     /* 这一轮到底有没有影响他说话。有的话左边那道竖线亮起来——
        「什么都没塞」跟「塞了但你看不见」是两回事，她要分得清。 */
@@ -4522,7 +4597,14 @@ let profileState=blankProfile(),profileDraft=blankProfile(),profileDirty=false;
 function cloneProfile(p){return JSON.parse(JSON.stringify(p||blankProfile()))}
 function profileId(){return crypto.randomUUID?crypto.randomUUID():'m_'+Date.now().toString(36)+Math.random().toString(36).slice(2)}
 function normalizeProfileClient(p){p=p&&typeof p==='object'?p:{};const prefs=p.preferences&&typeof p.preferences==='object'?p.preferences:{};const importState=p.claudeExportImport&&typeof p.claudeExportImport==='object'?p.claudeExportImport:{};return{fullName:String(p.fullName||''),nickname:String(p.nickname||''),savedMemories:(Array.isArray(p.savedMemories)?p.savedMemories:[]).map(x=>{const item={id:String(x.id||profileId()),content:String(x.content||''),enabled:x.enabled!==false,source:['manual','claude_export','migration'].includes(x.source)?x.source:'manual',createdAt:Number(x.createdAt)||Date.now(),updatedAt:Number(x.updatedAt)||Date.now()};if(x.importedAt)item.importedAt=Number(x.importedAt)||Date.now();if(x.externalId)item.externalId=String(x.externalId);return item}).filter(x=>x.content.trim()).slice(0,200),preferences:{enabled:prefs.enabled!==false,content:String(prefs.content||'')},claudeExportImport:{checkedAt:Number(importState.checkedAt)||0,importedAt:Number(importState.importedAt)||0,importedCount:Number(importState.importedCount)||0,foundCount:Number(importState.foundCount)||0},updatedAt:p.updatedAt||Date.now()}}
-function setProfileDirty(v=true){profileDirty=v;document.querySelectorAll('.profile-save-button').forEach(b=>b.disabled=!profileDirty)}
+/* 🔴 只管 Profile 自己那三颗保存键。原来写的是
+   `document.querySelectorAll('.profile-save-button')` —— 把**整个页面**上所有
+   同类按钮一起禁掉了，包括调性编辑页的那个 ✓。而调性跟 Profile 的脏标记毫无关系，
+   也没有任何地方再把它打开：她一进 Home，profile 渲染一次就调 setProfileDirty(false)，
+   ✓ 从此永远是灰的，语气偏好写好了也存不进去（她 09-04 的截图）。
+   要禁就点名禁，别用类名扫一片。 */
+const _PROFILE_SAVE_BTNS=['profileSave','profileSaveMemories','profileSavePreferences'];
+function setProfileDirty(v=true){profileDirty=v;_PROFILE_SAVE_BTNS.forEach(id=>{const b=$(id);if(b)b.disabled=!profileDirty})}
 /* Home 的页栈。加页只要往这个数组里加 id，别再各写各的 toggle。 */
 const _PROFILE_PAGES=['profileHome','profileDetailPage','relayPage','usagePage','appearancePage','savedMemoriesPage','preferencesPage','lorebookPage','loreEditPage','loreImportPage'];
 /* 每页离开时记住滚到哪儿，回来时还原——从详情返回首页要回到原来的位置，
@@ -4623,7 +4705,20 @@ function renderLoreList(){
   $('loreTabHint').textContent = tone
     ? `${items.length} 条 · 自动编入提示词`
     : `${items.length} 条 · 强制注入`;
-  if(!items.length){list.innerHTML='<div class="profile-empty">'+(tone?'还没有语气偏好':'还没有条目')+'</div>';return}
+  /* 调性照 Polaris：添加入口是接在列表末尾的一个虚线框，不是页面底下那颗黑按钮。
+     空的时候也只留那个框——「还没有语气偏好」再说一遍是废话，框本身就说明了。 */
+  $('loreAdd').hidden=tone;
+  $('loreImportOpen').classList.toggle('is-quiet',tone);
+  const toneAdd=()=>{
+    const b=document.createElement('button');
+    b.type='button';b.className='tone-add';b.textContent='添加语气偏好…';
+    b.onclick=()=>openLoreEdit(null);
+    list.append(b);
+  };
+  if(!items.length){
+    if(tone){toneAdd();return}
+    list.innerHTML='<div class="profile-empty">还没有条目</div>';return;
+  }
   items.forEach(e=>{
     const row=document.createElement('div');
     row.className=(tone?'tone-card':'profile-memory-card lore-card')+(e.enabled?'':' is-off');
@@ -4649,6 +4744,7 @@ function renderLoreList(){
     }
     list.append(row);
   });
+  if(tone)toneAdd();
 }
 async function deleteLoreEntry(id){
   try{
@@ -4685,7 +4781,6 @@ function openLoreEdit(entry){
     always_on:_loreTab==='tone',keywords:[],use_regex:false,case_sensitive:false,
     scan_depth:5,position:'system_before',role:'user',priority:100
   };
-  $('loreEditTitle').textContent=entry?'编辑条目':(_loreTab==='tone'?'新的调性':'新的世界书条目');
   $('loreName').value=_loreEditing.name||'';
   $('loreContent').value=_loreEditing.content||'';
   $('loreKeywords').value=(_loreEditing.keywords||[]).join('，');
@@ -4705,6 +4800,14 @@ function openLoreEdit(entry){
   $('loreNameRow').hidden=simple;
   $('loreEnabledRow').hidden=simple;
   $('loreMetaSection').hidden=simple;
+  /* 🔴 「名称」和「启用」是同一张 .profile-card 里仅有的两样东西，调性下两个都藏了，
+     只藏它们会在页顶留下一张**空的灰卡片**。要藏就连外面那一节一起藏。 */
+  $('loreHeadSection').hidden=simple;
+  /* 调性这一页从头到尾只有一个框，措辞也别再说「内容 / 常驻注入的规矩」——
+     那是世界书的说法，会让人以为还有别的档要填。 */
+  $('loreContentTitle').textContent=simple?'语气偏好':'内容';
+  $('loreContent').placeholder=simple?'写一条语气偏好，一句话就够……':'要常驻注入的规矩或设定';
+  $('loreEditTitle').textContent=simple?'语气偏好':(entry?'编辑条目':'新的世界书条目');
   $('loreDelete').hidden=!entry;
   if(!simple)renderLorePositions();
   showProfilePage('loreEditPage');
@@ -4717,6 +4820,7 @@ $('openLorebookDetail').onclick=()=>{showProfilePage('lorebookPage');loadLoreboo
 $('profileBackFromLorebook').onclick=()=>showProfilePage('profileHome');
 $('profileBackFromLoreEdit').onclick=()=>showProfilePage('lorebookPage');
 $('loreSave').onclick=async()=>{
+  if(!$('loreContent').value.trim()){toast('写点什么再保存');return}
   const kind=_loreEditing.kind||'lore';
   const simple=kind==='tone';
   const payload={
@@ -5510,6 +5614,7 @@ function momentCardHtml(m){
     <div class="moment-actions">
       ${mine?heLiked:`<button class="moment-act${sheLiked}" data-act="like" data-id="${m.id}">♥ ${m.xiaoduo_liked?'已赞':'赞'}</button>`}
       <button class="moment-act" data-act="cmt" data-id="${m.id}">💬 说点什么</button>
+      <button class="moment-act moment-act-del" data-act="del" data-id="${m.id}">删除</button>
     </div>
     ${waiting}
     <div class="moment-thread">${cmts.join('')}</div>
@@ -5714,6 +5819,30 @@ $('momentsList').addEventListener('click',async(e)=>{
       btn.classList.toggle('liked',on);
       btn.textContent=`♥ ${on?'已赞':'赞'}`;
       try{await api(`/api/moments/${id}/like`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({liked:on})})}catch(err){}
+      return;
+    }
+    /* 删除要两下：第一下把按钮变成「确定删除？」，第二下才真删，3.5 秒没动就自己缩回去。
+       🔴 不用 confirm()——PWA 里那个系统弹窗会把整页事件卡住；也不另开一个确认浮层，
+          删一条动态不值得为它加一层 UI。两段式点按已经够拦住手滑了。 */
+    if(btn.dataset.act==='del'){
+      if(!btn.classList.contains('is-armed')){
+        btn.classList.add('is-armed');btn.textContent='确定删除？';
+        clearTimeout(btn._t);
+        btn._t=setTimeout(()=>{btn.classList.remove('is-armed');btn.textContent='删除'},3500);
+        return;
+      }
+      clearTimeout(btn._t);
+      btn.disabled=true;btn.textContent='删除中…';
+      try{
+        const r=await api(`/api/moments/${id}`,{method:'DELETE'});
+        if(!r.ok)throw Error();
+        btn.closest('.moment-card')?.remove();
+        toast('已删除');
+        loadMoments();refreshBadges();
+      }catch(err){
+        btn.disabled=false;btn.classList.remove('is-armed');btn.textContent='删除';
+        toast('删除失败');
+      }
       return;
     }
     if(btn.dataset.act==='cmt'){
@@ -8389,7 +8518,7 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',syncAn
    让她的手机把数据直接摆出来。
    长按导航栏任意位置 1.2 秒弹出，点一下关掉，什么都不留。
    BUILD 那一行最要紧：一眼看出手机上跑的到底是不是最新那版，还是 PWA 缓存里的旧页面。 */
-const BUILD='2026-09-03 · 死区底色退回 + vptest 定归属';
+const BUILD='2026-09-04 · 调性能存了 + hidden 生效';
 
 function _tbDiag(){
   tbSnap('diag');   /* 补上最后一次点击沉淀之后的状态 */
@@ -8471,6 +8600,7 @@ function _tbDiag(){
      少掉一大截 = 键盘把视口压小了还没还回来；焦点那行会指出是谁占着不放。 */
   const _lost=Math.round(screen.height-document.documentElement.clientHeight);
   out.push('屏幕高-布局视口高      '+_lost+'   ← 接近 0 才正常，几百 = 被键盘吃了');
+  out.push('视口解卡            '+(window.__unstick||'（还没跑）'));
   const _ae=document.activeElement;
   out.push('当前焦点             '+(_ae?(_ae.id||_ae.tagName):'(无)')+
            (_ae&&_ae!==document.body?'   visibility='+getComputedStyle(_ae).visibility:'')+
@@ -8791,6 +8921,88 @@ function switchTab(name){
 /* 点完把焦点从 <button> 上摘掉：iOS 上点击会给 button 焦点，
    留着它既可能触发 scrollIntoView（施工单 4.3），也让下一次判断变脏。 */
 document.querySelectorAll('#tabBar .tab-item').forEach(t=>{t.addEventListener('click',()=>{switchTab(t.dataset.tab);t.blur()})});
+
+/* ───────── iOS PWA 冷启动：视口塌 59px 的根因解卡 ─────────
+   🔴 09-03 19:54 真机实测（vptest 套上小窝这层外壳跑的，冻住的数，
+      全过程没碰屏幕。见 docs/导航栏-底部59px空带-交接单.md）：
+
+     第一段 · 小窝外壳 html,body{height:100%} + body{height:100dvh;overflow:hidden}
+       t=0 / 第1帧 / 300ms / 800ms / 1400ms   innerHeight 全是 793，红条底边全是 793
+       ⇒ 文档不能滚的时候，innerHeight **永远不归位**
+     第二段 · 1500ms 当场放开滚动（scrollHeight 793→1011）
+       放开+300ms   innerHeight=852，红条底边 852
+       ⇒ 一让文档可滚，300ms 内它自己就回来了
+
+   所以交接单第一节那句「只有真实触摸能让它归位、改代码永远修不好」是错的：
+   拦住归位的是小窝自己这层 overflow:hidden 外壳。空白页会自愈，就因为它能滚。
+   这里在启动那一下先把外壳松开，等 innerHeight 追上 screen.height 再合回去。
+
+   守卫三层，任何一层不满足就一个字节都不动：
+     1. 只在 standalone（PWA）里跑——Safari / iPad / 电脑上都没这毛病（她 09-03 确认）
+     2. 只在**确实塌了、而且塌的量就是刘海那一档**（1 < 差 <= 80）时跑。
+        iPad 分屏那种 innerHeight 天然小几百的情况不会命中。
+     3. 2.5 秒兜底：无论回没回来都把外壳合上，绝不把 app 永久留在可滚状态。
+   合上之后再看一眼会不会又塌回去，结果记在 window.__unstick，
+   长按导航栏的诊断面板有一行「视口解卡」直接显示，别再靠猜。 */
+/* 🔴 09-03 20:37 修：上一版只在**启动那一瞬间**查一次，被键盘撞掉了。
+   她的诊断表：`chats< … focus=gateInput  ih=600`——登录框自动聚焦，键盘弹起来，
+   那一刻 screen.height-innerHeight = 252，我的守卫判成「不是刘海那一档」直接跳过；
+   等键盘收了、视口塌回 793，解卡已经不看了。面板上那行写的就是
+   「跳过（矮了 252px，不是刘海那一档）」——判据本身没错，错在只查一次。
+   改成**一直待命**：boot / resize / visualViewport.resize / focusout / pageshow /
+   回到前台，任何一次条件成立就动手。条件不成立时不再沉默，把当前状态写进
+   window.__unstick，诊断面板那行永远说得出它在等什么。 */
+var _unstickTries=0,_unstickBusy=false;
+function tryUnstick(why){
+  if(_unstickBusy)return;
+  var pwa=(navigator.standalone===true)||matchMedia('(display-mode:standalone)').matches;
+  if(!pwa){window.__unstick='跳过（不是 PWA）';return}
+  var lost=screen.height-innerHeight;
+  if(lost<=1){window.__unstick=(_unstickTries?'已解卡，待命中':'待命（视口本来就是满的）')+'（试过 '+_unstickTries+' 次）';return}
+  /* 矮几百 = 键盘或别的东西占着，不是这个毛病。等它让开，别动。 */
+  if(lost>80){window.__unstick='待命（现在矮 '+lost+'px，键盘之类占着，等它让开）';return}
+  if(_unstickTries>=6){window.__unstick='放弃（试了 6 次仍塌 '+lost+'px）';return}
+  _unstickBusy=true;_unstickTries++;
+  var de=document.documentElement,b=document.body;
+  var save={deH:de.style.height,bH:b.style.height,bMin:b.style.minHeight,bOv:b.style.overflow};
+  /* 🔴 撑高的这块必须比视口高出一大截：小窝的子元素几乎全是 position:fixed，
+     不在正常流里。只给 min-height:100dvh 的话 scrollHeight 恰好等于视口高，
+     文档照样不可滚，这一整段就白做。 */
+  var pad=document.createElement('div');
+  pad.style.cssText='height:1200px;visibility:hidden;pointer-events:none';
+  de.style.height='auto';b.style.height='auto';
+  b.style.minHeight='100dvh';b.style.overflow='visible';
+  b.appendChild(pad);
+  var t0=Date.now();
+  (function wait(){
+    var back=(screen.height-innerHeight)<=1;
+    if(!back&&Date.now()-t0<2500){requestAnimationFrame(wait);return}
+    pad.remove();
+    de.style.height=save.deH;b.style.height=save.bH;
+    b.style.minHeight=save.bMin;b.style.overflow=save.bOv;
+    var ms=Date.now()-t0;
+    requestAnimationFrame(function(){
+      var after=screen.height-innerHeight;
+      _unstickBusy=false;
+      /* 🔴 兜底 B：解卡试过还是塌着，就把导航栏改成用 lvh 定位（CSS 在
+         design-system.css 末尾，@supports 守着）。09-03 19:54 实测：塌陷 300ms 之后
+         lvh 会自己修正成 852，而 innerHeight 还卡在 793——那时青条底边真的是 852。
+         解卡成功就把这个类摘掉，一切照旧，两条路不会互相打架。 */
+      document.body.classList.toggle('vp-stuck',after>1);
+      window.__unstick='第'+_unstickTries+'次('+why+') '+(back?'已解卡':'超时')+' '+ms+'ms  '+
+        lost+'→'+after+(after<=1?'  ✓':'  ✗ 仍塌，已切兜底 B(lvh 定位导航栏)');
+    });
+  })();
+}
+tryUnstick('boot');
+addEventListener('resize',function(){tryUnstick('resize')});
+if(window.visualViewport)visualViewport.addEventListener('resize',function(){tryUnstick('vv')});
+/* 键盘收起来那一下最关键：focusout 之后视口才回到 793，这时才轮得到我们。 */
+addEventListener('focusout',function(){setTimeout(function(){tryUnstick('键盘收起')},350)});
+addEventListener('pageshow',function(){tryUnstick('pageshow')});
+document.addEventListener('visibilitychange',function(){
+  if(!document.hidden)setTimeout(function(){tryUnstick('回到前台')},350);
+});
 </script>
 </body>
 </html>

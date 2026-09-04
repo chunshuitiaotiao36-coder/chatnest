@@ -188,6 +188,17 @@ _ACT_RE = re.compile(
 _ACT_MAX_HOLD = 4096
 
 
+def strip_acts(text: str) -> str:
+    """把 <<ACT>>{...}<<>> 整块剥掉，只留能给她看的正文。
+
+    🔴 流式那条路由 ActStripper 负责；这个函数是给**非流式**的调用方用的
+       （keepalive 那条主动线一次拿到整段文本，没有 delta 可喂）。
+       09-03 她截图：朋友圈里那条动态正文底下原样跟着一行
+       `<<ACT>>{"type":"moment","content":"…"}<<>>`——就是漏在这儿。
+    """
+    return _ACT_RE.sub("", str(text or "")).strip()
+
+
 class ActStripper:
     """一次对话一个实例。喂 delta，吐「能安全显示的文本」+「解析出的动作」。"""
 

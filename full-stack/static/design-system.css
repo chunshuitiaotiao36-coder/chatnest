@@ -321,7 +321,19 @@
 
 :root {
   --tabbar-h: 56px;                       /* 导航栏内容高度，不含 safe-area */
-  --tabbar-space: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 34px));
+  /* 🔴 底部只让出 safe-area 减 22px，不是整份 34px。
+     09-03 20:51 视口解卡之后导航栏终于坐到 762..852，她说「下来一些了但还没完全
+     贴底」。量出来：图标+文字在 774..807，**下面空了 45px**（内容盒剩 11 + 整份
+     safe-area 34），上面只有 12 —— 整排看着被顶上去了。
+     34px 是给 home indicator 的余量，而 indicator 本身只是底部约 8px 高的一小条，
+     整份让出来底下就空一大截。这个道理 .composer-wrap 那边早就按
+     `calc(env(safe-area-inset-bottom,34px) - 22px)` 处理过了（见下面 body.in-chat
+     那段注释），导航栏一直漏着。公式跟它对齐，别让同一件事在两处有两个答案。
+     🔴 --tabbar-space 和 #tabBar 的 padding-bottom 必须用同一个变量：
+        前者还被 .tab-page 的 padding-bottom 和兜底 B 的 top:calc(100lvh - …) 用着，
+        两边不同步的话导航栏高度和它自己占的位置就对不上了。 */
+  --tabbar-safe: max(8px, calc(env(safe-area-inset-bottom, 34px) - 22px));
+  --tabbar-space: calc(var(--tabbar-h) + var(--tabbar-safe));
 }
 
 /* —— 底部导航栏 ——
@@ -338,7 +350,7 @@
   display: flex;
   align-items: stretch;
   height: var(--tabbar-space);
-  padding-bottom: env(safe-area-inset-bottom, 34px);
+  padding-bottom: var(--tabbar-safe);
   background: var(--bg-primary);
   border-top: 1px solid var(--border);
   transform: translateX(var(--drawer-x, 0px));
@@ -477,6 +489,15 @@ body:not(.chat-ready) .tab-page {
 #tabHome {
   padding-bottom: 0;
   overflow: hidden;
+}
+/* 🔴 Home 里滚动的是里层的 .profile-page（#tabHome 自己 overflow:hidden，
+   它的子面板都是 position:absolute;inset:0）。而 .profile-page 的底部内边距是
+   `env(safe-area-inset-bottom,34px) + 24px` = 58px —— 那是**没有导航栏**时代的数，
+   比现在的导航栏（--tabbar-space）还矮，于是最后一行永远压在导航栏底下，
+   能滚的距离几乎是 0，用起来就是「钉死了下不去」（她 09-03 的原话）。
+   只给 Home 这一支加够余量；#memoryPanel 独立浮层那种用法不受影响。 */
+#tabHome .profile-page {
+  padding-bottom: calc(var(--tabbar-space) + 24px);
 }
 #tabHome #memoryPanel,
 #tabHome #diaryPanel {
@@ -1531,6 +1552,30 @@ body.tab-away #chat {
   cursor: pointer;
 }
 .tone-card.is-off { opacity: .5 }
+/* 「添加语气偏好…」——照 Polaris 的样子做成一个虚线框，接在卡片列表末尾，
+   不是页面底下那颗黑色实心按钮。
+   🔴 分寸：调性只是一条随手写下的语气偏好，不是「新建条目」那种填表动作。
+      实心黑按钮把它说得太郑重了；虚线框读起来就是「这儿还能再添一条」。 */
+.tone-add {
+  display: block;
+  width: 100%;
+  padding: var(--space-4);
+  border: 1.5px dashed var(--border-strong);
+  border-radius: 20px;
+  background: transparent;
+  color: var(--text-faint);
+  font: 400 var(--text-base)/1.55 var(--font-sans);
+  text-align: left;
+  cursor: pointer;
+}
+.tone-add:active { background: var(--bg-sunken); }
+/* 调性这一页不该有第二颗黑按钮抢戏，一键导入退成一行淡字。 */
+.lore-import-btn.is-quiet {
+  background: transparent;
+  color: var(--text-faint);
+  font: 400 var(--text-sm)/1.4 var(--font-sans);
+  padding: var(--space-3);
+}
 .tone-card-text {
   flex: 1;
   min-width: 0;
@@ -3002,10 +3047,15 @@ body.has-bg-letters #lettersPanel .letter-card {
      iOS 上 dvh 跟固定定位包含块不一定是同一个数（工具栏、安全区、
      interactive-widget 都会让它们分家），一分家就在底下多出一条缝。
      inset:0 没有这个问题——它**就是**那个包含块。 */
-  overflow:hidden;
-  /* 这一页自己不滚（九条靠 space-evenly 摊开）。不滚的容器在 iOS 上会把
-     手势甩给文档去橡皮筋，整页跟着弹起来，底下露出一条底色不一样的带子。 */
-  overscroll-behavior:none;
+  /* 🔴 09-03 改成可滚。原来写死 overflow:hidden，理由是「不滚的容器在 iOS 上会把
+     手势甩给文档去橡皮筋，整页跟着弹起来，底下露出一条底色不一样的带子」——
+     **那条 59px 的带子当天已经修掉了**（视口解卡，见 docs/导航栏-底部59px空带-交接单.md），
+     这个顾虑连同它一起退休。而不滚的代价是实打实的：她 09-03 截图里第 9 条「悔意」
+     整条溢出卡片、压在「他心里最近」那行字上。
+     overscroll-behavior:contain 保留：只吃掉链给文档的那一段，本页照常滚。 */
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
   padding:calc(env(safe-area-inset-top,50px) + 22px) 20px calc(var(--tabbar-space) + 14px);
 }
 /* 🔴 这一条不能省。上面给了 display:flex，它会盖掉 [hidden] 自带的
@@ -3042,7 +3092,12 @@ body.has-bg-letters #lettersPanel .letter-card {
 /* space-evenly：九条自己把中间那块地方均分掉，不用手算行高。
    min-height:0 是让 flex:1 在溢出时真的能收缩。 */
 #tabTidal .tide-dims{
-  flex:1; min-height:0; display:flex; flex-direction:column;
+  /* 🔴 min-height 不能是 0。flex:1 + min-height:0 允许这张卡被压得比它的内容还矮，
+     九条又不会跟着缩，于是最后一条直接溢出卡片、盖在下一节标题上（她 09-03 的截图）。
+     改成 min-content：地方够就照旧 space-evenly 摊开，地方不够就老实撑高，
+     由上面那层 overflow-y:auto 去滚。 */
+  flex:1 1 auto; min-height:min-content;
+  display:flex; flex-direction:column;
   justify-content:space-evenly; padding:6px 16px;
 }
 #tabTidal .tide-dim{
@@ -3169,10 +3224,12 @@ body.has-bg-letters #lettersPanel .letter-card {
    分寸：它在**每一条**回复上面，所以必须小、淡、一行、不抢正文。
    高度控制在 20px 上下，字号 11.5px——比时间戳还轻一点。 */
 .mood-line{
+  /* 🔴 09-03 改成两行：上一行「♥BPM · 忱的心绪 还好」，下一行才是百分比。
+     原来九样东西共用一个 flex-wrap，屏幕一窄就断在随机位置，糊成一大排。 */
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 9px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
   margin: 2px 0 8px;
   padding-left: 9px;
   border-left: 2px solid transparent;   /* 注入了才亮，见下面 is-injected */
@@ -3183,6 +3240,21 @@ body.has-bg-letters #lettersPanel .letter-card {
 /* 这一轮真的把心情作为倾向告诉他了 → 左边那道竖线亮起来。
    「什么都没塞」跟「塞了但你看不见」是两回事，她要一眼分得清。 */
 .mood-line.is-injected{ border-left-color: var(--study-accent, #C08279); }
+
+.mood-line-top{
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+}
+.mood-line-dims{
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px 9px;
+}
+/* 一条维度都没有时别留下一道空行 */
+.mood-line-dims:empty{ display: none; }
 
 .mood-line-label{
   font-family: var(--font-display);
@@ -3240,3 +3312,55 @@ body.has-bg-letters #lettersPanel .letter-card {
 .mood-chip[data-dim="性欲"]{ --c:#DFA0AB }
 .mood-chip[data-dim="担忧"]{ --c:#DCAC72 }
 .mood-chip[data-dim="悔意"]{ --c:#A9A29A }
+
+
+/* ── 兜底 B：视口解不了卡时，用 lvh 把导航栏钉到真·屏幕底 ──────────────
+   只在 JS 确认「松开外壳也救不回来」时才挂 body.vp-stuck，解卡成功会摘掉。
+   见 index.html 的 tryUnstick() 和 docs/导航栏-底部59px空带-交接单.md。
+
+   为什么是 lvh：09-03 19:54 真机实测，塌陷 300ms 之后
+   `vh/svh/lvh/dvh = 852/793/852/793` —— dvh 跟着 innerHeight 塌在 793，
+   **lvh 自己修正回 852**，用 lvh 定位的那根测试条底边量出来就是 852。
+
+   🔴 必须用 @supports 守着。lvh 不支持时 calc() 整条声明作废，
+      配上 bottom:auto 会让这个 fixed 元素掉回静态位置——导航栏直接飘到屏幕中间
+      （e2b2ccc 那次 --tabbar-fix 就是这么翻的车）。
+   🔴 特异度 (1,1,1) 高于上面 #tabBar 的 (1,0,0)，不靠「谁写在后面」赌赢。
+   🔴 只改 top/bottom，不碰 transform —— translateX(--drawer-x) 是侧栏联动，
+      body.keyboard-open 的 translate 收起也照常生效（两者都是独立属性）。 */
+@supports (height: 100lvh) {
+  body.vp-stuck #tabBar {
+    top: calc(100lvh - var(--tabbar-space));
+    bottom: auto;
+  }
+}
+
+
+/* ── Home 划不动 ──────────────────────────────────────────────────────
+   .profile-page 是 display:flex + column 的滚动容器，它的子节点默认 flex-shrink:1
+   —— 地方不够时浏览器**先把子节点压扁**，而不是让内容溢出。于是：
+     视口 793（死区还在）→ 压到 min-content 也塞不下 → 真溢出 → 能滚
+     视口 852（死区修好）→ 缩一缩正好塞下 → 不溢出 → 一动不动，最后一张卡被压成半截
+   她 09-04 的原话：「只要那个死区出现了 home 就能划动了…导航栏恢复了，home 划不动了」
+   ——两件事看着像「不可兼得」，其实是同一个 flex-shrink。
+   子节点一律不许缩，高度按内容算，该溢出就溢出，滚动自然回来。 */
+.profile-page > * { flex: 0 0 auto; }
+
+/* ── 朋友圈：删掉一条 ────────────────────────────────────────────────
+   靠右站，平时跟「赞 / 说点什么」一样淡；点一下变成「确定删除？」才转红。 */
+.moment-act-del { margin-left: auto; }
+.moment-act-del.is-armed { color: #D54D4D; font-weight: 500; }
+.moment-act-del:disabled { opacity: .5; }
+
+
+/* ── hidden 属性必须真的能藏住东西 ──────────────────────────────────
+   HTML 的 `hidden` 只等于一条 `display:none` 的**作者样式**，任何一条给同一个
+   元素写了 display 的规则都能把它盖掉。小窝里 .profile-section 和
+   .profile-card-top 都写着 display:flex，于是：
+     调性编辑页里 `$('loreTriggerSection').hidden=true` 明明执行了，
+     「触发 / 常驻 / 关键词 / 正则 / 大小写 / 扫描深度」照样整块露在那儿——
+     她 09-04：「点进去怎么还是世界书那套！」
+   而没写 display 的 #loreNameRow 就藏住了，两者并排更容易让人以为 JS 没跑。
+   仓库里已经有 .tab-page[hidden] / #tabTidal[hidden] 各写一遍在打补丁，
+   这里一次性收口。 */
+[hidden] { display: none !important; }
