@@ -3351,3 +3351,16 @@ body.has-bg-letters #lettersPanel .letter-card {
 .moment-act-del { margin-left: auto; }
 .moment-act-del.is-armed { color: #D54D4D; font-weight: 500; }
 .moment-act-del:disabled { opacity: .5; }
+
+
+/* ── hidden 属性必须真的能藏住东西 ──────────────────────────────────
+   HTML 的 `hidden` 只等于一条 `display:none` 的**作者样式**，任何一条给同一个
+   元素写了 display 的规则都能把它盖掉。小窝里 .profile-section 和
+   .profile-card-top 都写着 display:flex，于是：
+     调性编辑页里 `$('loreTriggerSection').hidden=true` 明明执行了，
+     「触发 / 常驻 / 关键词 / 正则 / 大小写 / 扫描深度」照样整块露在那儿——
+     她 09-04：「点进去怎么还是世界书那套！」
+   而没写 display 的 #loreNameRow 就藏住了，两者并排更容易让人以为 JS 没跑。
+   仓库里已经有 .tab-page[hidden] / #tabTidal[hidden] 各写一遍在打补丁，
+   这里一次性收口。 */
+[hidden] { display: none !important; }

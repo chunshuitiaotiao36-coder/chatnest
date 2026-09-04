@@ -4597,7 +4597,14 @@ let profileState=blankProfile(),profileDraft=blankProfile(),profileDirty=false;
 function cloneProfile(p){return JSON.parse(JSON.stringify(p||blankProfile()))}
 function profileId(){return crypto.randomUUID?crypto.randomUUID():'m_'+Date.now().toString(36)+Math.random().toString(36).slice(2)}
 function normalizeProfileClient(p){p=p&&typeof p==='object'?p:{};const prefs=p.preferences&&typeof p.preferences==='object'?p.preferences:{};const importState=p.claudeExportImport&&typeof p.claudeExportImport==='object'?p.claudeExportImport:{};return{fullName:String(p.fullName||''),nickname:String(p.nickname||''),savedMemories:(Array.isArray(p.savedMemories)?p.savedMemories:[]).map(x=>{const item={id:String(x.id||profileId()),content:String(x.content||''),enabled:x.enabled!==false,source:['manual','claude_export','migration'].includes(x.source)?x.source:'manual',createdAt:Number(x.createdAt)||Date.now(),updatedAt:Number(x.updatedAt)||Date.now()};if(x.importedAt)item.importedAt=Number(x.importedAt)||Date.now();if(x.externalId)item.externalId=String(x.externalId);return item}).filter(x=>x.content.trim()).slice(0,200),preferences:{enabled:prefs.enabled!==false,content:String(prefs.content||'')},claudeExportImport:{checkedAt:Number(importState.checkedAt)||0,importedAt:Number(importState.importedAt)||0,importedCount:Number(importState.importedCount)||0,foundCount:Number(importState.foundCount)||0},updatedAt:p.updatedAt||Date.now()}}
-function setProfileDirty(v=true){profileDirty=v;document.querySelectorAll('.profile-save-button').forEach(b=>b.disabled=!profileDirty)}
+/* 🔴 只管 Profile 自己那三颗保存键。原来写的是
+   `document.querySelectorAll('.profile-save-button')` —— 把**整个页面**上所有
+   同类按钮一起禁掉了，包括调性编辑页的那个 ✓。而调性跟 Profile 的脏标记毫无关系，
+   也没有任何地方再把它打开：她一进 Home，profile 渲染一次就调 setProfileDirty(false)，
+   ✓ 从此永远是灰的，语气偏好写好了也存不进去（她 09-04 的截图）。
+   要禁就点名禁，别用类名扫一片。 */
+const _PROFILE_SAVE_BTNS=['profileSave','profileSaveMemories','profileSavePreferences'];
+function setProfileDirty(v=true){profileDirty=v;_PROFILE_SAVE_BTNS.forEach(id=>{const b=$(id);if(b)b.disabled=!profileDirty})}
 /* Home 的页栈。加页只要往这个数组里加 id，别再各写各的 toggle。 */
 const _PROFILE_PAGES=['profileHome','profileDetailPage','relayPage','usagePage','appearancePage','savedMemoriesPage','preferencesPage','lorebookPage','loreEditPage','loreImportPage'];
 /* 每页离开时记住滚到哪儿，回来时还原——从详情返回首页要回到原来的位置，
@@ -4813,6 +4820,7 @@ $('openLorebookDetail').onclick=()=>{showProfilePage('lorebookPage');loadLoreboo
 $('profileBackFromLorebook').onclick=()=>showProfilePage('profileHome');
 $('profileBackFromLoreEdit').onclick=()=>showProfilePage('lorebookPage');
 $('loreSave').onclick=async()=>{
+  if(!$('loreContent').value.trim()){toast('写点什么再保存');return}
   const kind=_loreEditing.kind||'lore';
   const simple=kind==='tone';
   const payload={
@@ -8510,7 +8518,7 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',syncAn
    让她的手机把数据直接摆出来。
    长按导航栏任意位置 1.2 秒弹出，点一下关掉，什么都不留。
    BUILD 那一行最要紧：一眼看出手机上跑的到底是不是最新那版，还是 PWA 缓存里的旧页面。 */
-const BUILD='2026-09-04 · Home能滚/朋友圈可删/断线接着等';
+const BUILD='2026-09-04 · 调性能存了 + hidden 生效';
 
 function _tbDiag(){
   tbSnap('diag');   /* 补上最后一次点击沉淀之后的状态 */
