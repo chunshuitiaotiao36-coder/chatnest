@@ -1626,6 +1626,22 @@ def list_moments(limit: int = 20, before_id: int | None = None) -> list[dict[str
     return [dict(row) for row in rows]
 
 
+def delete_moment(moment_id: int) -> bool:
+    """删掉一条动态。返回它本来在不在。
+
+    评论不用手动清：moment_comments.moment_id 上写着
+    `REFERENCES moments(id) ON DELETE CASCADE`，而 _connect() 开着
+    `PRAGMA foreign_keys = ON`，级联是真的会走的。
+
+    🔴 只删这一条，不碰 keepalive 的排期，也不留墓碑——她要的就是「看着碍眼，
+       让它消失」。删掉的动态如果正等着他回（reply_status='pending'），
+       moments_loop 下一轮取不到它，自然就跳过了。
+    """
+    with _connect() as db:
+        cursor = db.execute("DELETE FROM moments WHERE id = ?", (int(moment_id),))
+        return cursor.rowcount > 0
+
+
 def get_moment(moment_id: int) -> dict[str, Any] | None:
     with _connect() as db:
         row = db.execute("SELECT * FROM moments WHERE id = ?", (moment_id,)).fetchone()

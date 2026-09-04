@@ -1221,7 +1221,7 @@ body.sidebar-action-open .rename-dialog input{-webkit-user-select:text;user-sele
        她要看第三块得先滚过前两块。 -->
   <div class="study-hero">
     <div class="study-hero-names">
-      <span>Elian</span><span class="study-hero-heart">♡</span><span>Seren</span>
+      <span>Elian</span><span class="study-hero-heart">♡</span><span>Cerys</span>
     </div>
     <div class="study-hero-names-cn">
       <span>忱</span><span class="study-hero-heart">♡</span><span>朵</span>
@@ -3560,7 +3560,59 @@ initSheetDrag($('modelSheet'),'#closeModel',()=>{_modelPage='main'});
       userMsgId 由 `conversation` 帧写在 userRow.dataset.msgId 上；
       连它都没有 = 这一轮连用户消息都没落库 = 没什么可捞的，老老实实报错。
       真·网络中断但后端已经写完的那种情况不受影响：那时 id 一定更大。 */
-async function recoverAfterBreak(msg,convId,failText,isActive=()=>true,userMsgId=''){if(!msg)return;if(!convId){if(isActive())msg.fail(failText);return}await new Promise(r=>setTimeout(r,1500));if(!isActive())return;try{const uid=Number(userMsgId||0);if(!uid)throw 0;const r=await api(`/api/sessions/${encodeURIComponent(convId)}/messages`);if(!r.ok)throw 0;const data=await r.json();if(!isActive())return;const list=data.messages||[];const last=[...list].reverse().find(m=>m.role==='assistant'&&Number(m.id||0)>uid);if(!last||!(last.text||'').trim())throw 0;if(last.thinking)msg.thinking(last.thinking);msg.text(last.text);msg.finish()}catch{if(isActive())msg.fail(failText)}}
+function _recoverNote(msg,text){
+  const row=msg&&msg.row; if(!row)return;
+  let el=row.querySelector('.queued-note');
+  if(!el){el=document.createElement('div');el.className='queued-note';
+    const md=row.querySelector('.md'); if(md)md.before(el); else row.append(el);}
+  el.textContent=text;
+}
+/* 断线之后去库里把这一轮真正落库的回复捞回来。
+
+   🔴 只认**比这一轮的用户消息更新**的那条（09-03 修）。原来捞的是整个会话最后
+      一条助手消息，这一轮没落库时就把上一轮的回复原样画进新气泡还装成正常收尾
+      ——那才是「发图后回复复述上一句」的真凶，不是模型在复述。
+
+   🔴 连接断了不代表后端停了（09-04 修）。她的原话：「显示连接意外结束，但是你
+      其实是回我了但我看不见，我怎么知道的呢，因为再问一句你会回答出那一轮
+      『意外结束』的话」——后端一直在写，只是我们等了 1.5 秒查一次就放弃了。
+      改成盯着查，最长约 70 秒。
+   🔴 只有第一次查是 await 的。剩下的轮询**故意不 await**：调用它的
+      finally 要靠这次返回去把 state.busy 放掉，一直 await 下去她 70 秒发不出话。
+      松开锁之后她一旦发新消息 runId 就变，isActive() 立刻为假，轮询自己停。 */
+async function recoverAfterBreak(msg,convId,failText,isActive=()=>true,userMsgId=''){
+  if(!msg)return;
+  const uid=Number(userMsgId||0);
+  if(!convId||!uid){if(isActive())msg.fail(failText);return}
+  const tryOnce=async()=>{
+    try{
+      const r=await api(`/api/sessions/${encodeURIComponent(convId)}/messages`);
+      if(!r.ok)return false;
+      const data=await r.json();
+      if(!isActive())return true;          /* 已作废，当成「不用再查了」 */
+      const list=data.messages||[];
+      const last=[...list].reverse().find(m=>m.role==='assistant'&&Number(m.id||0)>uid);
+      if(!last||!(last.text||'').trim())return false;
+      clearQueuedNote(msg);
+      if(last.thinking)msg.thinking(last.thinking);
+      msg.text(last.text);msg.finish();
+      return true;
+    }catch{ return false }
+  };
+  await new Promise(r=>setTimeout(r,1500));
+  if(!isActive())return;
+  if(await tryOnce())return;
+  (async()=>{
+    for(const w of [2500,4000,6000,8000,12000,16000,20000]){
+      if(!isActive())return;
+      _recoverNote(msg,'连接断了，正在等他把这一轮写完…');
+      await new Promise(r=>setTimeout(r,w));
+      if(!isActive())return;
+      if(await tryOnce())return;
+    }
+    if(isActive()){clearQueuedNote(msg);msg.fail(failText)}
+  })();
+}
 
 function showQueuedNote(msg,d){
   const row=msg&&msg.row; if(!row)return;
@@ -5554,6 +5606,7 @@ function momentCardHtml(m){
     <div class="moment-actions">
       ${mine?heLiked:`<button class="moment-act${sheLiked}" data-act="like" data-id="${m.id}">♥ ${m.xiaoduo_liked?'已赞':'赞'}</button>`}
       <button class="moment-act" data-act="cmt" data-id="${m.id}">💬 说点什么</button>
+      <button class="moment-act moment-act-del" data-act="del" data-id="${m.id}">删除</button>
     </div>
     ${waiting}
     <div class="moment-thread">${cmts.join('')}</div>
@@ -5758,6 +5811,30 @@ $('momentsList').addEventListener('click',async(e)=>{
       btn.classList.toggle('liked',on);
       btn.textContent=`♥ ${on?'已赞':'赞'}`;
       try{await api(`/api/moments/${id}/like`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({liked:on})})}catch(err){}
+      return;
+    }
+    /* 删除要两下：第一下把按钮变成「确定删除？」，第二下才真删，3.5 秒没动就自己缩回去。
+       🔴 不用 confirm()——PWA 里那个系统弹窗会把整页事件卡住；也不另开一个确认浮层，
+          删一条动态不值得为它加一层 UI。两段式点按已经够拦住手滑了。 */
+    if(btn.dataset.act==='del'){
+      if(!btn.classList.contains('is-armed')){
+        btn.classList.add('is-armed');btn.textContent='确定删除？';
+        clearTimeout(btn._t);
+        btn._t=setTimeout(()=>{btn.classList.remove('is-armed');btn.textContent='删除'},3500);
+        return;
+      }
+      clearTimeout(btn._t);
+      btn.disabled=true;btn.textContent='删除中…';
+      try{
+        const r=await api(`/api/moments/${id}`,{method:'DELETE'});
+        if(!r.ok)throw Error();
+        btn.closest('.moment-card')?.remove();
+        toast('已删除');
+        loadMoments();refreshBadges();
+      }catch(err){
+        btn.disabled=false;btn.classList.remove('is-armed');btn.textContent='删除';
+        toast('删除失败');
+      }
       return;
     }
     if(btn.dataset.act==='cmt'){
@@ -8433,7 +8510,7 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',syncAn
    让她的手机把数据直接摆出来。
    长按导航栏任意位置 1.2 秒弹出，点一下关掉，什么都不留。
    BUILD 那一行最要紧：一眼看出手机上跑的到底是不是最新那版，还是 PWA 缓存里的旧页面。 */
-const BUILD='2026-09-03 · 调性只剩一个框';
+const BUILD='2026-09-04 · Home能滚/朋友圈可删/断线接着等';
 
 function _tbDiag(){
   tbSnap('diag');   /* 补上最后一次点击沉淀之后的状态 */

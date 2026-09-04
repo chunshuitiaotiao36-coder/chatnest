@@ -1721,6 +1721,18 @@ async def letters_read_all() -> dict:
     return {"ok": True}
 
 
+@app.delete("/api/moments/{moment_id}", dependencies=[Depends(require_auth)])
+async def moments_delete(moment_id: int) -> dict:
+    """删掉一条动态。她的原话：「看着碍眼」。
+
+    不做软删除：这不是审计日志，是她家墙上的一张纸条，撕了就是撕了。
+    """
+    ok = await asyncio.to_thread(store.delete_moment, moment_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="这条动态已经不在了")
+    return {"ok": True}
+
+
 @app.get("/api/moments/unread", dependencies=[Depends(require_auth)])
 async def moments_unread() -> dict:
     """导航行上那个数字。单独一个轻接口，不用拉整条时间线。"""

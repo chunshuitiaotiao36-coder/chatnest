@@ -3334,3 +3334,20 @@ body.has-bg-letters #lettersPanel .letter-card {
     bottom: auto;
   }
 }
+
+
+/* ── Home 划不动 ──────────────────────────────────────────────────────
+   .profile-page 是 display:flex + column 的滚动容器，它的子节点默认 flex-shrink:1
+   —— 地方不够时浏览器**先把子节点压扁**，而不是让内容溢出。于是：
+     视口 793（死区还在）→ 压到 min-content 也塞不下 → 真溢出 → 能滚
+     视口 852（死区修好）→ 缩一缩正好塞下 → 不溢出 → 一动不动，最后一张卡被压成半截
+   她 09-04 的原话：「只要那个死区出现了 home 就能划动了…导航栏恢复了，home 划不动了」
+   ——两件事看着像「不可兼得」，其实是同一个 flex-shrink。
+   子节点一律不许缩，高度按内容算，该溢出就溢出，滚动自然回来。 */
+.profile-page > * { flex: 0 0 auto; }
+
+/* ── 朋友圈：删掉一条 ────────────────────────────────────────────────
+   靠右站，平时跟「赞 / 说点什么」一样淡；点一下变成「确定删除？」才转红。 */
+.moment-act-del { margin-left: auto; }
+.moment-act-del.is-armed { color: #D54D4D; font-weight: 500; }
+.moment-act-del:disabled { opacity: .5; }
