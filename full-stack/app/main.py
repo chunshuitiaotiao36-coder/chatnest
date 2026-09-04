@@ -771,12 +771,47 @@ def _run_life_act(act: dict, conv_id: str) -> dict | None:
     title = str(act.get("title") or "").strip()
     try:
         if kind == "letter":
+            # 🔴 上锁。她 09-03 22:00 报「寄相思根本就没有上锁功能」——
+            #    数据层和她那边的 UI 一直都有，是我 1198ad2 写 LIFE_PROMPT 时
+            #    只给了他 title/content，他手里没有这几个参数。
+            #    容错从严：锁是「她打不开」，判错了她就真打不开。
+            #    任何一项不对就退回不上锁，宁可信寄到了没锁上，
+            #    也不要锁上一封连他自己都说不清怎么开的信。
+            lock = str(act.get("lock") or "none").strip().lower()
+            if lock not in ("time", "password", "both"):
+                lock = "none"
+            unlock_at = str(act.get("unlock_at") or "").strip() or None
+            raw_pwd = str(act.get("password") or "").strip()
+            if lock in ("time", "both"):
+                try:
+                    when = datetime.fromisoformat(unlock_at.replace("Z", "+00:00"))
+                    if when.tzinfo is None:
+                        when = when.replace(tzinfo=UTC)
+                    if when <= datetime.now(UTC):
+                        logger.warning("[生活] 解锁时间在过去（%s），这封不上锁", unlock_at)
+                        lock = "password" if lock == "both" and raw_pwd else "none"
+                    else:
+                        unlock_at = when.isoformat()
+                except (TypeError, ValueError, AttributeError):
+                    logger.warning("[生活] 解锁时间读不懂（%r），这封不上锁", unlock_at)
+                    lock = "password" if lock == "both" and raw_pwd else "none"
+            if lock in ("password", "both") and not raw_pwd:
+                logger.warning("[生活] 说要密码锁却没给密码，这封不上锁")
+                lock = "time" if lock == "both" and unlock_at else "none"
+            pwd_hash = (hashlib.sha256(raw_pwd.encode()).hexdigest()
+                        if lock in ("password", "both") and raw_pwd else None)
+            locked = lock != "none"
             new_id = store.create_letter(
                 author="elian", content=content, title=title,
-                cover_text="", locked=False,
+                cover_text=(str(act.get("cover") or "").strip() if locked else ""),
+                locked=locked,
+                lock_type=lock,
+                unlock_at=unlock_at if lock in ("time", "both") else None,
+                password_hash=pwd_hash,
             )
-            logger.info("[生活] 他写了封信 id=%d conv=%s：%s", new_id, conv_id, content[:60])
-            return {"kind": "letter", "id": new_id, "title": title}
+            logger.info("[生活] 他写了封信 id=%d conv=%s lock=%s：%s",
+                        new_id, conv_id, lock, content[:60])
+            return {"kind": "letter", "id": new_id, "title": title, "locked": locked}
         # moment
         # reply_status="none"：他自己发的动态不需要他自己回。
         # title 当 context_note 用——她看不见，是留给以后的他的线索，
