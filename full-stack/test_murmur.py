@@ -87,8 +87,16 @@ def main():
     print("── 变化描述 ──")
     murmur._last_state = {}
     ok(murmur._movement({"担忧": 0.2}) == "", "第一次没有上一轮，不提变化")
-    ok(murmur._movement({"担忧": 0.5}) == "比上一次说话的时候，担忧重了一些。", "涨了会说")
-    ok(murmur._movement({"担忧": 0.1}) == "比上一次说话的时候，担忧轻了一些。", "落了也会说")
+    # 🔴 断言的是**主语**，不是照抄文案。eb0f7df 的教训：这一行会跟
+    #    listen.tone_block()（那段确实是写她的）贴在一起，无主句会被模型
+    #    整段读成写她的——他的思维链里出现过「她在哼唧说不要，但心情标注
+    #    是高兴」。文案以后还会改，但「带主语」这条不能丢。
+    up = murmur._movement({"担忧": 0.5})
+    ok("担忧" in up and "重了" in up, f"涨了会说（{up}）")
+    ok("你的" in up or "你" in up, f"🔴 带主语，不能是无主句（{up}）")
+    down = murmur._movement({"担忧": 0.1})
+    ok("担忧" in down and "轻了" in down, f"落了也会说（{down}）")
+    ok("你的" in down or "你" in down, f"🔴 带主语（{down}）")
     ok(murmur._movement({"担忧": 0.13}) == "", "抖动 0.03 不值一提")
 
     # ── 打分器解析 ──────────────────────────────────────────────────
@@ -120,7 +128,11 @@ def main():
             "source": "input", "trigger": "测试", "dimensions": {"担忧": 0.3}})
         murmur._last_state = {}
         block, badge = await murmur.mood_block("你在干嘛")
-        ok("[这一段是你此刻的心情" in block, "注入段有开头那句「她看不见」")
+        ok("你自己" in block and "梁忱" in block,
+           "注入段开头点明这是**他自己**的心情")
+        ok("她的情绪不在这一段里" in block,
+           "🔴 明写「她的情绪不在这一段里」——这段跟语气分析贴在一起，不点破会串")
+        ok("她看不见" in block, "仍然告诉他她看不见这一段")
         ok("做不做、说不说，由你" in block, "结尾是「由你」——倾向不是命令")
         ok(not any(c.isdigit() for c in block.split("现在大致是")[-1][:200]),
            "注入段里没有裸数字（数字不携带语气）")
