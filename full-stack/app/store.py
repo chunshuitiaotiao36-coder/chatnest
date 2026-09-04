@@ -1261,6 +1261,47 @@ def latest_conversation_id() -> str | None:
     return row["conv_id"] if row else None
 
 
+def unseen_self_messages(conv_id: str, limit: int = 5) -> list[str]:
+    """他主动开口说过、但**他自己不知道**的那几句。
+
+    🔴 为什么会有这种东西：普通对话走 SDK 的 resume=session_id，模型的上下文
+       是 SDK 自己那份 session 文件；而主动开口（nightguard / glance / keepalive）
+       只调 save_nightguard_message 写进**我们的库**，从没进过那份 session。
+       于是她在锁屏上收到一句、回到对话里提起它，他一脸茫然——
+       她 09-02 的原话「主动推送的消息你不知道自己发过，虽然会出现在最近一次的
+       对话框里但只有我看得到」，截图里他还在猜「是不是哪个管道串了东西」。
+
+    判据：从最后一条**普通**回复（source_id 为空，那是走过 SDK 的）往后，
+    所有 source_id 非空的 assistant 消息，就是这段空档里他自己说过、
+    但 session 里没有的话。
+
+    返回正文列表，按时间正序；没有就是空表。
+    """
+    resolved = resolve_conversation(conv_id)
+    if not resolved:
+        return []
+    with _connect() as db:
+        rows = db.execute(
+            """
+            SELECT text, source_id FROM messages
+             WHERE conv_id = ? AND role = 'assistant'
+             ORDER BY id DESC LIMIT 40
+            """,
+            (resolved,),
+        ).fetchall()
+    out: list[str] = []
+    for row in rows:
+        # 碰到第一条普通回复就停：再往前的都已经在 SDK session 里了
+        if not (row["source_id"] or ""):
+            break
+        text = (row["text"] or "").strip()
+        if text:
+            out.append(text)
+        if len(out) >= limit:
+            break
+    return list(reversed(out))
+
+
 def save_nightguard_message(conv_id: str, text: str, source_id: str) -> int | None:
     """主动开口落库：**只插 assistant 一条，不造假的 user 消息。**
 

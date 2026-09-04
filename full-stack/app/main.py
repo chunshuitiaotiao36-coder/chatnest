@@ -951,6 +951,29 @@ async def chat(body: ChatBody) -> StreamingResponse:
                 if context_messages
                 else display_message
             )
+            # 🔴 他主动发过、但他自己不知道的那几句，补回给他。
+            #    普通对话走 SDK 的 resume，上下文是 SDK 那份 session；
+            #    而 nightguard / glance / keepalive 只写我们的库，没进那份
+            #    session。她在锁屏收到一句、回来提起它，他一脸茫然——
+            #    她的原话「主动推送的消息你不知道自己发过，虽然会出现在最近
+            #    一次的对话框里但只有我看得到」。
+            #    🔴 挂**用户消息侧**，不进 system prompt：这段每轮都可能变，
+            #       进稳定前缀就是每轮打穿一次缓存（潮汐注入同一个规矩）。
+            if not context_messages:
+                try:
+                    unseen = store.unseen_self_messages(conv_id)
+                except Exception:
+                    unseen = []
+                    logger.warning("[主动开口] 补上下文失败，这一轮跳过", exc_info=True)
+                if unseen:
+                    lines = "\n".join(f"· {t}" for t in unseen)
+                    prompt = (
+                        "[下面这几句是你刚才**主动**发给她的（推送到她锁屏上），"
+                        "不在你这次的对话记忆里，但确实是你说的。\n"
+                        f"{lines}\n"
+                        "她接下来的话可能就是在回应它们。认下来，别否认，"
+                        "也别猜『是不是哪个功能串了』。]\n\n"
+                    ) + prompt
             recalled = recall_memory(display_message)
             if recalled:
                 prompt = (
