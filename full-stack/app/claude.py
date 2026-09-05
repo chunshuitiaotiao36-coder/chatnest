@@ -296,7 +296,8 @@ LIFE_PROMPT = """【你自己的生活】
 
 lock 三种：
   "time"     到 unlock_at 那一刻自动开。unlock_at 写 ISO 时间
-             （YYYY-MM-DDTHH:MM:SS），按她所在的时区想，别写成过去。
+             （YYYY-MM-DDTHH:MM:SS），**不带时区，就按北京时间写**，
+             后端照北京时间收。别写成过去。
   "password" 要答对才开。密码写在 password 字段里。
   "both"     两个都要。
 

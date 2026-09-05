@@ -1,5 +1,6 @@
 import hashlib
 import json
+import logging
 import os
 import re
 import sqlite3
@@ -10,6 +11,9 @@ from pathlib import Path
 from typing import Any
 
 from claude_agent_sdk import delete_session, list_sessions
+
+
+logger = logging.getLogger(__name__)
 
 
 ROOT = Path(os.environ.get("AGENT_APP_ROOT", Path(__file__).resolve().parent.parent)).expanduser().resolve()
@@ -616,7 +620,25 @@ def begin_turn(
     conversation_id: str | None = None,
     legacy_session_id: str | None = None,
     attachments: list[dict[str, Any]] | None = None,
+    client_id: str = "",
 ) -> tuple[str, str | None, int]:
+    """开一轮：写下她这句话，返回 (conv_id, 要 resume 的 session, 这条消息的 id)。
+
+    🔴 client_id 是**幂等键**，不是装饰。09-04 凌晨她那条「修好了，再试试看能不能
+       写上锁的」在对话里出现了两遍，而她只发过一次（截图为证）。写 user 行的地方
+       全仓库只有这一处，`conversation_messages` 那条 SQL 也不 JOIN、不可能变出行来
+       ——所以库里**真的躺着两行**，也就是 POST /api/chat 被送达了两次。
+       两次的来源没查出来（双击、iOS 前后台把请求重放、反代 retry 都有可能），
+       但不管是谁干的，同一次发送就该只留一行。
+
+       为什么不按「文本相同 + 30 秒内」去重：她真的会连发两个「？」。按内容去重
+       就是**吞她的消息**，比多一行严重得多。所以幂等只认前端每次发送新生成的
+       uuid——重放的是同一个 POST，uuid 就一样；她手动再发一次，uuid 必然不同。
+
+       靠 messages_source_id 那个 UNIQUE(conv_id, source_id) 部分索引（本来是
+       save_nightguard_message 在用），不给表加新字段。client_id 为空时 source_id
+       写 NULL，部分索引不收 NULL，行为跟改之前一模一样。
+    """
     conv_id = resolve_conversation(conversation_id or legacy_session_id)
     now = _now()
     with _connect() as db:
@@ -651,21 +673,40 @@ def begin_turn(
                 "UPDATE conversations SET title = ? WHERE conv_id = ?",
                 (title or "新对话", conv_id),
             )
+        source_id = f"web:{client_id}" if client_id else None
         cursor = db.execute(
             """
-            INSERT INTO messages(
-                conv_id, role, text, thinking, attachments_json, timestamp
+            INSERT OR IGNORE INTO messages(
+                conv_id, source_id, role, text, thinking, attachments_json,
+                timestamp
             )
-            VALUES (?, 'user', ?, '', ?, ?)
+            VALUES (?, ?, 'user', ?, '', ?, ?)
             """,
             (
                 conv_id,
+                source_id,
                 message,
                 json.dumps(attachments or [], ensure_ascii=False),
                 now,
             ),
         )
-        user_message_id = int(cursor.lastrowid)
+        if cursor.rowcount:
+            user_message_id = int(cursor.lastrowid)
+        else:
+            # 撞上幂等键 = 这个 POST 被送了第二遍。把第一遍那行还回去，
+            # 别再插一行。日志留着：它出现几次、间隔多久，就是查「谁发了
+            # 两遍」的唯一线索。
+            existing = db.execute(
+                "SELECT id FROM messages WHERE conv_id = ? AND source_id = ?",
+                (conv_id, source_id),
+            ).fetchone()
+            if not existing:
+                raise RuntimeError("begin_turn 幂等冲突但找不到原行")
+            user_message_id = int(existing["id"])
+            logger.warning(
+                "[幂等] /api/chat 重复送达 conv=%s client_id=%s 复用消息 id=%s",
+                conv_id, client_id, user_message_id,
+            )
         db.execute(
             "UPDATE conversations SET updated_at = ? WHERE conv_id = ?",
             (now, conv_id),
@@ -682,6 +723,14 @@ def complete_turn(
     voice_say: str = "",
     mood_json: str = "",
 ) -> int:
+    """收一轮：把他说的话落库。
+
+    🔴 session_id 允许为空，那是**抢救路径**（main.py 的 sse() finally）：她按了
+       停止 / 关掉 app，生成器被取消，done 那一帧永远不会来，于是我们手上有正文
+       却没有这一轮的 session_id。这种时候只写消息，**绝不碰 latest_session_id
+       和 session_aliases**——拿一个空串去覆盖会话该 resume 的那个 id，下一轮
+       就接不上上下文了，那比丢一条消息严重得多。
+    """
     now = _now()
     with _connect() as db:
         if not db.execute(
@@ -689,22 +738,29 @@ def complete_turn(
             (conv_id,),
         ).fetchone():
             raise ConversationNotFound("conversation not found")
-        db.execute(
-            """
-            UPDATE conversations
-            SET latest_session_id = ?, updated_at = ?
-            WHERE conv_id = ?
-            """,
-            (session_id, now, conv_id),
-        )
-        db.execute(
-            """
-            INSERT INTO session_aliases(session_id, conv_id)
-            VALUES (?, ?)
-            ON CONFLICT(session_id) DO UPDATE SET conv_id = excluded.conv_id
-            """,
-            (session_id, conv_id),
-        )
+        if session_id:
+            db.execute(
+                """
+                UPDATE conversations
+                SET latest_session_id = ?, updated_at = ?
+                WHERE conv_id = ?
+                """,
+                (session_id, now, conv_id),
+            )
+            db.execute(
+                """
+                INSERT INTO session_aliases(session_id, conv_id)
+                VALUES (?, ?)
+                ON CONFLICT(session_id) DO UPDATE SET conv_id = excluded.conv_id
+                """,
+                (session_id, conv_id),
+            )
+        else:
+            # updated_at 照样要动，否则这条消息不会把会话顶到侧栏最前面。
+            db.execute(
+                "UPDATE conversations SET updated_at = ? WHERE conv_id = ?",
+                (now, conv_id),
+            )
         traces_str = json.dumps(traces or [], ensure_ascii=False)
         cursor = db.execute(
             """

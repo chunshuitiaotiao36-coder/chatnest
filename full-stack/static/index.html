@@ -3724,7 +3724,14 @@ async function sendMessage(text,showUser=true,files=[],existingAttachments=[],op
     }
     if(runId!==_chatRunId)return;
     msg=beginClaude(text,attachments);_activeMsg=msg;const m=currentModel(),s=modelSetting(m);
-    const body={message:text,conversation_id:state.convId,session_id:state.legacySessionId,model:state.model,effort:s.effort||'medium',extended:s.extended!==false,attachments:branchMode?[]:attachments.map(item=>item.path)};
+    /* 幂等键：这一次发送的身份证，整个 sendMessage 里只生成一次。
+       09-04 凌晨她那条消息在对话里出现了两遍，而她只发过一次——POST 被送达了
+       两次（双击 / iOS 前后台重放 / 反代 retry，没查出是哪个）。后端 begin_turn
+       撞上同一个 client_id 就复用第一行，不再插新的。
+       🔴 绝不能按「文本相同」去重：她真的会连发两个「？」。她手动再发一次是
+          新的一次 sendMessage，uuid 必然不同，不会被吞掉。 */
+    const clientId=(self.crypto&&crypto.randomUUID)?crypto.randomUUID():(Date.now()+'-'+Math.random().toString(16).slice(2));
+    const body={message:text,conversation_id:state.convId,session_id:state.legacySessionId,model:state.model,effort:s.effort||'medium',extended:s.extended!==false,client_id:clientId,attachments:branchMode?[]:attachments.map(item=>item.path)};
     if(options.editMessageId)body.edit_message_id=options.editMessageId;
     if(options.retryMessageId)body.retry_message_id=options.retryMessageId;
     /* 琴房在放歌时才带这个；后端把它挂在用户消息侧，不进 system prompt。

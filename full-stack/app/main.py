@@ -1,6 +1,14 @@
 import asyncio
 import base64
 import binascii
+# 🔴 模块级。_run_life_act 里给信算密码 hash 要用它——
+#    原来那儿写了 hashlib.sha256 却没人 import，密码锁的信从 aa031d0
+#    起就一直在静默失败（函数外层那个 except Exception 把 NameError 吞了，
+#    他说「写了」，寄相思里什么都没有）。时间锁没事，是因为三元表达式
+#    在 raw_pwd 为空时短路，压根没求值。
+#    letters_create / letters_unlock 里那两个函数内的 `import hashlib as
+#    _hashlib` 不动，本来就是好的。
+import hashlib
 import hmac
 import json
 import logging
@@ -260,6 +268,10 @@ class ChatBody(BaseModel):
     effort: str = Field(default="medium", max_length=16)
     extended: bool = True
     attachments: list[str] = Field(default_factory=list, max_length=10)
+    # 前端每次发送新生成的 uuid。同一次发送被送达两遍时（双击 / iOS 把请求
+    # 重放 / 反代 retry），store.begin_turn 靠它只留一行她的消息。
+    # 老客户端不送这个字段 → 默认空串 → 行为跟改之前一模一样。
+    client_id: str = Field(default="", max_length=64)
     # 琴房 tab 在放歌时带上来的「现在放的是什么」。只有琴房会送这个字段，
     # 别的 tab 一个字都不加。**它绝不进 system prompt**，见下面注入点的注释。
     piano: dict[str, Any] | None = None
@@ -786,7 +798,15 @@ def _run_life_act(act: dict, conv_id: str) -> dict | None:
                 try:
                     when = datetime.fromisoformat(unlock_at.replace("Z", "+00:00"))
                     if when.tzinfo is None:
-                        when = when.replace(tzinfo=UTC)
+                        # 🔴 他写的裸时间是**北京时间**，不是 UTC。
+                        #    提示词里就是这么要求他的（「按她所在的时区想」），
+                        #    给他的例子也不带时区，所以他基本永远送裸时间过来。
+                        #    这儿原来盖 UTC，存完再按她本地时区显示，整整晚八小时：
+                        #    09-05 那封「等第一百天的第一秒再看」被推成了
+                        #    09-06 08:00，她截了张图问「？」。
+                        #    她自己在前端设的锁不受影响——那条路走
+                        #    new Date(v).toISOString()，本来就是对的。
+                        when = when.replace(tzinfo=nightguard.CN_TZ)
                     if when <= datetime.now(UTC):
                         logger.warning("[生活] 解锁时间在过去（%s），这封不上锁", unlock_at)
                         lock = "password" if lock == "both" and raw_pwd else "none"
@@ -891,6 +911,10 @@ async def chat(body: ChatBody) -> StreamingResponse:
         #    不落库的话，前端那份只活在这一次流式的 DOM 上，她退出对话
         #    再进来语音条就没了。她原话：「这个语音条怎么还是阅后即焚样式的」。
         response_voice_say = ""
+        # 🔴 必须在这儿初始化，不能只在下面那个赋值点出现：finally 里的抢救
+        #    要读它，而她可能在 mood_block() 跑完之前就断开——那时候这个名字
+        #    还不存在，finally 里就是一个 NameError，抢救和放锁一起完蛋。
+        mood_json = ""
         # 这一轮怎么结束的，跟着 release 记进 chat_lock 的流水账。
         # 第 5 节第 3 步（客户端断开要不要提前放锁）需要先知道「她走的时候
         # 这个生成器到底有没有被 close 掉」——这就是那个数据。
@@ -976,6 +1000,7 @@ async def chat(body: ChatBody) -> StreamingResponse:
                     body.conversation_id,
                     body.session_id,
                     current_attachment_items,
+                    body.client_id,
                 )
             payload = json.dumps(
                 {
@@ -1344,6 +1369,45 @@ async def chat(body: ChatBody) -> StreamingResponse:
             )
             yield f"event: error\ndata: {payload}\n\n"
         finally:
+            # 🔴 09-04 凌晨那条：他已经开口、信也写了，她见回复卡住按了停止，
+            #    回来发现**整条回复没了**，库里只剩她那句。
+            #    根因就在上面两个 except：客户端一断，Starlette 取消这个生成器，
+            #    走 CancelledError / GeneratorExit 两条都 raise——而写他那条消息
+            #    的 complete_turn 挂在 done 那一帧的分支里，永远走不到。
+            #    他这一轮说出口的话、心绪、语音，全随生成器一起消失。
+            #    （信留下来了，因为 _run_life_act 是流中途的真实写库——
+            #      side effect 和消息本来就不在同一个提交点上。）
+            #
+            #    所以：只要手上有正文而 done 没来过，就地补一条。
+            #    ✅ complete_turn 是同步的，在被取消的 finally 里调它安全
+            #       （这里一个 await 都不能有，否则 asyncio 会直接掐断）。
+            #    ✅ session_id 传空：这一轮的 id 只在 done 帧上，没拿到就别猜，
+            #       让 complete_turn 跳过 latest_session_id（见那边的注释）。
+            #    ✅ 不 flush 两个 stripper：断点很可能落在半个 <<ACT>> 中间，
+            #       flush 出来的是 `<<ACT>>{"type":"lett` 这种碎片，宁可少几个字
+            #       也不能把它写进她看得见的正文里。
+            #    ✅ 整段包 try：抢救失败也必须把锁放掉。锁泄漏 = 整个 app 哑掉。
+            if conv_id and not branch_committed and (
+                response_text.strip() or response_voice_say.strip()
+            ):
+                try:
+                    complete_turn(
+                        conv_id,
+                        "",
+                        response_text,
+                        response_thinking,
+                        response_traces,
+                        response_voice_say,
+                        mood_json,
+                    )
+                    turn_outcome = f"{turn_outcome}+salvaged"
+                    logger.warning(
+                        "[抢救] request_id=%s conv=%s outcome=%s 断在半路，"
+                        "已把 %d 字的回复补进库",
+                        request_id, conv_id, turn_outcome, len(response_text),
+                    )
+                except Exception:
+                    logger.exception("[抢救] 落库失败，这一轮的回复真的丢了")
             # 任何路径都从这儿过：正常结束、四种异常、以及她提前走掉那次
             # （GeneratorExit）。锁在这里一定放得掉。
             chat_lock.release(turn_outcome)
