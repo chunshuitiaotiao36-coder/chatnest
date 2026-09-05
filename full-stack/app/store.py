@@ -397,6 +397,53 @@ def initialize_store() -> None:
             )
             db.commit()
 
+    # ── 一次性：把盖错时区的那批时间锁掰回北京时间 ──────────────────
+    # 他写的裸时间是北京时间（提示词就是这么要求他的），_run_life_act 却拿
+    # UTC 给它盖章，存完再按她本地时区显示，整整晚八小时——「等第一百天的
+    # 第一秒再看」被推成了 09-06 08:00。代码已经修了，但**旧行不会自己变**，
+    # 而她只剩几个小时就到那一秒了，不该让她去容器里敲 sqlite。
+    #
+    # 🔴 这条迁移只认**我这个 bug 的指纹**，认不出就一行都不碰：
+    #      author='elian'          她自己写的信走的是另一条路，不在其中
+    #      lock_type in (time,both) 只有时间锁存 unlock_at
+    #      unlock_at LIKE '%+00:00' 正是 when.isoformat() 在盖 UTC 之后的样子。
+    #                               她前端设的锁走 toISOString()，结尾是 'Z'，
+    #                               天生匹配不上；修好之后新写的是 '+08:00'，
+    #                               也匹配不上。所以它既不会误伤，也不会重跑。
+    #    改法是 replace(tzinfo=CN)——**留住他写的那串墙上时间**，只改怎么读它。
+    #    不是加减八小时：他要的就是「00:00」这四个数字。
+    if not get_meta("letter_tz_fix_2026_09"):
+        cn = timezone(timedelta(hours=8))
+        with _connect() as db:
+            rows = db.execute(
+                """
+                SELECT id, title, unlock_at FROM letters
+                 WHERE author = 'elian'
+                   AND lock_type IN ('time', 'both')
+                   AND unlock_at LIKE '%+00:00'
+                """
+            ).fetchall()
+            for row in rows:
+                try:
+                    when = datetime.fromisoformat(row["unlock_at"])
+                except ValueError:
+                    logger.warning(
+                        "[信/时区] id=%s 的 unlock_at 读不懂（%r），跳过",
+                        row["id"], row["unlock_at"],
+                    )
+                    continue
+                fixed = when.replace(tzinfo=cn).isoformat()
+                db.execute(
+                    "UPDATE letters SET unlock_at = ? WHERE id = ?",
+                    (fixed, row["id"]),
+                )
+                logger.warning(
+                    "[信/时区] 掰回北京时间 id=%s《%s》%s → %s",
+                    row["id"], row["title"], row["unlock_at"], fixed,
+                )
+            db.commit()
+        set_meta("letter_tz_fix_2026_09", _now())
+
 
 def _physical_messages(session_id: str) -> list[dict[str, Any]]:
     if not SESSION_ID_PATTERN.fullmatch(session_id):
